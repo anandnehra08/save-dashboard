@@ -1,337 +1,221 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+from supabase import create_client
 import urllib.parse
-from io import BytesIO
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
 
-# --- PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="Class 8 Management Dashboard", 
-    layout="wide", 
-    page_icon="🎓",
-    initial_sidebar_state="collapsed"
-)
+# 1. Streamlit Page Configuration & Custom CSS
+st.set_page_config(page_title="School Management Dashboard", layout="wide")
 
-# Custom Styling
 st.markdown("""
     <style>
-    .stApp { background-color: #f4f6f9; }
-    .app-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        color: white; padding: 16px; border-radius: 12px;
-        text-align: center; margin-bottom: 20px;
-    }
-    .stButton>button {
-        width: 100%; background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); 
-        color: white; border: none; border-radius: 8px; height: 3.2em; font-weight: bold;
-    }
-    div[data-testid="stDataEditor"] {
-        border-radius: 10px; background: white; overflow-x: auto;
-    }
+    html { scroll-behavior: smooth; }
+    .stTable, .stDataFrame { border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; }
+    div[data-testid="stMetricValue"] { font-size: 20px; }
+    .stButton button { border-radius: 6px; transition: all 0.3s ease; }
+    .stButton button:hover { transform: translateY(-2px); }
+    .app-header { background-color: #1f77b4; padding: 10px; border-radius: 5px; color: white; margin-bottom: 20px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- SQLITE DATABASE SETUP ---
-DB_FILE = "school_dashboard.db"
+# 2. Supabase Connection
+@st.cache_resource
+def init_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 
-def create_default_students():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('DROP TABLE IF EXISTS students')
-    c.execute('''
-        CREATE TABLE students (
-            Roll INTEGER PRIMARY KEY,
-            Name TEXT,
-            Father_Name TEXT,
-            Parent_Mobile TEXT,
-            Attendance TEXT,
-            sub1 INTEGER, sub2 INTEGER, sub3 INTEGER,
-            sub4 INTEGER, sub5 INTEGER, sub6 INTEGER,
-            Total_Fee INTEGER, Fee_Paid INTEGER
-        )
-    ''')
-    default_data = [
-        (i, f"Student {i}", f"Father {i}", f"9198765432{i:02d}", "Present", 75, 80, 70, 65, 85, 78, 15000, 10000)
-        for i in range(1, 11)
-    ]
-    c.executemany("INSERT INTO students VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", default_data)
-    conn.commit()
-    conn.close()
+supabase = init_supabase()
 
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            Roll INTEGER PRIMARY KEY,
-            Name TEXT,
-            Father_Name TEXT,
-            Parent_Mobile TEXT,
-            Attendance TEXT,
-            sub1 INTEGER, sub2 INTEGER, sub3 INTEGER,
-            sub4 INTEGER, sub5 INTEGER, sub6 INTEGER,
-            Total_Fee INTEGER, Fee_Paid INTEGER
-        )
-    ''')
-    c.execute("SELECT COUNT(*) FROM students")
-    count = c.fetchone()[0]
-    conn.close()
-    if count == 0:
-        create_default_students()
+# Helper Function: Safe Float to Int Conversion
+def safe_int(val):
+    try:
+        return int(float(str(val)))
+    except:
+        return 0
 
+# 3. Data Load & Save Functions
 def load_data():
-    conn = sqlite3.connect(DB_FILE)
-    df = pd.read_sql_query("SELECT * FROM students", conn)
-    conn.close()
-    return df
+    try:
+        response = supabase.table('class_8_students').select('*').order('roll_no').execute()
+        df = pd.DataFrame(response.data)
+        
+        # Standardize Columns mapping if needed
+        col_map = {
+            'roll_no': 'Roll',
+            'name': 'Name',
+            'father_name': 'Father_Name',
+            'parent_mobile': 'Parent_Mobile',
+            'maths': 'Maths',
+            'science': 'Science',
+            'english': 'English',
+            'total_fee': 'Total_Fee',
+            'fee_paid': 'Fee_Paid',
+            'attendance': 'Attendance',
+            'attendance_%': 'Attendance_%',
+            'conduct': 'Conduct'
+        }
+        df = df.rename(columns=col_map)
+        
+        # Ensure default required columns exist
+        defaults = {
+            'Roll': 0, 'Name': '', 'Father_Name': '', 'Parent_Mobile': '',
+            'Maths': 0, 'Science': 0, 'English': 0, 'Total_Fee': 0, 
+            'Fee_Paid': 0, 'Pending': 0, 'Attendance': 'Present', 
+            'Attendance_%': 100, 'Conduct': 'Good'
+        }
+        for col, default_val in defaults.items():
+            if col not in df.columns:
+                df[col] = default_val
+
+        # Fix types
+        df['Roll'] = df['Roll'].apply(safe_int)
+        df['Total_Fee'] = pd.to_numeric(df['Total_Fee'], errors='coerce').fillna(0)
+        df['Fee_Paid'] = pd.to_numeric(df['Fee_Paid'], errors='coerce').fillna(0)
+        df['Pending'] = df['Total_Fee'] - df['Fee_Paid']
+        return df
+    except Exception as e:
+        st.error(f"Data Load Error: {e}")
+        return pd.DataFrame()
 
 def save_data(df):
-    conn = sqlite3.connect(DB_FILE)
-    df.to_sql("students", conn, if_exists="replace", index=False)
-    conn.commit()
-    conn.close()
+    try:
+        data_to_save = []
+        for _, row in df.iterrows():
+            item = {
+                "roll_no": safe_int(row.get('Roll', 0)),
+                "name": str(row.get('Name', '')),
+                "father_name": str(row.get('Father_Name', '')),
+                "parent_mobile": str(row.get('Parent_Mobile', '')),
+                "maths": safe_int(row.get('Maths', 0)),
+                "science": safe_int(row.get('Science', 0)),
+                "english": safe_int(row.get('English', 0)),
+                "total_fee": float(row.get('Total_Fee', 0)),
+                "fee_paid": float(row.get('Fee_Paid', 0)),
+                "attendance": str(row.get('Attendance', 'Present')),
+                "attendance_%": safe_int(row.get('Attendance_%', 100)),
+                "conduct": str(row.get('Conduct', 'Good'))
+            }
+            data_to_save.append(item)
+        supabase.table('class_8_students').upsert(data_to_save).execute()
+    except Exception as e:
+        st.error(f"Data Save Error: {e}")
 
-init_db()
-
-# --- LOGIN SYSTEM ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    st.markdown('<div class="app-header"><h2>🎓 Class 8 Teacher Portal</h2></div>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 8, 1])
-    with col2:
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        if st.button("🔑 Login"):
-            if username == "admin" and password == "12345":
-                st.session_state.logged_in = True
-                st.rerun()
-            else:
-                st.error("Galat Details! Default ID/Pass: admin / 12345")
-    st.stop()
-
-# Initialize Configs
+# Subject Configurations
 if 'subjects_config' not in st.session_state:
     st.session_state.subjects_config = [
-        {"code": "sub1", "name": "Maths", "max_marks": 100},
-        {"code": "sub2", "name": "Science", "max_marks": 100},
-        {"code": "sub3", "name": "English", "max_marks": 100},
-        {"code": "sub4", "name": "SST", "max_marks": 100},
-        {"code": "sub5", "name": "Hindi", "max_marks": 100},
-        {"code": "sub6", "name": "Sanskrit", "max_marks": 100},
+        {"name": "Maths", "code": "Maths"},
+        {"name": "Science", "code": "Science"},
+        {"name": "English", "code": "English"},
+        {"name": "Hindi", "code": "Hindi"},
+        {"name": "Social Science", "code": "Social_Science"}
     ]
 
-sub_codes = [s["code"] for s in st.session_state.subjects_config]
 sub_names = [s["name"] for s in st.session_state.subjects_config]
-total_max_marks = sum([s["max_marks"] for s in st.session_state.subjects_config])
 
-# --- PDF GENERATOR FUNCTION ---
-def generate_pdf_result(student_row, subjects):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    styles = getSampleStyleSheet()
-    elements = []
-
-    elements.append(Paragraph("<b>CLASS 8 ACADEMIC REPORT CARD</b>", styles['Title']))
-    elements.append(Spacer(1, 15))
-
-    details_data = [
-        [f"Roll No: {student_row['Roll']}", f"Student Name: {student_row['Name']}"],
-        [f"Father's Name: {student_row['Father_Name']}", f"Mobile: {student_row['Parent_Mobile']}"]
-    ]
-    t1 = Table(details_data, colWidths=[200, 250])
-    t1.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.lightgrey), ('GRID', (0,0), (-1,-1), 1, colors.white)]))
-    elements.append(t1)
-    elements.append(Spacer(1, 20))
-
-    marks_table_data = [["Subject", "Max Marks", "Marks Obtained"]]
-    total_ob = 0
-    for s in subjects:
-        score = student_row.get(s["code"], 0)
-        total_ob += score
-        marks_table_data.append([s["name"], str(s["max_marks"]), str(score)])
-
-    marks_table_data.append(["TOTAL", str(total_max_marks), str(total_ob)])
-    
-    perc = round((total_ob / total_max_marks) * 100, 2)
-    marks_table_data.append(["PERCENTAGE", "-", f"{perc}%"])
-
-    t2 = Table(marks_table_data, colWidths=[200, 125, 125])
-    t2.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.navy),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('BACKGROUND', (0,-2), (-1,-1), colors.lightgrey)
-    ]))
-    elements.append(t2)
-
-    doc.build(elements)
-    buffer.seek(0)
-    return buffer
-
-# --- SIDEBAR MENU ---
-st.sidebar.markdown("### 🏫 Navigation Options")
-if st.sidebar.button("🚪 Logout"):
-    st.session_state.logged_in = False
-    st.rerun()
-
+# Navigation Sidebar
+st.sidebar.title("🏫 School System")
 menu = st.sidebar.radio(
-    "📌 Select Module:", 
+    "Select Module:",
     [
-        "📊 Results & Data Editor", 
+        "📊 Results & Data Editor",
         "📄 Download Result PDF",
-        "💻 Online Classes",
+        "👤 Student Profiles",
         "⚙️ Subject Settings",
-        "💳 Fee Management", 
-        "📚 Homework Tracker", 
-        "📈 Class Analytics", 
+        "💳 Fee Management",
+        "📚 Homework Tracker",
+        "📈 Class Analytics",
         "📅 Class Timetable",
-        "📋 Daily Attendance", 
+        "📋 Daily Attendance",
         "📲 WhatsApp Alerts"
     ]
 )
 
+df = load_data()
+
 # --- MODULE 1: RESULTS & DATA EDITOR ---
 if menu == "📊 Results & Data Editor":
-    st.markdown('<div class="app-header"><h3>📊 Results & Master Database</h3></div>', unsafe_allow_html=True)
-
-    df = load_data()
-    
-    for code in sub_codes:
-        if code not in df.columns: df[code] = 0
-        df[code] = pd.to_numeric(df[code], errors='coerce').fillna(0)
-
-    df['Total_Obtained'] = df[sub_codes].sum(axis=1)
-    df['Percentage (%)'] = ((df['Total_Obtained'] / total_max_marks) * 100).round(2)
-    df['Rank'] = df['Total_Obtained'].rank(ascending=False, method='min').fillna(0).astype(int)
-
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Total Students", len(df))
-    m2.metric("Max Marks", total_max_marks)
-    m3.metric("Class Avg %", f"{df['Percentage (%)'].mean():.2f}%" if len(df) > 0 else "0%")
-
-    st.subheader("✏️ Editable Student Register")
-    
-    c_btn1, c_btn2 = st.columns([2, 1])
-    with c_btn2:
-        if st.button("🔄 Reset / Restore Default 10 Students"):
-            create_default_students()
-            if "master_student_editor_v3" in st.session_state:
-                del st.session_state["master_student_editor_v3"]
-            st.success("10 Default Students Add ho gaye hain!")
+    st.markdown('<div class="app-header"><h3>📊 Results & Data Register</h3></div>', unsafe_allow_html=True)
+    if not df.empty:
+        col1, col2 = st.columns(2)
+        col1.metric("Total Students", len(df))
+        col2.metric("Max Marks Per Subject", 100)
+        
+        edited_df = st.data_editor(df, width="stretch", hide_index=True, key="main_editor")
+        if st.button("💾 Save Changes"):
+            save_data(edited_df)
+            st.success("Data successfully saved!")
             st.rerun()
 
-    rename_dict = {code: f"{s['name']} ({s['max_marks']})" for code, s in zip(sub_codes, st.session_state.subjects_config)}
-    cols_to_show = ["Roll", "Name", "Father_Name", "Parent_Mobile"] + sub_codes
-    editable_df = df[cols_to_show].rename(columns=rename_dict)
-
-    edited_data = st.data_editor(
-        editable_df, 
-        num_rows="dynamic", 
-        use_container_width=True, 
-        hide_index=True,
-        key="master_student_editor_v3"
-    )
-
-    if st.button("💾 SAVE ALL CHANGES TO DATABASE"):
-        inv_rename_dict = {v: k for k, v in rename_dict.items()}
-        updated_df = edited_data.rename(columns=inv_rename_dict)
-        
-        for col in ["Attendance", "Total_Fee", "Fee_Paid"]:
-            if col not in updated_df.columns:
-                updated_df[col] = df[col] if col in df.columns else 0
-
-        save_data(updated_df)
-        if "master_student_editor_v3" in st.session_state:
-            del st.session_state["master_student_editor_v3"]
-            
-        st.success("✅ Database updated!")
-        st.rerun()
-
-# --- MODULE 2: DOWNLOAD PDF RESULT CARD ---
+# --- MODULE 2: DOWNLOAD RESULT PDF ---
 elif menu == "📄 Download Result PDF":
-    st.markdown('<div class="app-header"><h3>📄 Generate Student Result PDF</h3></div>', unsafe_allow_html=True)
-    df = load_data()
-    
-    if len(df) > 0:
-        selected_roll = st.selectbox("Select Student Roll Number / Name:", df["Roll"].astype(str) + " - " + df["Name"])
-        roll_num = int(selected_roll.split(" - ")[0])
-        student_data = df[df["Roll"] == roll_num].iloc[0]
-
-        st.info(f"**Student:** {student_data['Name']} | **Father:** {student_data['Father_Name']} | **Roll No:** {student_data['Roll']}")
-
-        pdf_file = generate_pdf_result(student_data, st.session_state.subjects_config)
+    st.markdown('<div class="app-header"><h3>📄 Marks Card Generator</h3></div>', unsafe_allow_html=True)
+    if not df.empty:
+        roll_options = [f"{safe_int(r)} - {n}" for r, n in zip(df['Roll'], df['Name'])]
+        selected_roll_str = st.selectbox("Select Student:", roll_options)
         
-        st.download_button(
-            label="📥 Download Official Report Card PDF",
-            data=pdf_file,
-            file_name=f"Result_Roll_{student_data['Roll']}_{student_data['Name']}.pdf",
-            mime="application/pdf"
-        )
-    else:
-        st.warning("Pehle Data Editor me students add karein!")
+        # SAFE STRING SPLIT & FLOAT TO INT CONVERSION
+        roll_num = safe_int(selected_roll_str.split(" - ")[0])
+        student = df[df['Roll'] == roll_num].iloc[0]
+        
+        st.write(f"**Name:** {student['Name']} | **Roll No:** {student['Roll']}")
+        st.write(f"**Maths:** {student.get('Maths', 0)} | **Science:** {student.get('Science', 0)} | **English:** {student.get('English', 0)}")
+        
+        report_text = f"STUDENT REPORT CARD\nName: {student['Name']}\nRoll: {student['Roll']}\nMaths: {student.get('Maths',0)}\nScience: {student.get('Science',0)}\nEnglish: {student.get('English',0)}"
+        st.download_button("📥 Download Report (TXT)", data=report_text, file_name=f"Report_{student['Roll']}.txt")
 
-# --- MODULE 3: ONLINE CLASSES ---
-elif menu == "💻 Online Classes":
-    st.markdown('<div class="app-header"><h3>💻 Online Live Classes & Links</h3></div>', unsafe_allow_html=True)
-    if 'online_classes' not in st.session_state: st.session_state.online_classes = []
-
-    with st.form("class_form"):
-        subject = st.selectbox("Subject", sub_names)
-        link = st.text_input("Google Meet / Zoom Link", value="https://meet.google.com/")
-        time_slot = st.text_input("Timing", value="10:00 AM - 10:45 AM")
-        if st.form_submit_button("📢 Publish Online Class") and link:
-            st.session_state.online_classes.append({"Subject": subject, "Link": link, "Time": time_slot})
-            st.success("Online Class Scheduled!")
-
-    st.subheader("📌 Scheduled Classes")
-    for cls in st.session_state.online_classes:
-        st.success(f"**Subject:** {cls['Subject']} | ⏰ **Time:** {cls['Time']}\n\n🔗 [Click to Join Class]({cls['Link']})")
+# --- MODULE 3: STUDENT PROFILES ---
+elif menu == "👤 Student Profiles":
+    st.markdown('<div class="app-header"><h3>👤 Student Detail Cards</h3></div>', unsafe_allow_html=True)
+    if not df.empty:
+        if 'student_idx' not in st.session_state: st.session_state.student_idx = 0
+        
+        col_prev, col_info, col_next = st.columns([1, 2, 1])
+        with col_prev:
+            if st.button("⬅️ Previous", width="stretch"):
+                if st.session_state.student_idx > 0:
+                    st.session_state.student_idx -= 1
+                    st.rerun()
+        with col_next:
+            if st.button("Next ➔", width="stretch"):
+                if st.session_state.student_idx < len(df) - 1:
+                    st.session_state.student_idx += 1
+                    st.rerun()
+                    
+        st.info(f"Student {st.session_state.student_idx + 1} of {len(df)}")
+        student = df.iloc[st.session_state.student_idx]
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Roll & Name", f"#{student['Roll']} {student['Name']}")
+        c2.metric("Father Name", str(student.get('Father_Name', 'N/A')))
+        c3.metric("Parent Mobile", str(student.get('Parent_Mobile', 'N/A')))
 
 # --- MODULE 4: SUBJECT SETTINGS ---
 elif menu == "⚙️ Subject Settings":
     st.markdown('<div class="app-header"><h3>⚙️ Subject Configuration</h3></div>', unsafe_allow_html=True)
-    with st.form("settings_form"):
-        updated_configs = []
-        for idx, sub in enumerate(st.session_state.subjects_config):
-            c1, c2 = st.columns(2)
-            n_name = c1.text_input(f"Subject {idx+1}", value=sub["name"], key=f"sname_{idx}")
-            n_max = c2.number_input(f"Max Marks", value=int(sub["max_marks"]), min_value=10, key=f"smax_{idx}")
-            updated_configs.append({"code": sub["code"], "name": n_name, "max_marks": n_max})
-
-        if st.form_submit_button("💾 Save Settings"):
-            st.session_state.subjects_config = updated_configs
-            st.success("Subjects Updated!")
-            st.rerun()
+    st.write("Configured Subjects:")
+    for sub in st.session_state.subjects_config:
+        st.write(f"- {sub['name']} (`{sub['code']}`)")
 
 # --- MODULE 5: FEE MANAGEMENT ---
 elif menu == "💳 Fee Management":
     st.markdown('<div class="app-header"><h3>💳 Fee Ledger</h3></div>', unsafe_allow_html=True)
-    df = load_data()
-    df['Pending'] = df['Total_Fee'] - df['Fee_Paid']
+    if not df.empty:
+        edited_fee = st.data_editor(
+            df[["Roll", "Name", "Father_Name", "Total_Fee", "Fee_Paid", "Pending"]],
+            disabled=["Pending"],
+            width="stretch",
+            hide_index=True,
+            key="fee_editor"
+        )
+        if st.button("💾 Save Fee Ledger"):
+            df["Total_Fee"] = edited_fee["Total_Fee"]
+            df["Fee_Paid"] = edited_fee["Fee_Paid"]
+            save_data(df)
+            if "fee_editor" in st.session_state: del st.session_state["fee_editor"]
+            st.success("Fee Saved!")
+            st.rerun()
 
-    edited_fee = st.data_editor(
-        df[["Roll", "Name", "Father_Name", "Total_Fee", "Fee_Paid", "Pending"]],
-        disabled=["Pending"],
-        use_container_width=True,
-        hide_index=True,
-        key="fee_editor"
-    )
-    if st.button("💾 Save Fee Ledger"):
-        df["Total_Fee"] = edited_fee["Total_Fee"]
-        df["Fee_Paid"] = edited_fee["Fee_Paid"]
-        save_data(df)
-        if "fee_editor" in st.session_state: del st.session_state["fee_editor"]
-        st.success("Fee Saved!")
-        st.rerun()
-
-# --- MODULE 6: HOMEWORK ---
+# --- MODULE 6: HOMEWORK TRACKER ---
 elif menu == "📚 Homework Tracker":
     st.markdown('<div class="app-header"><h3>📚 Homework Tracker</h3></div>', unsafe_allow_html=True)
     if 'homework' not in st.session_state: st.session_state.homework = []
@@ -352,9 +236,8 @@ elif menu == "📚 Homework Tracker":
 # --- MODULE 7: ANALYTICS ---
 elif menu == "📈 Class Analytics":
     st.markdown('<div class="app-header"><h3>📈 Performance Analytics</h3></div>', unsafe_allow_html=True)
-    df = load_data()
     if len(df) > 0:
-        chart_data = {s["name"]: df[s["code"]].mean() for s in st.session_state.subjects_config if s["code"] in df.columns}
+        chart_data = {s["name"]: pd.to_numeric(df[s["code"]], errors='coerce').mean() for s in st.session_state.subjects_config if s["code"] in df.columns}
         st.bar_chart(pd.Series(chart_data))
 
 # --- MODULE 8: TIMETABLE ---
@@ -370,30 +253,29 @@ elif menu == "📅 Class Timetable":
 # --- MODULE 9: DAILY ATTENDANCE ---
 elif menu == "📋 Daily Attendance":
     st.markdown('<div class="app-header"><h3>📋 Attendance Register</h3></div>', unsafe_allow_html=True)
-    df = load_data()
-    
-    att_df = st.data_editor(
-        df[["Roll", "Name", "Father_Name", "Attendance"]],
-        column_config={"Attendance": st.column_config.SelectboxColumn("Status", options=["Present", "Absent", "Leave"])},
-        use_container_width=True,
-        hide_index=True,
-        key="att_editor"
-    )
-    if st.button("💾 Save Attendance"):
-        df["Attendance"] = att_df["Attendance"]
-        save_data(df)
-        if "att_editor" in st.session_state: del st.session_state["att_editor"]
-        st.success("Attendance Updated!")
-        st.rerun()
+    if not df.empty:
+        att_df = st.data_editor(
+            df[["Roll", "Name", "Father_Name", "Attendance"]],
+            column_config={"Attendance": st.column_config.SelectboxColumn("Status", options=["Present", "Absent", "Leave"])},
+            width="stretch",
+            hide_index=True,
+            key="att_editor"
+        )
+        if st.button("💾 Save Attendance"):
+            df["Attendance"] = att_df["Attendance"]
+            save_data(df)
+            if "att_editor" in st.session_state: del st.session_state["att_editor"]
+            st.success("Attendance Updated!")
+            st.rerun()
 
 # --- MODULE 10: WHATSAPP ALERTS ---
 elif menu == "📲 WhatsApp Alerts":
     st.markdown('<div class="app-header"><h3>📲 WhatsApp Absent Alerts</h3></div>', unsafe_allow_html=True)
-    df = load_data()
-    absents = df[df["Attendance"] == "Absent"]
-    if len(absents) == 0:
-        st.success("Aaj sabhi students Present hain!")
-    else:
-        for _, s in absents.iterrows():
-            msg = urllib.parse.quote(f"Namaste, Aapka baccha {s['Name']} (Father: {s['Father_Name']}) aaj school me ABSENT hai.")
-            st.markdown(f"👤 **{s['Name']}** (Father: {s['Father_Name']}) -> [📲 Send Alert](https://wa.me/{s['Parent_Mobile']}?text={msg})")
+    if not df.empty:
+        absents = df[df["Attendance"] == "Absent"]
+        if len(absents) == 0:
+            st.success("Aaj sabhi students Present hain!")
+        else:
+            for _, s in absents.iterrows():
+                msg = urllib.parse.quote(f"Namaste, Aapka baccha {s['Name']} (Father: {s['Father_Name']}) aaj school me ABSENT hai.")
+                st.markdown(f"👤 **{s['Name']}** (Father: {s['Father_Name']}) -> [📲 Send Alert](https://wa.me/{s['Parent_Mobile']}?text={msg})")
