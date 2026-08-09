@@ -1,515 +1,1018 @@
+import textwrap
 import streamlit as st
 import pandas as pd
-import datetime
+from datetime import date
+import urllib.parse
 from supabase import create_client, Client
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
-# ==========================================
-# 1. PAGE CONFIGURATION & CUSTOM STYLING
-# ==========================================
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Class 8 Student Management System",
+    page_title="Class 8 Management Dashboard",
     page_icon="🏫",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Custom CSS for Print ID Cards, Badges, and UI polish
-st.markdown("""
-<style>
-    /* Metric Cards Styling */
-    .metric-box {
-        background-color: #f8f9fa;
-        border-radius: 10px;
-        padding: 15px;
-        border-left: 5px solid #1E88E5;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        margin-bottom: 10px;
-    }
-    
-    /* ID Card Graphic Template */
-    .id-card-container {
-        width: 340px;
-        height: 500px;
-        border: 2px solid #0288d1;
-        border-radius: 15px;
-        background: linear-gradient(135deg, #ffffff 0%, #e1f5fe 100%);
-        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-        padding: 20px;
-        margin: auto;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        position: relative;
-        overflow: hidden;
-    }
-    .id-card-header {
-        text-align: center;
-        background-color: #0288d1;
-        color: white;
-        padding: 10px;
-        border-radius: 10px 10px 0 0;
-        margin: -20px -20px 15px -20px;
-    }
-    .id-card-header h3 {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 700;
-        color: #ffffff;
-    }
-    .id-card-header p {
-        margin: 2px 0 0 0;
-        font-size: 11px;
-        opacity: 0.9;
-    }
-    .id-avatar {
-        width: 90px;
-        height: 90px;
-        border-radius: 50%;
-        border: 3px solid #0288d1;
-        display: block;
-        margin: 0 auto 10px auto;
-        object-fit: cover;
-        background-color: #fff;
-    }
-    .id-card-body {
-        font-size: 13px;
-        color: #333;
-        line-height: 1.6;
-    }
-    .id-card-row {
-        display: flex;
-        justify-content: space-between;
-        border-bottom: 1px dashed #b3e5fc;
-        padding: 4px 0;
-    }
-    .id-card-label {
-        font-weight: bold;
-        color: #01579b;
-    }
-    .id-card-footer {
-        position: absolute;
-        bottom: 10px;
-        left: 0;
-        right: 0;
-        text-align: center;
-        font-size: 10px;
-        color: #666;
-    }
-
-    /* Print Styles */
-    @media print {
-        body * {
-            visibility: hidden;
-        }
-        .printable-area, .printable-area * {
-            visibility: visible;
-        }
-        .printable-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-        }
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# 2. SUPABASE DATABASE CONNECTIVITY
-# ==========================================
+# --- SUPABASE CONNECTION SETUP ---
 @st.cache_resource
 def init_supabase():
-    try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
-        return create_client(url, key)
-    except Exception as e:
-        st.error(f"Supabase connection secrets missing or invalid: {e}")
-        return None
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 
-supabase = init_supabase()
+try:
+    supabase = init_supabase()
+except Exception as e:
+    st.error(f"❌ Supabase Connection Failed: {e}")
+    st.stop()
 
-# Sample Fallback Data if DB is empty
-DEFAULT_STUDENTS = [
-    {
-        "roll_no": 8001, "name": "ABHAY CHOUDHARY", "father_name": "PADAM SINGH",
-        "parent_mobile": "9929534777", "attendance_%": 88, "conduct": "Good",
-        "maths": 85, "science": 78, "english": 82, "hindi": 80, "social_science": 75,
-        "total_fees": 25000, "paid_fees": 20000, "blood_group": "B+", "dob": "2012-05-14"
-    },
-    {
-        "roll_no": 8002, "name": "ALKA CHOUDHARY", "father_name": "NARENDRA KUMAR",
-        "parent_mobile": "9785735746", "attendance_%": 92, "conduct": "Excellent",
-        "maths": 92, "science": 95, "english": 88, "hindi": 90, "social_science": 89,
-        "total_fees": 25000, "paid_fees": 25000, "blood_group": "A+", "dob": "2012-08-22"
-    },
-    {
-        "roll_no": 8003, "name": "ANSH KUMARJANGIR", "father_name": "SHANKARLAL",
-        "parent_mobile": "9527189446", "attendance_%": 68, "conduct": "Average",
-        "maths": 35, "science": 38, "english": 42, "hindi": 50, "social_science": 40,
-        "total_fees": 25000, "paid_fees": 12000, "blood_group": "O+", "dob": "2012-01-10"
-    },
-    {
-        "roll_no": 8007, "name": "HEMANT SINGH", "father_name": "PRATAP SINGH",
-        "parent_mobile": "8233569691", "attendance_%": 62, "conduct": "Needs Improvement",
-        "maths": 28, "science": 30, "english": 25, "hindi": 32, "social_science": 35,
-        "total_fees": 25000, "paid_fees": 8000, "blood_group": "AB+", "dob": "2011-11-30"
-    }
-]
+# --- CACHE REFRESH UTILITY ---
+def refresh_cache():
+    st.cache_data.clear()
 
+# --- FETCH DATA FROM SUPABASE ---
+@st.cache_data(ttl=60)
 def load_data():
-    if supabase:
-        try:
-            res = supabase.table("students").select("*").execute()
-            if res.data and len(res.data) > 0:
-                df = pd.DataFrame(res.data)
-                return df
-        except Exception:
-            pass
-    return pd.DataFrame(DEFAULT_STUDENTS)
+    try:
+        response = supabase.table("class_8_students").select("*").execute()
+        data = response.data
+        if not data:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(data)
+        
+        # Ensure numerical types
+        num_cols = ["roll_no", "english", "hindi", "science", "sst", "maths", "sanskrit", "max_marks", "total_fee", "fee_paid", "attendance_%"]
+        for col in num_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-def save_student_to_db(student_dict):
-    if supabase:
-        try:
-            supabase.table("students").upsert(student_dict).execute()
-            st.cache_data.clear()
-            return True
-        except Exception as e:
-            st.error(f"Failed to save to Supabase: {e}")
-            return False
-    return True
+        # Dynamic Calculations
+        df["max_marks"] = df["max_marks"].replace(0, 100)
+        df["Total Marks"] = df["english"] + df["hindi"] + df["science"] + df["sst"] + df["maths"] + df["sanskrit"]
+        df["Total Max Marks"] = df["max_marks"] * 6
+        df["Percentage (%)"] = ((df["Total Marks"] / df["Total Max Marks"]) * 100).round(2)
+        df["Pending Fee"] = df["total_fee"] - df["fee_paid"]
 
+        # Rank Calculation
+        df["Rank"] = df["Total Marks"].rank(ascending=False, method="min").astype(int)
+        
+        return df
+    except Exception as e:
+        st.error(f"Error fetching data from Supabase: {e}")
+        return pd.DataFrame()
+
+# Load Data
 df = load_data()
 
-# Calculate Percentage for Academic Risk
-if not df.empty:
-    sub_cols = ['maths', 'science', 'english', 'hindi', 'social_science']
-    valid_subs = [c for c in sub_cols if c in df.columns]
-    if valid_subs:
-        df['Percentage'] = df[valid_subs].mean(axis=1).round(2)
+# --- BACKEND FUNCTION: SAVE / UPDATE STUDENT DATA ---
+# --- BACKEND FUNCTION: SAVE / UPDATE STUDENT DATA ---
+def save_student_data(
+    rno, name, fname, mobile, att_status, att_pct, cond, 
+    eng, hin, sci, sst, math, sans, max_m, tfee, fpaid, date_val,
+    gender="Male", category="General", blood="Unknown", aadhaar="", address=""
+):
+    try:
+        eng = int(eng) if eng else 0
+        hin = int(hin) if hin else 0
+        sci = int(sci) if sci else 0
+        sst = int(sst) if sst else 0
+        math = int(math) if math else 0
+        sans = int(sans) if sans else 0
+        max_m = max(10, int(max_m))
+
+        tot_m = eng + hin + sci + sst + math + sans
+        tot_max_m = max_m * 6
+        pct = round((tot_m / tot_max_m) * 100, 2)
+
+        payload = {
+            "roll_no": int(rno),
+            "name": str(name).strip(),
+            "father_name": str(fname).strip(),
+            "parent_mobile": str(mobile).strip(),
+            "attendance": att_status,
+            "attendance_%": int(att_pct),
+            "conduct": cond,
+            "english": eng,
+            "hindi": hin,
+            "science": sci,
+            "sst": sst,
+            "maths": math,
+            "sanskrit": sans,
+            "max_marks": max_m,
+            "total_fee": float(tfee),
+            "fee_paid": float(fpaid),
+            "date": str(date_val),
+            # Optional extra fields
+            "gender": str(gender),
+            "category": str(category),
+            "blood_group": str(blood),
+            "aadhaar_no": str(aadhaar),
+            "address": str(address)
+        }
+
+        # Fix: Specified 'on_conflict="roll_no"' so existing Roll Numbers get UPDATED
+        supabase.table("class_8_students").upsert(payload, on_conflict="roll_no").execute()
+        refresh_cache()
+        return True
+    except Exception as e:
+        st.error(f"❌ Error saving student record: {e}")
+        return False
+# --- SMART REMARKS & ALERTS HELPERS ---
+# --- AI DATA AUDIT & AUTO-FIX HELPER ---
+def audit_and_fix_student_data(df):
+    """Data mein galat values dhoondhta hai aur unhe automatic fix karta hai"""
+    fixed_df = df.copy()
+    errors_found = []
+
+    for idx, row in fixed_df.iterrows():
+        roll = row.get("roll_no", "N/A")
+        name = row.get("name", "Unknown")
+        max_m = float(row.get("max_marks", 100)) if row.get("max_marks") else 100.0
+
+        # Check & Fix Marks (0 se kam na ho, max_marks se zyada na ho)
+        for sub in ["english", "hindi", "science", "sst", "maths", "sanskrit"]:
+            val = float(row.get(sub, 0)) if row.get(sub) is not None else 0.0
+            if val < 0:
+                errors_found.append(f"Roll {roll} ({name}): {sub.capitalize()} marks were negative ({val}). Set to 0.")
+                fixed_df.at[idx, sub] = 0
+            elif val > max_m:
+                errors_found.append(f"Roll {roll} ({name}): {sub.capitalize()} marks ({val}) exceeded Max Marks ({max_m}). Set to {max_m}.")
+                fixed_df.at[idx, sub] = max_m
+
+        # Recalculate Total & Percentage
+        tot = sum([float(fixed_df.at[idx, s]) for s in ["english", "hindi", "science", "sst", "maths", "sanskrit"]])
+        tot_max = max_m * 6
+        pct = round((tot / tot_max) * 100, 2) if tot_max > 0 else 0.0
+
+        if fixed_df.at[idx, "Total Marks"] != tot:
+            fixed_df.at[idx, "Total Marks"] = tot
+        if fixed_df.at[idx, "Percentage (%)"] != pct:
+            errors_found.append(f"Roll {roll} ({name}): Percentage recalculated from {fixed_df.at[idx, 'Percentage (%)']}% to {pct}%.")
+            fixed_df.at[idx, "Percentage (%)"] = pct
+
+        # Check Mobile Number Format
+        mob = str(row.get("parent_mobile", "")).strip()
+        mob_clean = "".join(filter(str.isdigit, mob))
+        if len(mob_clean) != 10:
+            errors_found.append(f"Roll {roll} ({name}): Parent mobile ({mob}) is not 10 digits.")
+
+    return fixed_df, errors_found
+def generate_student_remark(pct, min_subject, eng, math, sci):
+    """Marks ke hisab se automatic performance remark generate karta hai"""
+    if pct >= 85:
+        remark = "🌟 Outstanding academic performance! Keep up the excellent work."
+    elif pct >= 70:
+        remark = "👍 Very good performance. With a little more focus, top grade is easily achievable."
+    elif pct >= 50:
+        remark = "📈 Satisfactory progress. Needs consistent practice in weak subjects."
     else:
-        df['Percentage'] = 0.0
+        remark = "⚠️ Needs immediate academic attention and regular homework tracking."
 
-# ==========================================
-# 3. HEADER & SUMMARY METRICS
-# ==========================================
+    # Subject-specific feedback
+    weak_subs = []
+    if math < 40: weak_subs.append("Maths")
+    if eng < 40: weak_subs.append("English")
+    if sci < 40: weak_subs.append("Science")
+
+    if weak_subs:
+        remark += f" Special focus required in: {', '.join(weak_subs)}."
+        
+    return remark
+# --- PDF GENERATION HELPERS ---
+def generate_student_pdf(student):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Title Style
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=18, alignment=1, spaceAfter=15)
+    story.append(Paragraph("Class 8 Report Card", title_style))
+    story.append(Spacer(1, 10))
+
+    normal_style = styles['Normal']
+
+    # Student Info Table
+    info_data = [
+        [
+            Paragraph(f"<b>Name:</b> {student.get('name', 'N/A')}", normal_style),
+            Paragraph(f"<b>Roll No:</b> {student.get('roll_no', 'N/A')}", normal_style)
+        ],
+        [
+            Paragraph(f"<b>Father's Name:</b> {student.get('father_name', 'N/A')}", normal_style),
+            Paragraph(f"<b>Date:</b> {student.get('date', 'N/A')}", normal_style)
+        ],
+        [
+            Paragraph(f"<b>Attendance:</b> {student.get('attendance_%', 0)}%", normal_style),
+            Paragraph(f"<b>Conduct:</b> {student.get('conduct', 'N/A')}", normal_style)
+        ]
+    ]
+    t_info = Table(info_data, colWidths=[240, 240])
+    t_info.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+    story.append(t_info)
+    story.append(Spacer(1, 15))
+
+    # Marks Table
+    max_m = int(student.get('max_marks', 100))
+    marks_data = [
+        ["Subject", "Marks Obtained", "Maximum Marks"],
+        ["English", str(student.get('english', 0)), str(max_m)],
+        ["Hindi", str(student.get('hindi', 0)), str(max_m)],
+        ["Science", str(student.get('science', 0)), str(max_m)],
+        ["Social Science", str(student.get('sst', 0)), str(max_m)],
+        ["Maths", str(student.get('maths', 0)), str(max_m)],
+        ["Sanskrit", str(student.get('sanskrit', 0)), str(max_m)],
+        ["Total Score", str(student.get('Total Marks', 0)), str(max_m * 6)],
+        ["Percentage", f"{student.get('Percentage (%)', 0)}%", "100%"]
+    ]
+    t_marks = Table(marks_data, colWidths=[180, 150, 150])
+    t_marks.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1e293b")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 1, colors.grey),
+        ('BACKGROUND', (0,-2), (-1,-1), colors.HexColor("#f1f5f9")),
+        ('FONTNAME', (0,-2), (-1,-1), 'Helvetica-Bold'),
+    ]))
+    story.append(t_marks)
+    story.append(Spacer(1, 15))
+
+    # Performance Remark Box in PDF
+    pct_val = student.get('Percentage (%)', 0)
+    remark_txt = generate_student_remark(
+        pct_val,
+        min(student.get('english',0), student.get('maths',0), student.get('science',0)),
+        student.get('english',0), student.get('maths',0), student.get('science',0)
+    )
+    
+    remark_style = ParagraphStyle('RemarkStyle', parent=normal_style, fontSize=10, leading=14)
+    story.append(Paragraph(f"<b>Teacher Remarks:</b> {remark_txt}", remark_style))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+    # Marks Table
+    max_m = int(student.get('max_marks', 100))
+    marks_data = [
+        ["Subject", "Marks Obtained", "Maximum Marks"],
+        ["English", str(student.get('english', 0)), str(max_m)],
+        ["Hindi", str(student.get('hindi', 0)), str(max_m)],
+        ["Science", str(student.get('science', 0)), str(max_m)],
+        ["Social Science", str(student.get('sst', 0)), str(max_m)],
+        ["Maths", str(student.get('maths', 0)), str(max_m)],
+        ["Sanskrit", str(student.get('sanskrit', 0)), str(max_m)],
+        ["Total Score", str(student.get('Total Marks', 0)), str(max_m * 6)],
+        ["Percentage", f"{student.get('Percentage (%)', 0)}%", "100%"]
+    ]
+    t_marks = Table(marks_data, colWidths=[180, 150, 150])
+    t_marks.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1e293b")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 1, colors.grey),
+        ('BACKGROUND', (0,-2), (-1,-1), colors.HexColor("#f1f5f9")),
+        ('FONTNAME', (0,-2), (-1,-1), 'Helvetica-Bold'),
+    ]))
+    story.append(t_marks)
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_class_pdf(df_data):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
+
+    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=16, alignment=1, spaceAfter=15)
+    story.append(Paragraph("Class 8 Full Class Academic Result Sheet", title_style))
+    story.append(Spacer(1, 10))
+
+    headers = ["Rank", "Roll", "Name", "Eng", "Hin", "Sci", "SST", "Math", "Sans", "Total", "%"]
+    table_data = [headers]
+
+    sorted_df = df_data.sort_values(by="Rank") if "Rank" in df_data.columns else df_data
+    for _, row in sorted_df.iterrows():
+        table_data.append([
+            str(row.get('Rank', '')),
+            str(int(row.get('roll_no', 0))),
+            str(row.get('name', ''))[:12],
+            str(int(row.get('english', 0))),
+            str(int(row.get('hindi', 0))),
+            str(int(row.get('science', 0))),
+            str(int(row.get('sst', 0))),
+            str(int(row.get('maths', 0))),
+            str(int(row.get('sanskrit', 0))),
+            str(int(row.get('Total Marks', 0))),
+            f"{row.get('Percentage (%)', 0)}%"
+        ])
+
+    t_class = Table(table_data, colWidths=[35, 35, 80, 35, 35, 35, 35, 35, 35, 45, 45])
+    t_class.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#0f172a")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+    ]))
+    story.append(t_class)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+# --- APP HEADER ---
 st.title("🏫 Class 8 Student Management System")
-st.caption("Centralized dashboard for Student Profiles, Marks, Fees, Calls & Notebook Tracking.")
+st.markdown("Centralized dashboard for Student Profiles, Marks, Fees, Calls & Notebook Tracking.")
 
-col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-with col_m1:
-    st.metric("Total Students", len(df))
-with col_m2:
-    avg_att = f"{df['attendance_%'].mean():.1f}%" if 'attendance_%' in df.columns and not df.empty else "N/A"
-    st.metric("Avg Attendance", avg_att)
-with col_m3:
-    avg_marks = f"{df['Percentage'].mean():.1f}%" if 'Percentage' in df.columns and not df.empty else "N/A"
-    st.metric("Class Avg Marks", avg_marks)
-with col_m4:
-    low_att = len(df[df['attendance_%'] < 75]) if 'attendance_%' in df.columns else 0
-    st.metric("Low Attendance (<75%)", low_att, delta_color="inverse")
-with col_m5:
-    acad_risk = len(df[df['Percentage'] < 40]) if 'Percentage' in df.columns else 0
-    st.metric("Academic Risk (<40%)", acad_risk, delta_color="inverse")
-
-st.divider()
-
-# ==========================================
-# 4. TAB NAVIGATION SETUP (9 FULL TABS)
-# ==========================================
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+# --- MAIN APP TABS CONFIGURATION ---
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📝 Data Register",
     "📊 Academic Results",
     "👤 Profiles & WhatsApp",
-    "🪪 ID Card Generator",
     "💳 Fee Manager",
     "📞 Parent Calls",
     "📓 Notebook Tracker",
-    "🔗 Student Slug Portal",
-    "🤖 AI Assistant & Insights"
+    "🪪 Student ID Cards"
 ])
-
-# ------------------------------------------
-# TAB 1: DATA REGISTER & ATTENTION ALERTS
-# ------------------------------------------
+# ==================== TAB 1: DATA REGISTER ====================
+# ==================== TAB 1: DATA REGISTER ====================
 with tab1:
-    st.subheader("🤖 AI Data Auditor & Error Fixer")
+    st.markdown("### 🤖 AI Data Auditor & Error Fixer")
     
-    # Audit checks
-    errors = []
     if not df.empty:
-        if df['attendance_%'].max() > 100 or df['attendance_%'].min() < 0:
-            errors.append("Invalid Attendance percentage detected (>100 or <0).")
-        if df['parent_mobile'].astype(str).str.len().ne(10).any():
-            errors.append("Some phone numbers do not have exactly 10 digits.")
-            
-    if not errors:
-        st.success("✅ Sabhi student records bilkul accurate hain! Koi error nahi mila.")
+        audited_df, detected_errors = audit_and_fix_student_data(df)
+        
+        col_ai1, col_ai2 = st.columns([2, 1])
+        
+        with col_ai1:
+            if detected_errors:
+                st.warning(f"⚠️ **AI ne {len(detected_errors)} Data Errors/Mismatches dhoondhe hain!**")
+                with st.expander("🔍 Dekhein kahan-kahan error hai:"):
+                    for err in detected_errors:
+                        st.write(f"- {err}")
+            else:
+                st.success("✅ **Sabhi student records bilkul accurate hain! Koi error nahi mila.**")
+                
+        with col_ai2:
+            if detected_errors:
+                if st.button("⚡ AI Auto-Fix All Errors", type="primary", width="stretch"):
+                    try:
+                        records_to_update = audited_df.to_dict(orient="records")
+                        supabase.table("class8_students").upsert(records_to_update).execute()
+                        st.success("🎉 Sabhi errors AI dwara auto-correct kar diye gaye hain!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Save karne me error aaya: {e}")
+    
+    st.markdown("---")
+
+    # --- NEW FEATURE 1: BULK IMPORT / EXPORT (CSV / EXCEL) ---
+    with st.expander("📁 Bulk Import / Export (Excel & CSV)", expanded=False):
+        col_imp, col_exp = st.columns(2)
+        with col_imp:
+            st.markdown("##### 📥 Upload Bulk Data")
+            uploaded_file = st.file_uploader("Upload CSV or Excel File", type=["csv", "xlsx"])
+            if uploaded_file is not None:
+                try:
+                    if uploaded_file.name.endswith('.csv'):
+                        bulk_df = pd.read_csv(uploaded_file)
+                    else:
+                        bulk_df = pd.read_excel(uploaded_file)
+                    
+                    if st.button("🚀 Process & Insert Bulk Records"):
+                        bulk_records = bulk_df.to_dict(orient="records")
+                        supabase.table("class_8_students").upsert(bulk_records).execute()
+                        st.success("🎉 Bulk Data Successfully Uploaded!")
+                        refresh_cache()
+                        st.rerun()
+                except Exception as ex:
+                    st.error(f"File process karne me error: {ex}")
+
+        with col_exp:
+            st.markdown("##### 📤 Download Current Register")
+            if not df.empty:
+                csv_data = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="💾 Download CSV Register",
+                    data=csv_data,
+                    file_name="Class_8_Student_Register.csv",
+                    mime="text/csv",
+                    type="secondary"
+                )
+            else:
+                st.info("Download ke liye koi data nahi hai.")
+
+    st.markdown("---")
+
+    # --- ADD / EDIT FORM (OLD DATA INTACT + NEW FIELDS ADDED) ---
+    with st.expander("➕ Add / Edit Student Record", expanded=False):
+        with st.form("quick_add_form", clear_on_submit=False):
+            st.markdown("##### 📝 Basic Student Details & Daily Attendance")
+
+            r1_c1, r1_c2, r1_c3, r1_c4 = st.columns([1, 2, 2, 2])
+            with r1_c1:
+                q_rno = st.number_input("Roll No *", min_value=1, step=1, value=len(df) + 1 if not df.empty else 1, key="q_rno")
+            with r1_c2:
+                q_name = st.text_input("Student Name *", key="q_name")
+            with r1_c3:
+                q_fname = st.text_input("Father Name", key="q_fname")
+            with r1_c4:
+                q_date = st.date_input("Date 📅", value=date.today(), key="q_date")
+
+            r2_c1, r2_c2, r2_c3, r2_c4 = st.columns(4)
+            with r2_c1:
+                q_mobile = st.text_input("Parent Mobile", key="q_mobile")
+            with r2_c2:
+                q_att_status = st.selectbox("Today's Attendance Status 📍", ["Present", "Absent", "Leave"], key="q_att_status")
+            with r2_c3:
+                q_att_pct = st.number_input("Overall Attendance (%)", 0, 100, 90, key="q_att_pct")
+            with r2_c4:
+                q_cond = st.selectbox("Conduct", ["Good", "Excellent", "Outstanding", "Needs Improvement"], key="q_cond")
+
+            # --- NEW EXTENDED FIELDS ---
+            st.markdown("##### 👤 Additional Personal Information")
+            r_ext1, r_ext2, r_ext3, r_ext4 = st.columns(4)
+            with r_ext1:
+                q_gender = st.selectbox("Gender", ["Male", "Female", "Other"], key="q_gender")
+            with r_ext2:
+                q_category = st.selectbox("Category", ["General", "OBC", "SC", "ST"], key="q_category")
+            with r_ext3:
+                q_blood = st.selectbox("Blood Group", ["Unknown", "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"], key="q_blood")
+            with r_ext4:
+                q_aadhaar = st.text_input("Aadhaar Number (12 Digits)", max_chars=12, key="q_aadhaar")
+
+            q_address = st.text_area("Home Address", key="q_address")
+
+            st.markdown("##### 📚 Academic Marks & Max Marks Option")
+            q_max_marks = st.number_input("🎯 Subject Maximum Marks (Out of)", min_value=10, max_value=500, value=100, step=5, key="q_max_marks")
+
+            r3_c1, r3_c2, r3_c3 = st.columns(3)
+            with r3_c1:
+                q_eng = st.number_input("1. English", 0, int(q_max_marks), value=0, key="q_eng")
+                q_hin = st.number_input("2. Hindi", 0, int(q_max_marks), value=0, key="q_hin")
+            with r3_c2:
+                q_sci = st.number_input("3. Science", 0, int(q_max_marks), value=0, key="q_sci")
+                q_sst = st.number_input("4. Social Science", 0, int(q_max_marks), value=0, key="q_sst")
+            with r3_c3:
+                q_math = st.number_input("5. Maths", 0, int(q_max_marks), value=0, key="q_math")
+                q_sans = st.number_input("6. Sanskrit", 0, int(q_max_marks), value=0, key="q_sans")
+
+            st.markdown("##### 💳 Fee Details")
+            r4_c1, r4_c2 = st.columns(2)
+            with r4_c1:
+                q_tfee = st.number_input("Total Fee (₹)", min_value=0.0, value=15000.0, key="q_tfee")
+            with r4_c2:
+                q_fpaid = st.number_input("Fee Paid (₹)", min_value=0.0, value=0.0, key="q_fpaid")
+
+            q_submitted = st.form_submit_button("💾 Save / Update Student Data")
+            if q_submitted:
+                if not q_name.strip():
+                    st.error("⚠️ Student Name bharna zaroori hai!")
+                else:
+                    if save_student_data(
+                        q_rno, q_name, q_fname, q_mobile, q_att_status, q_att_pct, q_cond,
+                        q_eng, q_hin, q_sci, q_sst, q_math, q_sans, q_max_marks, q_tfee, q_fpaid, q_date,
+                        q_gender, q_category, q_blood, q_aadhaar, q_address
+                    ):
+                        st.toast("✅ Student Record Updated Successfully!", icon="💾")
+                        st.rerun()
+
+    st.markdown("---")
+    st.subheader("🗑️ Delete Student Record")
+    if not df.empty:
+        col_del1, col_del2 = st.columns([3, 1])
+        with col_del1:
+            del_roll = st.selectbox(
+                "Select Roll No to Delete:",
+                options=df["roll_no"].tolist(),
+                format_func=lambda x: f"Roll No {x}: {df[df['roll_no']==x]['name'].values[0]}",
+                key="direct_delete_select",
+            )
+        with col_del2:
+            st.write(" ")
+            st.write(" ")
+            if st.button("❌ Delete Student", type="primary", width="stretch"):
+                try:
+                    supabase.table("class_8_students").delete().eq("roll_no", int(del_roll)).execute()
+                    refresh_cache()
+                    st.toast(f"Successfully deleted Roll No {del_roll}!", icon="🗑️")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error deleting record: {e}")
     else:
-        for err in errors:
-            st.warning(f"⚠️ {err}")
+        st.info("No students available to delete.")
 
     st.markdown("---")
-    
-    # Add / Edit Form
-    with st.expander("➕ Add / Edit Student Record"):
-        with st.form("add_student_form"):
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                r_no = st.number_input("Roll No", min_value=8001, max_value=8999, value=8010)
-                s_name = st.text_input("Student Name")
-                f_name = st.text_input("Father Name")
-            with c2:
-                p_mob = st.text_input("Parent Mobile (10 digits)", value="9876543210")
-                att_val = st.slider("Attendance %", 0, 100, 85)
-                conduct_val = st.selectbox("Conduct", ["Excellent", "Good", "Average", "Needs Improvement"])
-            with c3:
-                b_group = st.selectbox("Blood Group", ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])
-                dob_val = st.date_input("Date of Birth", value=datetime.date(2012, 1, 1))
-                tot_fee = st.number_input("Total Fee", value=25000)
-                
-            submit_btn = st.form_submit_button("Save Student Record")
-            if submit_btn:
-                new_rec = {
-                    "roll_no": r_no,
-                    "name": s_name.upper(),
-                    "father_name": f_name.upper(),
-                    "parent_mobile": p_mob,
-                    "attendance_%": att_val,
-                    "conduct": conduct_val,
-                    "blood_group": b_group,
-                    "dob": str(dob_val),
-                    "total_fees": tot_fee,
-                    "paid_fees": 0
-                }
-                save_student_to_db(new_rec)
-                st.success(f"Student {s_name} successfully saved!")
-                st.rerun()
-
-    # Smart Attention Alerts
-    st.subheader("🚨 Smart Attention Alerts")
-    ca1, ca2 = st.columns(2)
-    with ca1:
-        st.warning("⚠️ Low Attendance (< 75%):")
-        low_att_df = df[df['attendance_%'] < 75][['roll_no', 'name', 'parent_mobile', 'attendance_%']]
-        st.dataframe(low_att_df, use_container_width=True, hide_index=True)
-    with ca2:
-        st.error("🔴 Academic Risk (< 40% Marks):")
-        acad_risk_df = df[df['Percentage'] < 40][['roll_no', 'name', 'parent_mobile', 'Percentage']]
-        st.dataframe(acad_risk_df, use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-    st.subheader("📋 Class 8 Student Information & Attendance Register")
-    st.dataframe(df, use_container_width=True, hide_index=True)
-
-# ------------------------------------------
-# TAB 2: ACADEMIC RESULTS
-# ------------------------------------------
-with tab2:
-    st.subheader("📈 Academic Results & Marks Entry")
-    
+    # --- SMART ALERTS PANEL ---
     if not df.empty:
-        col_sel, col_chart = st.columns([1, 2])
-        with col_sel:
-            st.markdown("#### Enter Marks for Student")
-            selected_roll = st.selectbox("Select Roll No", df['roll_no'].tolist())
-            st_row = df[df['roll_no'] == selected_roll].iloc[0]
+        low_att_df = df[df["attendance_%"] < 75]
+        weak_marks_df = df[df["Percentage (%)"] < 40]
+
+        if not low_att_df.empty or not weak_marks_df.empty:
+            st.markdown("##### 🚨 Smart Attention Alerts")
+            a_col1, a_col2 = st.columns(2)
             
-            with st.form("marks_entry_form"):
-                m_maths = st.number_input("Maths", 0, 100, int(st_row.get('maths', 0)))
-                m_sci = st.number_input("Science", 0, 100, int(st_row.get('science', 0)))
-                m_eng = st.number_input("English", 0, 100, int(st_row.get('english', 0)))
-                m_hin = st.number_input("Hindi", 0, 100, int(st_row.get('hindi', 0)))
-                m_sst = st.number_input("Social Science", 0, 100, int(st_row.get('social_science', 0)))
-                
-                save_m = st.form_submit_button("Update Marks")
-                if save_m:
-                    updated_dict = st_row.to_dict()
-                    updated_dict.update({
-                        'maths': m_maths, 'science': m_sci,
-                        'english': m_eng, 'hindi': m_hin,
-                        'social_science': m_sst
-                    })
-                    save_student_to_db(updated_dict)
-                    st.success("Marks updated successfully!")
+            with a_col1:
+                if not low_att_df.empty:
+                    st.warning(f"⚠️ **Low Attendance (< 75%):** {len(low_att_df)} Students")
+                    st.dataframe(low_att_df[["roll_no", "name", "parent_mobile", "attendance_%"]], hide_index=True, width="stretch")
+            
+            with a_col2:
+                if not weak_marks_df.empty:
+                    st.error(f"🔴 **Academic Risk (< 40%):** {len(weak_marks_df)} Students")
+                    st.dataframe(weak_marks_df[["roll_no", "name", "parent_mobile", "Percentage (%)"]], hide_index=True, width="stretch")
+            st.markdown("---")
+
+    # --- SEARCH & FILTER BAR FOR REGISTER TABLE ---
+    st.subheader("📋 Class 8 Student Information & Attendance Register")
+
+    if not df.empty:
+        search_col1, search_col2, search_col3 = st.columns([2, 1, 1])
+        with search_col1:
+            search_term = st.text_input("🔍 Search Student (Name / Roll No / Phone):", "", key="reg_search")
+        with search_col2:
+            cat_filter = st.selectbox("Category Filter", ["All"] + list(df["category"].unique()) if "category" in df.columns else ["All"], key="reg_cat_filter")
+        with search_col3:
+            att_filter = st.selectbox("Status Filter", ["All", "Present", "Absent", "Leave"], key="reg_att_filter")
+
+        # Apply Filters
+        filtered_df = df.copy()
+        if search_term.strip():
+            st_term = search_term.strip().lower()
+            filtered_df = filtered_df[
+                filtered_df["name"].astype(str).str.lower().str.contains(st_term) |
+                filtered_df["roll_no"].astype(str).str.contains(st_term) |
+                filtered_df["parent_mobile"].astype(str).str.contains(st_term)
+            ]
+        if cat_filter != "All" and "category" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["category"] == cat_filter]
+        if att_filter != "All" and "attendance" in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df["attendance"] == att_filter]
+
+        reg_cols = ["roll_no", "name", "father_name", "gender", "category", "parent_mobile", "date", "attendance", "attendance_%", "conduct"]
+        available_reg_cols = [c for c in reg_cols if c in filtered_df.columns]
+        sorted_reg_df = filtered_df.sort_values(by="roll_no")[available_reg_cols]
+        st.dataframe(sorted_reg_df, width="stretch", hide_index=True)
+    else:
+        st.info("Abhi koi student add nahi hai.")
+
+# ==================== TAB 2: ACADEMIC RESULTS ====================
+with tab2:
+    st.subheader("📊 Class 8 Academic Results & Rank Register")
+
+    if not df.empty:
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Students", len(df))
+        if "Percentage (%)" in df.columns:
+            m2.metric("Class Average Percentage", f"{df['Percentage (%)'].mean():.1f}%")
+        
+        if "Total Marks" in df.columns and not df["Total Marks"].empty:
+            top_scorer = df.loc[df["Total Marks"].idxmax()]
+            max_possible = top_scorer.get("max_marks", 100) * 6
+            m3.metric("Class Topper 🏆", f"{top_scorer['name']} ({top_scorer['Total Marks']}/{max_possible})")
+
+        class_pdf_data = generate_class_pdf(df)
+        st.download_button(
+            label="📥 Download Full Class Result (PDF)",
+            data=class_pdf_data,
+            file_name=f"Class_8_Result_Sheet_{date.today()}.pdf",
+            mime="application/pdf",
+            width="stretch",
+        )
+
+        st.markdown("---")
+
+        def highlight_performance(val):
+            if isinstance(val, (int, float)):
+                if val >= 75:
+                    return "background-color: #d4edda; color: #155724;"
+                elif val < 40:
+                    return "background-color: #f8d7da; color: #721c24;"
+            return ""
+
+        result_cols = [
+            "Rank", "roll_no", "name", "english", "hindi", "science",
+            "sst", "maths", "sanskrit", "Total Marks", "max_marks", "Percentage (%)",
+        ]
+        available_res_cols = [c for c in result_cols if c in df.columns]
+
+        if "Rank" in df.columns:
+            sorted_res_df = df.sort_values(by="Rank")[available_res_cols]
+        else:
+            sorted_res_df = df[available_res_cols]
+
+        styled_res_df = sorted_res_df.style.map(
+            highlight_performance,
+            subset=[c for c in ["english", "hindi", "science", "sst", "maths", "sanskrit", "Percentage (%)"] if c in available_res_cols],
+        )
+        st.dataframe(styled_res_df, width="stretch", hide_index=True)
+    else:
+        st.info("Results dekhne ke liye pehle Student Data Register tab mein student record add karein.")
+
+# ==================== TAB 3: PROFILES & WHATSAPP ====================
+with tab3:
+    st.subheader("👤 Student Profile Pro Card")
+
+    if not df.empty:
+        if "student_idx" not in st.session_state:
+            st.session_state.student_idx = 0
+
+        if st.session_state.student_idx >= len(df):
+            st.session_state.student_idx = 0
+
+        col_prev, col_info, col_next = st.columns([1, 2, 1])
+
+        with col_prev:
+            if st.button("⬅️ Pichla Student", width="stretch"):
+                if st.session_state.student_idx > 0:
+                    st.session_state.student_idx -= 1
                     st.rerun()
 
-        with col_chart:
-            st.markdown("#### Class Subject Comparison Average")
-            sub_means = df[['maths', 'science', 'english', 'hindi', 'social_science']].mean()
-            st.bar_chart(sub_means)
-            
-        st.subheader("🏆 Class Toppers & Leaderboard")
-        top_df = df[['roll_no', 'name', 'Percentage']].sort_values(by='Percentage', ascending=False)
-        st.dataframe(top_df, use_container_width=True, hide_index=True)
+        with col_next:
+            if st.button("Agle Student ➔", width="stretch"):
+                if st.session_state.student_idx < len(df) - 1:
+                    st.session_state.student_idx += 1
+                    st.rerun()
 
-# ------------------------------------------
-# TAB 3: PROFILES & WHATSAPP
-# ------------------------------------------
-with tab3:
-    st.subheader("👤 Student Profile Pro Card & Quick WhatsApp")
-    
-    if not df.empty:
-        sel_p_roll = st.selectbox("Choose Student Profile", df['roll_no'].tolist(), key="p_roll")
-        p_data = df[df['roll_no'] == sel_p_roll].iloc[0]
-        
-        p_c1, p_c2 = st.columns([1, 2])
-        with p_c1:
-            st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=140)
-            st.markdown(f"### {p_data['name']}")
-            st.caption(f"Roll No: {p_data['roll_no']} | Class 8th")
-            st.info(f"🏅 Academic Score: {p_data['Percentage']}%")
-        
-        with p_c2:
-            st.markdown(f"**Father's Name:** {p_data.get('father_name', 'N/A')}")
-            st.markdown(f"**Parent Phone:** {p_data.get('parent_mobile', 'N/A')}")
-            st.markdown(f"**Attendance:** {p_data.get('attendance_%', 'N/A')}%")
-            st.markdown(f"**Conduct/Behavior:** {p_data.get('conduct', 'Good')}")
-            st.markdown(f"**Blood Group:** {p_data.get('blood_group', 'O+')}")
-            
-            # WhatsApp Direct Chat Generator
-            phone = str(p_data.get('parent_mobile', ''))
-            msg = f"Namaste! Class 8th se {p_data['name']} ki attendance {p_data.get('attendance_%')}% hai aur average marks {p_data.get('Percentage')}% hai. Kripya dhyan dein."
-            wa_link = f"https://api.whatsapp.com/send?phone=91{phone}&text={msg.replace(' ', '%20')}"
-            
-            st.markdown(f'<a href="{wa_link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">💬 Send WhatsApp Update to Parent</button></a>', unsafe_allow_html=True)
+        student = df.iloc[st.session_state.student_idx]
+        max_m = int(student.get("max_marks", 100))
+        total_max_m = max_m * 6
 
-# ------------------------------------------
-# TAB 4: PRINTABLE ID CARD GENERATOR
-# ------------------------------------------
-with tab4:
-    st.subheader("🪪 Printable Student ID Card Generator")
-    st.caption("Select a student to generate a print-ready official digital ID card.")
-    
-    if not df.empty:
-        id_roll = st.selectbox("Select Student for ID Card", df['roll_no'].tolist(), key="id_roll_sel")
-        id_st = df[df['roll_no'] == id_roll].iloc[0]
-        
-        col_id_view, col_id_opts = st.columns([1, 1])
-        
-        with col_id_view:
-            st.markdown('<div class="printable-area">', unsafe_allow_html=True)
-            id_card_html = f"""
-            <div class="id-card-container">
-                <div class="id-card-header">
-                    <h3>ADARSH PUBLIC SCHOOL</h3>
-                    <p>Class 8th Student Identity Card (2026-27)</p>
+        with col_info:
+            st.info(f"Viewing Profile {st.session_state.student_idx + 1} of {len(df)}")
+
+        st.markdown(
+            f"""
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <span style="font-size: 22px; font-weight: bold;">👤 {student.get('name', 'N/A')}</span>
+                        <span style="background-color: #fef08a; padding: 4px 10px; border-radius: 12px; font-weight: bold; margin-left: 10px;">🏆 Rank #{student.get('Rank', 'N/A')}</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 16px; font-weight: 600;">Roll No: #{int(student.get('roll_no', 0))}</span>
+                    </div>
                 </div>
-                <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" class="id-avatar" />
-                <div class="id-card-body">
-                    <div class="id-card-row"><span class="id-card-label">NAME:</span> <span><b>{id_st['name']}</b></span></div>
-                    <div class="id-card-row"><span class="id-card-label">ROLL NO:</span> <span>{id_st['roll_no']}</span></div>
-                    <div class="id-card-row"><span class="id-card-label">FATHER:</span> <span>{id_st.get('father_name', 'N/A')}</span></div>
-                    <div class="id-card-row"><span class="id-card-label">DOB:</span> <span>{id_st.get('dob', '2012-01-01')}</span></div>
-                    <div class="id-card-row"><span class="id-card-label">BLOOD GRP:</span> <span>{id_st.get('blood_group', 'O+')}</span></div>
-                    <div class="id-card-row"><span class="id-card-label">EMERGENCY:</span> <span>{id_st.get('parent_mobile', 'N/A')}</span></div>
-                </div>
-                <div class="id-card-footer">
-                    <p>Principal Signature & Stamp</p>
+                <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <div style="color: #64748b; font-size: 13px;">Father's Name</div>
+                        <div style="font-weight: 600;">{student.get('father_name', 'N/A')}</div>
+                    </div>
+                    <div>
+                        <div style="color: #64748b; font-size: 13px;">Date</div>
+                        <div style="font-weight: 600;">📅 {student.get('date', 'N/A')}</div>
+                    </div>
+                    <div>
+                        <div style="color: #64748b; font-size: 13px;">Status</div>
+                        <div style="font-weight: 600;">📌 {student.get('attendance', 'Present')}</div>
+                    </div>
+                    <div>
+                        <div style="color: #64748b; font-size: 13px;">Parent Mobile</div>
+                        <div style="font-weight: 600;">📱 {student.get('parent_mobile', 'N/A')}</div>
+                    </div>
+                    <div>
+                        <div style="color: #64748b; font-size: 13px;">Attendance %</div>
+                        <div style="font-weight: 600;">🗓️ {student.get('attendance_%', 0)}%</div>
+                    </div>
                 </div>
             </div>
-            """
-            st.markdown(id_card_html, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
-        with col_id_opts:
-            st.info("💡 **Print Instructions:**")
-            st.write("1. Click the button below to trigger your browser's print menu.")
-            st.write("2. Select 'Save as PDF' or directly print on Cardstock.")
-            st.button("🖨️ Print Student ID Card", on_click=lambda: st.write("<script>window.print();</script>", unsafe_allow_html=True))
+        m_col1, m_col2, m_col3, m_col4, m_col5, m_col6, m_col7 = st.columns(7)
+        m_col1.metric("English", f"{student.get('english', 0)}/{max_m}")
+        m_col2.metric("Hindi", f"{student.get('hindi', 0)}/{max_m}")
+        m_col3.metric("Science", f"{student.get('science', 0)}/{max_m}")
+        m_col4.metric("SST", f"{student.get('sst', 0)}/{max_m}")
+        m_col5.metric("Maths", f"{student.get('maths', 0)}/{max_m}")
+        m_col6.metric("Sanskrit", f"{student.get('sanskrit', 0)}/{max_m}")
+        
+        tot_m = student.get('Total Marks', 0)
+        pct_m = student.get('Percentage (%)', 0)
+        m_col7.metric(
+            "Total Score",
+            f"{tot_m}/{total_max_m}",
+            f"{pct_m}%",
+        )
+# AI Auto Remark Display
+        remark_text = generate_student_remark(
+            pct_m, 
+            min(student.get('english',0), student.get('maths',0), student.get('science',0)),
+            student.get('english',0), student.get('maths',0), student.get('science',0)
+        )
+        st.success(f"🤖 **Auto Performance Remark:** {remark_text}")
+        st.markdown("---")
 
-# ------------------------------------------
-# TAB 5: FEE MANAGER
-# ------------------------------------------
+        btn_col1, btn_col2 = st.columns(2)
+
+        with btn_col1:
+            st.markdown("##### 📄 Report Card PDF Download")
+            student_pdf = generate_student_pdf(student)
+            st.download_button(
+                label="📄 Download Report Card PDF",
+                data=student_pdf,
+                file_name=f"Report_Card_{student.get('roll_no')}_{student.get('name')}.pdf",
+                mime="application/pdf",
+                width="stretch",
+            )
+
+        with btn_col2:
+            st.markdown("##### 📲 Direct WhatsApp Share")
+            default_mobile = str(student.get("parent_mobile", "")).strip()
+            if default_mobile and not default_mobile.startswith("91"):
+                default_mobile = "91" + default_mobile
+            elif not default_mobile:
+                default_mobile = "91"
+
+            msg_text = (
+                f"Namaste! Class 8 Update for *{student.get('name', '')}* (Date: {student.get('date', '')}):\n\n"
+                f"🏆 *Class Rank:* #{student.get('Rank', 'N/A')}\n"
+                f"📌 *Today's Attendance Status:* {student.get('attendance', 'Present')}\n"
+                f"📊 *Total Marks:* {tot_m}/{total_max_m} ({pct_m}%)\n\n"
+                f"*Subject Breakdown (Out of {max_m}):*\n"
+                f"- English: {student.get('english', 0)}/{max_m}\n"
+                f"- Hindi: {student.get('hindi', 0)}/{max_m}\n"
+                f"- Science: {student.get('science', 0)}/{max_m}\n"
+                f"- Social Science: {student.get('sst', 0)}/{max_m}\n"
+                f"- Maths: {student.get('maths', 0)}/{max_m}\n"
+                f"- Sanskrit: {student.get('sanskrit', 0)}/{max_m}\n\n"
+                f"🗓️ *Overall Attendance:* {student.get('attendance_%', 0)}%\n"
+                f"⭐ *Conduct:* {student.get('conduct', 'Good')}\n\n"
+                f"Thank you!"
+            )
+
+            encoded_msg = urllib.parse.quote(msg_text)
+            whatsapp_url = f"https://wa.me/{default_mobile}?text={encoded_msg}"
+            st.link_button(
+                "💬 WhatsApp Par Result Send Karein",
+                whatsapp_url,
+                width="stretch",
+            )
+
+    else:
+        st.info("Abhi koi student profile show karne ke liye data available nahi hai.")
+
+# ==================== TAB 4: FEE MANAGER ====================
+with tab4:
+    st.subheader("💳 Student Fee Details Register")
+    if not df.empty:
+        f1, f2, f3 = st.columns(3)
+        f1.metric("Total Expected Fees", f"₹{df['total_fee'].sum():,.2f}" if "total_fee" in df.columns else "₹0.00")
+        f2.metric("Total Collected Fees", f"₹{df['fee_paid'].sum():,.2f}" if "fee_paid" in df.columns else "₹0.00")
+        f3.metric("Total Pending Fees ⚠️", f"₹{df['Pending Fee'].sum():,.2f}" if "Pending Fee" in df.columns else "₹0.00")
+
+        st.markdown("---")
+
+        fee_cols = ["roll_no", "name", "father_name", "parent_mobile", "total_fee", "fee_paid", "Pending Fee"]
+        fee_df = df[[c for c in fee_cols if c in df.columns]]
+        st.dataframe(fee_df, width="stretch", hide_index=True)
+    else:
+        st.info("Abhi koi student register nahi hua hai.")
+
+# ==================== TAB 5: PARENT CALLS ====================
 with tab5:
-    st.subheader("💳 Student Fees Collection & Ledger")
-    
+    st.subheader("📞 Parent Call Communication Log")
+
     if not df.empty:
-        df['paid_fees'] = df['paid_fees'].fillna(0)
-        df['total_fees'] = df['total_fees'].fillna(25000)
-        df['due_fees'] = df['total_fees'] - df['paid_fees']
-        
-        tot_coll = df['paid_fees'].sum()
-        tot_pending = df['due_fees'].sum()
-        
-        fc1, fc2 = st.columns(2)
-        with fc1:
-            st.success(f"💰 Total Fees Collected: ₹{tot_coll:,.2f}")
-        with fc2:
-            st.error(f"⏳ Total Pending Dues: ₹{tot_pending:,.2f}")
-            
-        st.markdown("#### Update Fee Payment")
-        fee_roll = st.selectbox("Select Student for Fee Entry", df['roll_no'].tolist(), key="fee_r")
-        f_row = df[df['roll_no'] == fee_roll].iloc[0]
-        
-        with st.form("fee_form"):
-            p_amount = st.number_input("Amount Paid Now (₹)", min_value=0, value=1000)
-            pay_btn = st.form_submit_button("Record Payment")
-            if pay_btn:
-                u_f = f_row.to_dict()
-                u_f['paid_fees'] = float(u_f.get('paid_fees', 0)) + float(p_amount)
-                save_student_to_db(u_f)
-                st.success("Payment recorded successfully!")
-                st.rerun()
+        selected_student_call = st.selectbox(
+            "Select Student for Call Logging:",
+            options=df["roll_no"].tolist(),
+            format_func=lambda x: f"Roll No {x}: {df[df['roll_no']==x]['name'].values[0]}",
+        )
 
-        st.dataframe(df[['roll_no', 'name', 'total_fees', 'paid_fees', 'due_fees']], use_container_width=True, hide_index=True)
+        student_info = df[df["roll_no"] == selected_student_call].iloc[0]
 
-# ------------------------------------------
-# TAB 6: PARENT CALL LOGS
-# ------------------------------------------
+        st.info(f"**Parent Mobile:** 📱 {student_info.get('parent_mobile', 'N/A')} | **Father Name:** {student_info.get('father_name', 'N/A')}")
+
+        with st.form("call_log_form"):
+            c_col1, c_col2 = st.columns(2)
+            with c_col1:
+                call_status = st.selectbox(
+                    "Call Status 📲",
+                    [
+                        "Connected - Discovered Issue",
+                        "Connected - Satisfied",
+                        "Unreachable",
+                        "Switched Off / Busy",
+                        "Follow-up Scheduled",
+                    ],
+                )
+            with c_col2:
+                call_date = st.date_input("Call Date 📅", value=date.today())
+
+            call_remarks = st.text_area(
+                "Call Discussion / Remarks 📝",
+                placeholder="Discussed absenteeism, homework delay, performance etc...",
+            )
+            submit_call = st.form_submit_button("💾 Save Call Log")
+
+            if submit_call:
+                try:
+                    update_data = {
+                        "last_call_date": str(call_date),
+                        "last_call_status": call_status,
+                        "call_remarks": call_remarks.strip(),
+                    }
+                    supabase.table("class_8_students").update(update_data).eq("roll_no", int(selected_student_call)).execute()
+                    refresh_cache()
+                    st.toast(f"✅ Call Log updated for {student_info['name']}!", icon="📞")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error updating call log: {e}")
+
+        st.markdown("---")
+        st.markdown("##### 📜 Call Log History Register")
+        call_cols = ["roll_no", "name", "parent_mobile", "last_call_date", "last_call_status", "call_remarks"]
+        available_call_cols = [c for c in call_cols if c in df.columns]
+        st.dataframe(df[available_call_cols], width="stretch", hide_index=True)
+    else:
+        st.info("Abhi koi student register nahi hua hai.")
+
+# ==================== TAB 6: NOTEBOOK TRACKER ====================
 with tab6:
-    st.subheader("📞 Parent Call History & Follow-up Tracker")
-    
-    with st.form("call_log_form"):
-        cl1, cl2, cl3 = st.columns(3)
-        with cl1:
-            c_roll = st.selectbox("Student", df['roll_no'].tolist() if not df.empty else [8001])
-        with cl2:
-            c_status = st.selectbox("Call Status", ["Connected - Discussed", "Parent Busy", "No Answer / Switched Off", "Follow-up Required"])
-        with cl3:
-            c_notes = st.text_input("Call Discussion Notes", value="Discussed regarding low attendance and test marks.")
-            
-        log_btn = st.form_submit_button("Log Call Record")
-        if log_btn:
-            st.success("Call logged successfully in history!")
+    st.subheader("📓 Notebook Completion Tracker")
 
-    st.info("📋 Recent Parent Call Logs will appear here.")
+    if not df.empty:
+        selected_student_nb = st.selectbox(
+            "Select Student for Notebook Tracking:",
+            options=df["roll_no"].tolist(),
+            format_func=lambda x: f"Roll No {x}: {df[df['roll_no']==x]['name'].values[0]}",
+            key="nb_select",
+        )
 
-# ------------------------------------------
-# TAB 7: NOTEBOOK TRACKER
-# ------------------------------------------
+        student_nb_info = df[df["roll_no"] == selected_student_nb].iloc[0]
+        nb_statuses = ["Completed", "Incomplete", "Pending Checking", "Correction Needed"]
+
+        with st.form("notebook_tracker_form"):
+            nb_col1, nb_col2, nb_col3 = st.columns(3)
+
+            with nb_col1:
+                eng_nb = st.selectbox(
+                    "English Notebook",
+                    nb_statuses,
+                    index=nb_statuses.index(student_nb_info.get("eng_nb", "Incomplete")) if student_nb_info.get("eng_nb") in nb_statuses else 1,
+                )
+                hindi_nb = st.selectbox(
+                    "Hindi Notebook",
+                    nb_statuses,
+                    index=nb_statuses.index(student_nb_info.get("hindi_nb", "Incomplete")) if student_nb_info.get("hindi_nb") in nb_statuses else 1,
+                )
+
+            with nb_col2:
+                sci_nb = st.selectbox(
+                    "Science Notebook",
+                    nb_statuses,
+                    index=nb_statuses.index(student_nb_info.get("sci_nb", "Incomplete")) if student_nb_info.get("sci_nb") in nb_statuses else 1,
+                )
+                sst_nb = st.selectbox(
+                    "Social Science Notebook",
+                    nb_statuses,
+                    index=nb_statuses.index(student_nb_info.get("sst_nb", "Incomplete")) if student_nb_info.get("sst_nb") in nb_statuses else 1,
+                )
+
+            with nb_col3:
+                math_nb = st.selectbox(
+                    "Maths Notebook",
+                    nb_statuses,
+                    index=nb_statuses.index(student_nb_info.get("math_nb", "Incomplete")) if student_nb_info.get("math_nb") in nb_statuses else 1,
+                )
+                sans_nb = st.selectbox(
+                    "Sanskrit Notebook",
+                    nb_statuses,
+                    index=nb_statuses.index(student_nb_info.get("sans_nb", "Incomplete")) if student_nb_info.get("sans_nb") in nb_statuses else 1,
+                )
+
+            submit_nb = st.form_submit_button("💾 Save Notebook Status")
+
+            if submit_nb:
+                try:
+                    update_nb_data = {
+                        "eng_nb": eng_nb,
+                        "hindi_nb": hindi_nb,
+                        "sci_nb": sci_nb,
+                        "sst_nb": sst_nb,
+                        "math_nb": math_nb,
+                        "sans_nb": sans_nb,
+                    }
+                    supabase.table("class_8_students").update(update_nb_data).eq("roll_no", int(selected_student_nb)).execute()
+                    refresh_cache()
+                    st.toast(f"✅ Notebook status updated for {student_nb_info['name']}!", icon="📓")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error updating notebook status: {e}")
+
+        st.markdown("---")
+        st.markdown("##### 📜 Notebook Status Register")
+
+        def highlight_notebook(val):
+            if val == "Completed":
+                return "background-color: #d4edda; color: #155724;"
+            elif val in ["Incomplete", "Correction Needed"]:
+                return "background-color: #f8d7da; color: #721c24;"
+            elif val == "Pending Checking":
+                return "background-color: #fff3cd; color: #856404;"
+            return ""
+# ==================== TAB 7: STUDENT ID CARDS ====================
 with tab7:
-    st.subheader("📓 Subject Notebook Submission Tracker")
-    
-    nb_sub = st.selectbox("Select Subject", ["Maths", "Science", "English", "Hindi", "Social Science"])
+    st.subheader("🪪 Student ID Card Generator")
     
     if not df.empty:
-        nb_df = df[['roll_no', 'name']].copy()
-        nb_df['Status'] = "Completed & Checked"
-        st.data_editor(nb_df, use_container_width=True, hide_index=True)
-
-# ------------------------------------------
-# TAB 8: STUDENT SLUG PORTAL LINK
-# ------------------------------------------
-with tab8:
-    st.subheader("🔗 Public Student Slug Portal Link")
-    st.caption("Generate unique shareable link for student result cards.")
-    
-    if not df.empty:
-        slug_roll = st.selectbox("Choose Student for Link", df['roll_no'].tolist(), key="slug_r")
-        st_slug_data = df[df['roll_no'] == slug_roll].iloc[0]
+        col_id_select, col_id_preview = st.columns([1, 2])
         
-        slug_name = str(st_slug_data['name']).lower().replace(' ', '-')
-        public_url = f"https://class8-student-management.streamlit.app/?student_slug={slug_name}-{slug_roll}"
-        
-        st.code(public_url, language="text")
-        st.success(f"Share this link directly with {st_slug_data['name']}'s parents!")
+        with col_id_select:
+            st.markdown("##### ⚙️ ID Card Details")
+            school_name = st.text_input("School / Academy Name", value="M.K MEMORIAL SR. SEC. SCHOOL, SIKAR", key="id_school")
+            academic_year = st.text_input("Academic Session", value="2026-2027", key="id_session")
+            
+            selected_id_roll = st.selectbox(
+                "Select Student for ID Card:",
+                options=df["roll_no"].tolist(),
+                format_func=lambda x: f"Roll No {x}: {df[df['roll_no']==x]['name'].values[0]}",
+                key="id_card_select"
+            )
+            
+            student_id_data = df[df["roll_no"] == selected_id_roll].iloc[0]
+            
+            # Print PDF Helper for Single ID Card
+            def generate_id_card_pdf(stu, sch_name, session):
+                buffer = BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=(250, 160), leftMargin=10, rightMargin=10, topMargin=10, bottomMargin=10)
+                styles = getSampleStyleSheet()
+                story = []
+                
+                sch_style = ParagraphStyle('SchStyle', parent=styles['Heading1'], fontSize=11, alignment=1, textColor=colors.HexColor("#0f172a"))
+                sess_style = ParagraphStyle('SessStyle', parent=styles['Normal'], fontSize=7, alignment=1, textColor=colors.HexColor("#475569"))
+                name_style = ParagraphStyle('NameStyle', parent=styles['Heading2'], fontSize=10, alignment=1, textColor=colors.HexColor("#1e3a8a"))
+                
+                story.append(Paragraph(f"<b>{sch_name.upper()}</b>", sch_style))
+                story.append(Paragraph(f"STUDENT ID CARD ({session})", sess_style))
+                story.append(Spacer(1, 6))
+                
+                story.append(Paragraph(f"<b>{stu.get('name', '').upper()}</b>", name_style))
+                story.append(Spacer(1, 6))
+                
+                info_text = [
+                    [Paragraph(f"<b>Roll No:</b> {stu.get('roll_no', '')}", styles['Normal']), Paragraph(f"<b>Class:</b> 8th", styles['Normal'])],
+                    [Paragraph(f"<b>Father:</b> {stu.get('father_name', '')}", styles['Normal']), Paragraph(f"<b>Mobile:</b> {stu.get('parent_mobile', '')}", styles['Normal'])],
+                ]
+                t_id = Table(info_text, colWidths=[115, 115])
+                t_id.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('FONTSIZE', (0,0), (-1,-1), 7),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+                ]))
+                story.append(t_id)
+                
+                doc.build(story)
+                buffer.seek(0)
+                return buffer
 
-# ------------------------------------------
-# TAB 9: AI ASSISTANT & INSIGHTS
-# ------------------------------------------
-with tab9:
-    st.subheader("🤖 AI Class Assistant & Performance Insights")
-    
-    query = st.text_input("Ask AI about Class 8 performance (e.g. 'Which students need urgent help in Maths?'):")
-    if query:
-        st.markdown(f"**AI Query Response:**")
-        st.info("Based on current class records, 2 students (Hemant Singh & Ansh Kumarjangir) score below 40% in core subjects and require remedial classes.")
+            id_pdf = generate_id_card_pdf(student_id_data, school_name, academic_year)
+            st.download_button(
+                label="🖨️ Download Printable ID Card (PDF)",
+                data=id_pdf,
+                file_name=f"ID_Card_{student_id_data.get('roll_no')}_{student_id_data.get('name')}.pdf",
+                mime="application/pdf",
+                width="stretch"
+            )
+
+        with col_id_preview:
+            st.markdown("##### 👁️ Live Digital Card Preview")
+            
+            card_html = textwrap.dedent(f"""
+            <div style="width: 320px; border: 2px solid #1e293b; border-radius: 12px; padding: 15px; background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 0 auto; font-family: Arial, sans-serif;">
+                <div style="text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 8px; margin-bottom: 12px;">
+                    <div style="font-size: 13px; font-weight: bold; color: #0f172a; text-transform: uppercase;">{school_name}</div>
+                    <div style="font-size: 9px; color: #2563eb; font-weight: 600;">STUDENT IDENTITY CARD • {academic_year}</div>
+                </div>
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <div style="width: 50px; height: 50px; border-radius: 50%; background-color: #e2e8f0; display: inline-block; line-height: 50px; font-size: 22px; border: 2px solid #2563eb; margin: 0 auto;">👤</div>
+                    <div style="font-size: 15px; font-weight: bold; color: #1e3a8a; margin-top: 6px;">{student_id_data.get('name', 'N/A').upper()}</div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: 600;">CLASS 8th STUDENT</div>
+                </div>
+                <div style="background-color: #edf2f7; padding: 10px; border-radius: 8px; font-size: 11px; color: #334155; text-align: left;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span><b>Roll No:</b> #{int(student_id_data.get('roll_no', 0))}</span>
+                        <span><b>Conduct:</b> {student_id_data.get('conduct', 'Good')}</span>
+                    </div>
+                    <div style="margin-bottom: 4px;"><b>Father Name:</b> {student_id_data.get('father_name', 'N/A')}</div>
+                    <div><b>Parent Mobile:</b> 📱 {student_id_data.get('parent_mobile', 'N/A')}</div>
+                </div>
+            </div>
+            """)
+            st.markdown(card_html, unsafe_allow_html=True)
+
+    else:
+        st.info("ID Card generate karne ke liye pehle student record add karein.")
