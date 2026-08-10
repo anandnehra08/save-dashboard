@@ -7,7 +7,7 @@ import io
 import datetime
 import re
 
-# --- 1. FULL MOBILE & DESKTOP APP CONFIGURATION ---
+# --- 1. ADVANCED MOBILE-FIRST APP CONFIGURATION ---
 st.set_page_config(
     page_title="School ERP - Anand Nehra", 
     page_icon="🏫", 
@@ -15,34 +15,37 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. NATIVE UI & STYLING ---
+# --- 2. PREMIUM UI & MODERN CSS STYLING ---
 st.markdown("""
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#1E88E5">
+    <meta name="theme-color" content="#0F172A">
 
     <style>
+    /* Hide Streamlit Default Components */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     [data-testid="collapsedControl"] {display: none;}
     
+    /* Global Container Setup */
     .main .block-container {
-        padding-top: 5px !important;
-        padding-bottom: 70px !important;
-        max-width: 500px !important;
+        padding-top: 10px !important;
+        padding-bottom: 80px !important;
+        max-width: 480px !important;
         margin: 0 auto !important;
     }
-    
+
+    /* Gradient Header Bar */
     .app-header-bar {
-        background: linear-gradient(135deg, #1565C0, #1E88E5);
+        background: linear-gradient(135deg, #1E293B, #0F172A);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         color: white;
-        padding: 14px 16px;
-        border-radius: 0 0 20px 20px;
-        box-shadow: 0 4px 12px rgba(21, 101, 192, 0.25);
-        margin-bottom: 12px;
-        margin-top: -10px;
+        padding: 16px 18px;
+        border-radius: 24px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        margin-bottom: 18px;
     }
     
     .header-top {
@@ -51,60 +54,92 @@ st.markdown("""
         justify-content: space-between;
     }
     
-    .app-brand { display: flex; align-items: center; gap: 10px; }
+    .app-brand { display: flex; align-items: center; gap: 12px; }
     .app-icon { 
-        font-size: 26px; 
-        background: rgba(255, 255, 255, 0.2); 
-        padding: 6px 10px; 
-        border-radius: 12px; 
+        font-size: 28px; 
+        background: linear-gradient(135deg, #3B82F6, #2563EB); 
+        padding: 8px 12px; 
+        border-radius: 16px; 
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     }
-    .app-title-text h3 { margin: 0; font-size: 17px; color: white; font-weight: 800; }
-    .app-title-text span { font-size: 11px; opacity: 0.85; }
+    .app-title-text h3 { 
+        margin: 0; 
+        font-size: 18px; 
+        color: #F8FAFC; 
+        font-weight: 800; 
+        letter-spacing: -0.5px;
+    }
+    .app-title-text span { 
+        font-size: 11px; 
+        color: #94A3B8; 
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
 
+    .status-badge {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ADE80;
+        border: 1px solid rgba(74, 222, 128, 0.2);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    /* Admin Developer Badge */
     .admin-info-box {
-        background: rgba(255, 255, 255, 0.15);
-        border-radius: 12px;
-        padding: 8px 12px;
-        margin-top: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 10px 14px;
+        margin-top: 12px;
         font-size: 12px;
-        color: #FFFFFF;
-        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #CBD5E1;
+        border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .admin-info-box p { margin: 2px 0; }
-    .admin-info-box a { color: #FFE082; text-decoration: none; font-weight: bold; }
+    .admin-info-box a { color: #38BDF8; text-decoration: none; font-weight: 700; }
 
+    /* Elegant Card Design */
     .card { 
         background: #FFFFFF; 
-        padding: 16px; 
-        border-radius: 18px; 
-        margin-bottom: 14px; 
-        border: 1px solid #ECEFF1; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.04); 
+        padding: 20px; 
+        border-radius: 20px; 
+        margin-bottom: 16px; 
+        border: 1px solid #E2E8F0; 
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); 
     }
 
+    /* Custom Stylish Buttons */
     .stButton>button { 
         width: 100%; 
-        border-radius: 14px !important; 
-        height: 48px !important; 
-        font-size: 15px !important;
+        border-radius: 16px !important; 
+        height: 52px !important; 
+        font-size: 16px !important;
         font-weight: 700 !important; 
-        background: linear-gradient(135deg, #1E88E5, #1565C0) !important; 
+        background: linear-gradient(135deg, #2563EB, #1D4ED8) !important; 
         color: white !important; 
         border: none !important;
-        box-shadow: 0 4px 12px rgba(30, 136, 229, 0.25) !important;
+        box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4) !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    
+    .stButton>button:active {
+        transform: scale(0.98);
     }
 
+    /* Interactive CBT Box */
     .cbt-box {
-        background: #E3F2FD;
-        border-left: 5px solid #1E88E5;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 15px;
+        background: #F0F9FF;
+        border-left: 5px solid #0284C7;
+        padding: 14px;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        color: #0C4A6E;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Admin Header Bar (Mobile & Desktop Visible)
+# Admin Header Bar
 st.markdown("""
 <div class="app-header-bar">
     <div class="header-top">
@@ -115,7 +150,7 @@ st.markdown("""
                 <span>ULTIMATE CAMPUS PORTAL</span>
             </div>
         </div>
-        <span style="background:#E8F5E9;color:#2E7D32;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:bold;">🟢 Online</span>
+        <span class="status-badge">🟢 Online</span>
     </div>
     <div class="admin-info-box">
         <p>👨‍💼 <b>Developer / Admin:</b> Anand Nehra</p>
