@@ -21,5 +21,5 @@ jobs:
           RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "$RCLONE_CONFIG_DATA" > ~/.config/rclone/rclone.conf
-          rclone copy . gdrive:SchoolERP_Backups --exclude ".git/**"
+          printf "%s" "$RCLONE_CONFIG_DATA" > ~/.config/rclone/rclone.conf
+          rclone copy . gdrive:SchoolERP_Backups --exclude ".git/**" -v
