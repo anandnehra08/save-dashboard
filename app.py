@@ -7,7 +7,7 @@ import io
 import datetime
 import re
 
-# --- 1. FULL MOBILE APP NATIVE VIEW CONFIGURATION ---
+# --- 1. FULL MOBILE APP CONFIGURATION ---
 st.set_page_config(
     page_title="School ERP App", 
     page_icon="🏫", 
@@ -15,99 +15,99 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. ANDROID APP LOOK & FEEL STYLING (PWA + NATIVE CSS) ---
+# --- 2. PREMIUM ANDROID APP UI & BADGES STYLING ---
 st.markdown("""
-    <!-- PWA Meta Tags for Native Android App Feel -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1E88E5">
 
     <style>
-    /* Hide Streamlit Header, Footer & Main Menu for App Look */
+    /* Streamlit UI Overrides */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* App Canvas Container */
     .main .block-container {
-        padding-top: 10px !important;
+        padding-top: 5px !important;
         padding-bottom: 70px !important;
         max-width: 480px !important;
         margin: 0 auto !important;
     }
     
-    /* Android App Header Bar */
-    .app-header {
-        background: linear-gradient(135deg, #1976D2, #1565C0);
+    /* Native App Icon Header Bar */
+    .app-header-bar {
+        background: linear-gradient(135deg, #1565C0, #1E88E5);
         color: white;
-        padding: 15px;
-        border-radius: 0 0 18px 18px;
-        text-align: center;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        margin-bottom: 15px;
+        padding: 16px 20px;
+        border-radius: 0 0 22px 22px;
+        box-shadow: 0 6px 15px rgba(21, 101, 192, 0.3);
+        margin-bottom: 20px;
         margin-top: -10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-    .app-header h2 { margin: 0; font-size: 20px; color: white; font-weight: 700; }
-    .app-header p { margin: 0; font-size: 12px; opacity: 0.9; }
+    .app-brand { display: flex; align-items: center; gap: 12px; }
+    .app-icon { 
+        font-size: 28px; 
+        background: rgba(255, 255, 255, 0.2); 
+        padding: 8px; 
+        border-radius: 14px; 
+        backdrop-filter: blur(5px);
+    }
+    .app-title-text { line-height: 1.2; }
+    .app-title-text h3 { margin: 0; font-size: 18px; color: white; font-weight: 800; }
+    .app-title-text span { font-size: 11px; opacity: 0.85; letter-spacing: 0.5px; }
 
-    /* Native Card Design */
+    /* Modern Rounded App Card */
     .card { 
         background: #FFFFFF; 
-        padding: 16px; 
-        border-radius: 16px; 
-        margin-bottom: 14px; 
-        border: 1px solid #E0E0E0; 
-        box-shadow: 0 3px 8px rgba(0,0,0,0.05); 
+        padding: 18px; 
+        border-radius: 20px; 
+        margin-bottom: 15px; 
+        border: 1px solid #ECEFF1; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
     }
-    .badge { 
-        background-color: #E3F2FD; 
-        color: #1565C0; 
+    .badge-status { 
+        background-color: #E8F5E9; 
+        color: #2E7D32; 
         padding: 4px 10px; 
-        border-radius: 12px; 
+        border-radius: 20px; 
         font-size: 11px; 
-        font-weight: bold; 
+        font-weight: 700; 
     }
 
-    /* Buttons Style */
+    /* Primary Android Buttons */
     .stButton>button { 
         width: 100%; 
-        border-radius: 14px !important; 
-        height: 50px !important; 
+        border-radius: 16px !important; 
+        height: 52px !important; 
         font-size: 16px !important;
-        font-weight: bold !important; 
+        font-weight: 700 !important; 
         background: linear-gradient(135deg, #1E88E5, #1565C0) !important; 
         color: white !important; 
         border: none !important;
-        box-shadow: 0 4px 10px rgba(30, 136, 229, 0.3) !important;
-    }
-
-    /* Bottom Navigation Simulation */
-    .bottom-nav {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: #FFFFFF;
-        display: flex;
-        justify-content: space-around;
-        padding: 8px 0;
-        border-top: 1px solid #E0E0E0;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
-        z-index: 99999;
+        box-shadow: 0 6px 14px rgba(30, 136, 229, 0.3) !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# App Title Header Bar
+# HD App Header Bar
 st.markdown("""
-<div class="app-header">
-    <h2>🏫 School ERP Enterprise App</h2>
-    <p>Mobile Smart Administration Portal</p>
+<div class="app-header-bar">
+    <div class="app-brand">
+        <div class="app-icon">🏫</div>
+        <div class="app-title-text">
+            <h3>School ERP Pro</h3>
+            <span>SMART CAMPUS PORTAL</span>
+        </div>
+    </div>
+    <span class="badge-status">🟢 Online</span>
 </div>
 """, unsafe_allow_html=True)
 
-# --- 3. SUPABASE DATABASE CONNECTION ---
+# --- 3. SUPABASE CONNECTION ---
 @st.cache_resource
 def init_supabase() -> Client:
     try:
@@ -115,12 +115,11 @@ def init_supabase() -> Client:
         key = st.secrets["SUPABASE_KEY"]
         return create_client(url, key)
     except Exception as e:
-        st.error("Database Connection Failed! Check secrets.toml")
+        st.error("Database Connection Failed!")
         return None
 
 supabase = init_supabase()
 
-# Session State Setup
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'role' not in st.session_state:
@@ -157,13 +156,13 @@ if not st.session_state.logged_in:
                     st.error("Incorrect OTP!")
     st.stop()
 
-# --- 5. APP NAVIGATION SYSTEM ---
+# --- 5. NAVIGATION SYSTEM ---
 st.sidebar.markdown(f"### 👤 Role: `{st.session_state.role}`")
 if st.sidebar.button("🔴 Logout App"):
     st.session_state.logged_in = False
     st.rerun()
 
-menu = st.sidebar.selectbox("📱 App Modules Menu", [
+menu = st.sidebar.selectbox("📱 App Modules", [
     "1. 👑 App License & Pricing",
     "2. ✏️ Add / Edit Complete Student Profile",
     "3. 👥 View All Students Table",
@@ -199,7 +198,6 @@ if menu == "1. 👑 App License & Pricing":
 # --- MODULE 2: ADD / EDIT COMPLETE STUDENT PROFILE ---
 elif menu == "2. ✏️ Add / Edit Complete Student Profile":
     st.subheader("✏️ Student Master Form")
-    
     roll_no = st.number_input("Roll No (Unique ID)", min_value=1, step=1)
     
     existing = None
@@ -246,7 +244,6 @@ elif menu == "2. ✏️ Add / Edit Complete Student Profile":
 # --- MODULE 3: VIEW ALL STUDENTS TABLE ---
 elif menu == "3. 👥 View All Students Table":
     st.subheader("👥 Student Directory")
-    
     col_c, col_s = st.columns(2)
     with col_c:
         sel_class = st.selectbox("Class", ["All"] + classes_list)
@@ -256,10 +253,8 @@ elif menu == "3. 👥 View All Students Table":
     if supabase:
         try:
             query = supabase.table("students").select("*")
-            if sel_class != "All":
-                query = query.eq("class", sel_class)
-            if sel_sec != "All":
-                query = query.eq("section", sel_sec)
+            if sel_class != "All": query = query.eq("class", sel_class)
+            if sel_sec != "All": query = query.eq("section", sel_sec)
             
             res = query.execute()
             if res.data:
@@ -272,7 +267,6 @@ elif menu == "3. 👥 View All Students Table":
 # --- MODULE 4: ADVANCE MULTI-SEARCH PROFILE ---
 elif menu == "4. 🔍 Advance Multi-Search Profile":
     st.subheader("🔍 Master Search")
-    
     search_query = st.text_input("Search Roll No, Name, Aadhaar or Mobile")
     
     if search_query and supabase:
@@ -289,7 +283,7 @@ elif menu == "4. 🔍 Advance Multi-Search Profile":
                 for student in res.data:
                     st.markdown(f"""
                     <div class="card">
-                        <h3>👤 {student.get('name', 'N/A')} <span class="badge">{student.get('class', '')} - {student.get('section', '')}</span></h3>
+                        <h3>👤 {student.get('name', 'N/A')} <span style="background:#E3F2FD;color:#1565C0;padding:3px 8px;border-radius:10px;font-size:11px;">{student.get('class', '')} - {student.get('section', '')}</span></h3>
                         <p><b>Roll No:</b> {student.get('roll_no', 'N/A')} | <b>DOB:</b> {student.get('dob', 'N/A')}</p>
                         <p><b>Father:</b> {student.get('father_name', 'N/A')} | <b>Mother:</b> {student.get('mother_name', 'N/A')}</p>
                         <p><b>Aadhaar:</b> {student.get('aadhaar', 'N/A')} {'✅' if is_valid_aadhaar(student.get('aadhaar', '')) else '⚠️'}</p>
@@ -314,7 +308,6 @@ elif menu == "4. 🔍 Advance Multi-Search Profile":
 # --- MODULE 5: FEES PAYMENT, CALL & SMS LINK ---
 elif menu == "5. 💳 Fees Payment, Call & SMS Link":
     st.subheader("💳 Quick Fee Collection")
-    
     mob_num = st.text_input("Parent Mobile Number")
     amount = st.number_input("Fee Due Amount (₹)", value=1500)
 
@@ -329,12 +322,9 @@ elif menu == "5. 💳 Fees Payment, Call & SMS Link":
 # --- MODULE 6: MARK ATTENDANCE & WHATSAPP ALERT ---
 elif menu == "6. 📅 Mark Attendance & WhatsApp Alert":
     st.subheader("📅 Attendance Marker")
-    
     col1, col2 = st.columns(2)
-    with col1:
-        sel_c = st.selectbox("Class", classes_list)
-    with col2:
-        sel_s = st.selectbox("Section", sections_list)
+    with col1: sel_c = st.selectbox("Class", classes_list)
+    with col2: sel_s = st.selectbox("Section", sections_list)
         
     roll_no = st.number_input("Roll No", min_value=1, step=1)
     status = st.radio("Attendance Status", ["Present", "Absent"], horizontal=True)
@@ -351,12 +341,10 @@ elif menu == "6. 📅 Mark Attendance & WhatsApp Alert":
                     "roll_no": roll_no, "class": sel_c, "section": sel_s,
                     "date": str(datetime.date.today()), "status": status
                 }).execute()
-            except Exception as e:
-                pass
+            except Exception as e: pass
         
         st.success(f"Marked as {status}!")
-        if wa_num:
-            st.markdown(f"📲 **[Click to Open WhatsApp]({wa_url})**")
+        if wa_num: st.markdown(f"📲 **[Click to Open WhatsApp]({wa_url})**")
 
 # --- MODULE 7: CLASS 1-12 NCERT TEXTBOOKS ---
 elif menu == "7. 📚 Class 1-12 NCERT Textbooks":
@@ -364,10 +352,9 @@ elif menu == "7. 📚 Class 1-12 NCERT Textbooks":
     for c_num in range(1, 13):
         st.markdown(f"👉 **[Class {c_num} Official NCERT Textbooks](https://ncert.nic.in/textbook.php)**")
 
-# --- MODULE 8: AUTO QUESTION PAPER (HINDI & ENGLISH) ---
+# --- MODULE 8: AUTO QUESTION PAPER ---
 elif menu == "8. 📄 Auto Question Paper (Hindi & English)":
     st.subheader("📄 Bilingual Paper Generator")
-    
     p_class = st.selectbox("Select Class", classes_list)
     p_sub = st.selectbox("Select Subject", subjects_list)
     p_lang = st.selectbox("Paper Language", ["Bilingual (Hindi + English)", "Hindi Medium", "English Medium"])
@@ -414,7 +401,6 @@ elif menu == "8. 📄 Auto Question Paper (Hindi & English)":
 # --- MODULE 9: EXAM MARKS PORTAL ---
 elif menu == "9. 📝 Exam Marks Portal":
     st.subheader("📝 Marks Entry Portal")
-    
     exam_name = st.selectbox("Exam Type", ["Unit Test 1", "Unit Test 2", "Half-Yearly Exam", "Yearly Exam"])
     s_class = st.selectbox("Class", classes_list)
     s_roll = st.number_input("Roll No", min_value=1)
@@ -435,13 +421,11 @@ elif menu == "9. 📝 Exam Marks Portal":
                     "hindi": hindi, "english": english, "maths": maths, "science": science
                 }).execute()
                 st.success("Marks saved successfully!")
-            except Exception as e:
-                st.error(f"Error: {e}")
+            except Exception as e: st.error(f"Error: {e}")
 
 # --- MODULE 10: STUDENT ANSWER SHEET COPY CHECK ---
 elif menu == "10. ✅ Student Answer Sheet Copy Check":
     st.subheader("✅ Student Copy Verification")
-    
     c1, c2 = st.columns(2)
     with c1:
         s_class = st.selectbox("Class", classes_list)
