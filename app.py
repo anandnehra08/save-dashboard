@@ -160,9 +160,13 @@ if not st.session_state.logged_in:
     else:
         mobile = st.text_input("Enter 10-digit Mobile Number")
         if mobile:
-            st.info("App License Fee: ₹1000/year")
-            upi_pay = f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am=1000&cu=INR"
-            st.markdown(f"👉 **[Click Here to Pay App Fee ₹1000]({upi_pay})**")
+            plan_choice = st.radio("Select Subscription Plan", ["Yearly Plan - ₹2,000 / Year", "Lifetime Plan - ₹20,000"])
+            pay_amt = 2000 if "Yearly" in plan_choice else 20000
+            
+            st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
+            upi_pay = f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
+            st.markdown(f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**")
+            
             otp = st.text_input("Enter OTP (Use '1234')", type="password")
             if st.button("Verify OTP & Login"):
                 if otp == "1234":
@@ -225,8 +229,9 @@ if menu == "1. 👑 App License & Pricing":
         <p>• <b>Email:</b> anandnehra8@gmail.com</p>
         <hr>
         <h4>💰 Pricing Overview</h4>
-        <p>• <b>Teacher / Staff License:</b> ₹1000/year</p>
-        <p>• <b>Admin Access:</b> Free Lifetime Access</p>
+        <p>• <b>Yearly Subscription:</b> ₹2,000 / Year</p>
+        <p>• <b>Lifetime Access:</b> ₹20,000 (One-Time Payment)</p>
+        <p>• <b>Admin Access:</b> Full System Control Included</p>
         <p>• <b>All 14 Advanced Modules:</b> Unlocked</p>
     </div>
     """, unsafe_allow_html=True)
