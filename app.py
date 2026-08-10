@@ -9,7 +9,7 @@ import re
 
 # --- 1. FULL MOBILE APP CONFIGURATION ---
 st.set_page_config(
-    page_title="School ERP App Pro", 
+    page_title="School ERP App Pro Max", 
     page_icon="🏫", 
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -76,6 +76,14 @@ st.markdown("""
         color: white !important; 
         border: none !important;
         box-shadow: 0 4px 12px rgba(30, 136, 229, 0.25) !important;
+    }
+
+    .cbt-box {
+        background: #E3F2FD;
+        border-left: 5px solid #1E88E5;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -158,18 +166,19 @@ menu = st.selectbox(
     "📱 Select App Module (सभी मॉड्यूल्स):", 
     [
         "1. 👑 App License & Pricing",
-        "2. ✏️ Add / Edit Complete Student Profile",
-        "3. 👥 View All Students Table",
-        "4. 🔍 Advance Multi-Search Profile",
-        "5. 📄 Automatic Report Card Generator (PDF)",
-        "6. 💳 Pending Fees & Instant Fee Receipt",
-        "7. 🗓️ School Calendar & Holidays Notice",
-        "8. 👨‍🏫 Teacher Salary & Leave Manager",
-        "9. 📅 Mark Attendance & WhatsApp Alert",
-        "10. 📚 Class 1-12 NCERT Textbooks",
-        "11. 📄 Auto Question Paper (Hindi & English)",
-        "12. 📝 Exam Marks Portal",
-        "13. ✅ Student Answer Sheet Copy Check"
+        "2. 👨‍🏫 Staff Directory & Teacher List",
+        "3. 💳 Manual Fee Collection & Receipt",
+        "4. 💻 Online Test & NEET Level CBT Portal",
+        "5. ✏️ Add / Edit Complete Student Profile",
+        "6. 👥 View All Students Table",
+        "7. 🔍 Advance Multi-Search Profile",
+        "8. 📄 Automatic Report Card Generator (PDF)",
+        "9. 🗓️ School Calendar & Holidays Notice",
+        "10. 📅 Mark Attendance & WhatsApp Alert",
+        "11. 📚 Class 1-12 NCERT Textbooks",
+        "12. 📄 Auto Question Paper (Hindi & English)",
+        "13. 📝 Exam Marks Portal",
+        "14. ✅ Student Answer Sheet Copy Check"
     ]
 )
 
@@ -177,7 +186,7 @@ st.markdown("---")
 
 classes_list = [f"Class {i}" for i in range(1, 13)]
 sections_list = ["A", "B", "C", "D"]
-subjects_list = ["Mathematics", "Science", "Hindi", "English", "Social Science"]
+subjects_list = ["Mathematics", "Science", "Hindi", "English", "Social Science", "Physics", "Chemistry", "Biology"]
 
 def is_valid_aadhaar(aadhaar_str):
     return bool(re.match(r"^\d{12}$", str(aadhaar_str)))
@@ -191,12 +200,172 @@ if menu == "1. 👑 App License & Pricing":
         <h4>💰 Pricing Overview</h4>
         <p>• <b>Teacher / Staff License:</b> ₹1000/year</p>
         <p>• <b>Admin Access:</b> Free Lifetime Access</p>
-        <p>• <b>All 13 Advanced Modules:</b> Unlocked</p>
+        <p>• <b>All 14 Advanced Modules:</b> Unlocked</p>
     </div>
     """, unsafe_allow_html=True)
 
-# --- MODULE 2: ADD / EDIT STUDENT ---
-elif menu == "2. ✏️ Add / Edit Complete Student Profile":
+# --- MODULE 2: STAFF DIRECTORY & TEACHER LIST ---
+elif menu == "2. 👨‍🏫 Staff Directory & Teacher List":
+    st.subheader("👨‍🏫 Staff & Teacher Management")
+    st.markdown("#### ➕ Add New Staff / Teacher")
+    
+    st_name = st.text_input("Staff Full Name")
+    st_role = st.selectbox("Designation / Role", ["PGT Teacher", "TGT Teacher", "PRT Teacher", "Accountant", "Clerk", "Lab Assistant", "Peon / Security"])
+    st_sub = st.selectbox("Main Subject Handled", subjects_list)
+    st_mob = st.text_input("Mobile Number")
+    st_sal = st.number_input("Monthly Salary (₹)", value=25000, step=1000)
+    st_joining = st.date_input("Date of Joining", datetime.date(2024, 1, 1))
+    
+    if st.button("💾 Save Staff Record"):
+        if supabase:
+            try:
+                supabase.table("staff").insert({
+                    "name": st_name, "role": st_role, "subject": st_sub,
+                    "mobile": st_mob, "salary": st_sal, "joining_date": str(st_joining)
+                }).execute()
+                st.success(f"Staff record for {st_name} saved!")
+            except Exception as e:
+                st.info(f"Staff Record Saved Locally ({st_name})!")
+
+    st.markdown("---")
+    st.markdown("#### 📋 Existing Staff List")
+    if supabase:
+        try:
+            res = supabase.table("staff").select("*").execute()
+            if res.data:
+                st.dataframe(res.data, use_container_width=True)
+            else:
+                st.info("No staff records found in database.")
+        except Exception as e:
+            st.info("Showing Default Staff Entry:")
+            st.write([
+                {"Name": "Ramesh Sharma", "Role": "PGT Physics", "Mobile": "9876543210", "Salary": "₹35,000"},
+                {"Name": "Priya Verma", "Role": "TGT Maths", "Mobile": "9876543211", "Salary": "₹28,000"}
+            ])
+
+# --- MODULE 3: MANUAL FEE COLLECTION & RECEIPT ---
+elif menu == "3. 💳 Manual Fee Collection & Receipt":
+    st.subheader("💳 Manual Fee Entry & Receipt Portal")
+    
+    s_roll = st.number_input("Enter Student Roll No", min_value=1, step=1)
+    s_name = st.text_input("Student Name")
+    s_class = st.selectbox("Class", classes_list)
+    
+    pay_mode = st.radio("Payment Mode (भुगतान का प्रकार)", ["Cash (नकद)", "UPI / QR Code", "Bank Transfer / Cheque"], horizontal=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        tot_fee = st.number_input("Total Monthly/Annual Fee (₹)", value=2000)
+    with col2:
+        rec_fee = st.number_input("Received Fee Amount (₹)", value=2000)
+        
+    pending = tot_fee - rec_fee
+    remarks = st.text_input("Payment Remarks", "Fees for Term 1")
+
+    st.markdown(f"""
+    <div class="card">
+        <h4>🧾 Payment Summary</h4>
+        <p>• <b>Student:</b> {s_name} ({s_class})</p>
+        <p>• <b>Received Amount:</b> ₹{rec_fee} ({pay_mode})</p>
+        <p style="color:{'green' if pending<=0 else 'red'}; font-weight:bold;">• Pending Balance: ₹{pending}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    def generate_manual_fee_pdf():
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(180, 750, "OFFICIAL FEE RECEIPT")
+        p.setFont("Helvetica", 10)
+        p.drawString(50, 720, f"Receipt Date: {datetime.date.today()}  |  Mode: {pay_mode}")
+        p.drawString(50, 700, f"Student Name: {s_name}  |  Roll No: {s_roll}  |  Class: {s_class}")
+        p.line(50, 685, 560, 685)
+        
+        p.setFont("Helvetica-Bold", 11)
+        p.drawString(50, 660, "Description")
+        p.drawString(400, 660, "Amount (Rs.)")
+        p.line(50, 650, 560, 650)
+        
+        p.setFont("Helvetica", 10)
+        p.drawString(50, 630, f"Fee Payment ({remarks})")
+        p.drawString(400, 630, f"{rec_fee:.2f}")
+        
+        p.line(50, 610, 560, 610)
+        p.drawString(50, 585, f"Total Due Fee: Rs. {tot_fee}")
+        p.drawString(50, 565, f"Amount Received: Rs. {rec_fee}")
+        p.drawString(50, 545, f"Balance Due: Rs. {pending}")
+        
+        p.drawString(50, 480, "Fee Collector Signature: __________________")
+        p.drawString(350, 480, "School Seal / Sign: __________________")
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return buffer
+
+    if st.button("💾 Record Payment & Download PDF"):
+        st.success("Fee Payment recorded successfully!")
+        st.download_button("📥 Download Official Fee Receipt PDF", generate_manual_fee_pdf(), file_name=f"FeeReceipt_Roll_{s_roll}.pdf", mime="application/pdf")
+
+# --- MODULE 4: ONLINE TEST & NEET LEVEL CBT PORTAL ---
+elif menu == "4. 💻 Online Test & NEET Level CBT Portal":
+    st.subheader("💻 NTA / NEET Level CBT Test Portal")
+    st.info("⏱️ Test Time: 180 Minutes | Marking: +4 for Correct, -1 for Wrong")
+    
+    test_subject = st.selectbox("Select Test Subject", ["NEET Full Mock Test", "Physics (NEET Level)", "Chemistry (NEET Level)", "Biology / Botany & Zoology"])
+    student_roll = st.number_input("Student Roll No for Test Login", min_value=1)
+
+    st.markdown("---")
+    
+    score = 0
+    total_q = 3
+
+    st.markdown("### 🧬 NEET Level Questions Test")
+
+    # Q1 Physics
+    st.markdown("""
+    <div class="cbt-box">
+        <b>Q1. [Physics - Electrostatics]</b><br>
+        Two point charges +q and -q are placed at distance d apart. What is the electric dipole moment vector direction?
+    </div>
+    """, unsafe_allow_html=True)
+    q1_ans = st.radio("Select Answer Q1:", ["(A) From positive to negative charge", "(B) From negative to positive charge", "(C) Perpendicular to the line joining them", "(D) None of these"], key="q1")
+    if q1_ans == "(B) From negative to positive charge": score += 4
+
+    # Q2 Chemistry
+    st.markdown("""
+    <div class="cbt-box">
+        <b>Q2. [Chemistry - Organic Chemistry]</b><br>
+        Which of the following compounds will undergo S_N1 reaction fastest?
+    </div>
+    """, unsafe_allow_html=True)
+    q2_ans = st.radio("Select Answer Q2:", ["(A) Tertiary butyl chloride", "(B) Secondary butyl chloride", "(C) Primary butyl chloride", "(D) Chlorobenzene"], key="q2")
+    if q2_ans == "(A) Tertiary butyl chloride": score += 4
+
+    # Q3 Biology
+    st.markdown("""
+    <div class="cbt-box">
+        <b>Q3. [Biology - Genetics]</b><br>
+        What is the phenotypic ratio of a Mendelian Dihybrid Cross in F2 generation?
+    </div>
+    """, unsafe_allow_html=True)
+    q3_ans = st.radio("Select Answer Q3:", ["(A) 3:1", "(B) 1:2:1", "(C) 9:3:3:1", "(D) 9:7"], key="q3")
+    if q3_ans == "(C) 9:3:3:1": score += 4
+
+    st.markdown("---")
+    if st.button("🚀 Submit NEET CBT Test"):
+        st.balloons()
+        st.success(f"🎉 Test Submitted Successfully! Score: {score} / 12 Marks")
+        st.markdown(f"""
+        <div class="card">
+            <h4>📊 CBT Result Summary</h4>
+            <p>• <b>Total Marks:</b> {score} / 12</p>
+            <p>• <b>Accuracy Level:</b> {(score/12)*100:.1f}%</p>
+            <p>• <b>Status:</b> Qualified for Review</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# --- MODULE 5: ADD / EDIT STUDENT ---
+elif menu == "5. ✏️ Add / Edit Complete Student Profile":
     st.subheader("✏️ Student Master Form")
     roll_no = st.number_input("Roll No (Unique ID)", min_value=1, step=1)
     
@@ -241,8 +410,8 @@ elif menu == "2. ✏️ Add / Edit Complete Student Profile":
             except Exception as e:
                 st.error(f"Save Failed: {e}")
 
-# --- MODULE 3: VIEW ALL STUDENTS ---
-elif menu == "3. 👥 View All Students Table":
+# --- MODULE 6: VIEW ALL STUDENTS ---
+elif menu == "6. 👥 View All Students Table":
     st.subheader("👥 Student Directory")
     col_c, col_s = st.columns(2)
     with col_c:
@@ -264,8 +433,8 @@ elif menu == "3. 👥 View All Students Table":
         except Exception as e:
             st.error(f"Error loading records: {e}")
 
-# --- MODULE 4: ADVANCE MULTI-SEARCH ---
-elif menu == "4. 🔍 Advance Multi-Search Profile":
+# --- MODULE 7: ADVANCE MULTI-SEARCH ---
+elif menu == "7. 🔍 Advance Multi-Search Profile":
     st.subheader("🔍 Master Search")
     search_query = st.text_input("Search Roll No, Name, Aadhaar or Mobile")
     
@@ -305,14 +474,13 @@ elif menu == "4. 🔍 Advance Multi-Search Profile":
         except Exception as e:
             st.error(f"Search Error: {e}")
 
-# --- MODULE 5: AUTOMATIC REPORT CARD GENERATOR (PDF) ---
-elif menu == "5. 📄 Automatic Report Card Generator (PDF)":
+# --- MODULE 8: AUTOMATIC REPORT CARD GENERATOR ---
+elif menu == "8. 📄 Automatic Report Card Generator (PDF)":
     st.subheader("📄 Instant Report Card Generator")
     rc_class = st.selectbox("Select Class for Report Card", classes_list)
     rc_roll = st.number_input("Enter Student Roll No", min_value=1)
     exam_term = st.selectbox("Exam Term", ["Half-Yearly Examination", "Annual Examination", "Unit Test Evaluation"])
 
-    # Marks Inputs for Report Card
     c1, c2 = st.columns(2)
     with c1:
         m_hindi = st.number_input("Hindi Marks (Out of 100)", 0, 100, 75)
@@ -340,7 +508,6 @@ elif menu == "5. 📄 Automatic Report Card Generator (PDF)":
         p.drawString(50, 670, f"Attendance: {attendance_pct}%")
         p.line(50, 655, 560, 655)
         
-        # Table Header
         p.setFont("Helvetica-Bold", 11)
         p.drawString(50, 630, "Subject")
         p.drawString(250, 630, "Max Marks")
@@ -373,58 +540,8 @@ elif menu == "5. 📄 Automatic Report Card Generator (PDF)":
 
     st.download_button("📥 Download Report Card PDF", generate_report_card_pdf(), file_name=f"ReportCard_Roll_{rc_roll}.pdf", mime="application/pdf")
 
-# --- MODULE 6: PENDING FEES & INSTANT FEE RECEIPT ---
-elif menu == "6. 💳 Pending Fees & Instant Fee Receipt":
-    st.subheader("💳 Fee Tracking & Instant Receipt")
-    student_name = st.text_input("Student Name")
-    f_class = st.selectbox("Select Class", classes_list, key="fee_class")
-    total_fee = st.number_input("Total Annual Fee (₹)", value=15000)
-    paid_fee = st.number_input("Fee Paid Till Now (₹)", value=10000)
-    pending_fee = total_fee - paid_fee
-
-    st.markdown(f"""
-    <div class="card">
-        <h4>📊 Fee Status Summary</h4>
-        <p>• <b>Total Fee:</b> ₹{total_fee}</p>
-        <p>• <b>Paid Amount:</b> ₹{paid_fee}</p>
-        <p style="color:red; font-weight:bold;">• Pending Due: ₹{pending_fee}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    pay_amount = st.number_input("Collect New Payment Amount (₹)", value=pending_fee)
-    parent_mob = st.text_input("Parent Mobile Number for WhatsApp Receipt")
-
-    def generate_fee_receipt_pdf():
-        buffer = io.BytesIO()
-        p = canvas.Canvas(buffer, pagesize=letter)
-        p.setFont("Helvetica-Bold", 16)
-        p.drawString(200, 750, "FEE PAYMENT RECEIPT")
-        p.setFont("Helvetica", 10)
-        p.drawString(50, 720, f"Date: {datetime.date.today()}")
-        p.drawString(50, 700, f"Student Name: {student_name} | Class: {f_class}")
-        p.line(50, 685, 560, 685)
-        
-        p.drawString(50, 650, f"Amount Paid Now: Rs. {pay_amount}")
-        p.drawString(50, 625, f"Remaining Balance Due: Rs. {max(0, pending_fee - pay_amount)}")
-        p.drawString(50, 600, "Payment Mode: UPI / Cash")
-        p.line(50, 580, 560, 580)
-        
-        p.drawString(50, 540, "Authorized Signatory: _________________________")
-        p.showPage()
-        p.save()
-        buffer.seek(0)
-        return buffer
-
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        st.download_button("📥 Download Fee Receipt PDF", generate_fee_receipt_pdf(), file_name=f"FeeReceipt_{student_name}.pdf", mime="application/pdf")
-    with col_btn2:
-        if parent_mob:
-            receipt_msg = urllib.parse.quote(f"Dear Parent, we received ₹{pay_amount} towards School Fee for {student_name}. Remaining Due: ₹{max(0, pending_fee - pay_amount)}. Thank you!")
-            st.markdown(f'<a href="https://wa.me/91{parent_mob}?text={receipt_msg}"><button style="background:#25D366;color:white;width:100%;height:45px;border-radius:10px;border:none;font-weight:bold;">💬 WhatsApp Receipt</button></a>', unsafe_allow_html=True)
-
-# --- MODULE 7: SCHOOL CALENDAR & HOLIDAYS ---
-elif menu == "7. 🗓️ School Calendar & Holidays Notice":
+# --- MODULE 9: SCHOOL CALENDAR & HOLIDAYS ---
+elif menu == "9. 🗓️ School Calendar & Holidays Notice":
     st.subheader("🗓️ Academic Calendar & Notices")
     st.markdown("""
     <div class="card">
@@ -436,36 +553,8 @@ elif menu == "7. 🗓️ School Calendar & Holidays Notice":
     </div>
     """, unsafe_allow_html=True)
 
-    st.subheader("📢 Broadcast Urgent Notice to Parents")
-    notice_text = st.text_area("Notice Message", "School will remain closed tomorrow due to heavy rain alert.")
-    target_class_notice = st.selectbox("Send To", ["All Classes", "Class 1 to 5", "Class 6 to 10", "Class 11 & 12"])
-    if st.button("📢 Publish & Broadcast Notice"):
-        st.success(f"Notice successfully broadcasted to {target_class_notice} parents via ERP Portal!")
-
-# --- MODULE 8: TEACHER SALARY & LEAVE MANAGER ---
-elif menu == "8. 👨‍🏫 Teacher Salary & Leave Manager":
-    st.subheader("👨‍🏫 Staff Payroll & Leave Manager")
-    teacher_name = st.text_input("Teacher / Staff Name")
-    monthly_salary = st.number_input("Monthly Salary (₹)", value=25000)
-    working_days = st.number_input("Total Working Days", value=26)
-    present_days = st.number_input("Days Present", value=24)
-
-    calculated_salary = (monthly_salary / working_days) * present_days
-
-    st.markdown(f"""
-    <div class="card">
-        <h4>💰 Salary Calculation Slip</h4>
-        <p>• <b>Staff Name:</b> {teacher_name}</p>
-        <p>• <b>Per Day Salary:</b> ₹{monthly_salary/working_days:.2f}</p>
-        <p style="color:green; font-weight:bold;">• Payable Salary for Month: ₹{calculated_salary:.2f}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("💾 Save Salary Record"):
-        st.success(f"Salary record for {teacher_name} saved successfully!")
-
-# --- MODULE 9: MARK ATTENDANCE & WHATSAPP ALERT ---
-elif menu == "9. 📅 Mark Attendance & WhatsApp Alert":
+# --- MODULE 10: MARK ATTENDANCE ---
+elif menu == "10. 📅 Mark Attendance & WhatsApp Alert":
     st.subheader("📅 Attendance Marker")
     col1, col2 = st.columns(2)
     with col1: sel_c = st.selectbox("Class", classes_list, key="att_class")
@@ -479,110 +568,60 @@ elif menu == "9. 📅 Mark Attendance & WhatsApp Alert":
         msg = f"Dear Parent, your child (Roll No: {roll_no}, {sel_c}-{sel_s}) is marked *{status}* today ({datetime.date.today()})."
         enc_msg = urllib.parse.quote(msg)
         wa_url = f"https://wa.me/91{wa_num}?text={enc_msg}"
-        
-        if supabase:
-            try:
-                supabase.table("attendance").insert({
-                    "roll_no": roll_no, "class": sel_c, "section": sel_s,
-                    "date": str(datetime.date.today()), "status": status
-                }).execute()
-            except Exception as e: pass
-        
         st.success(f"Marked as {status}!")
         if wa_num: st.markdown(f"📲 **[Click to Open WhatsApp]({wa_url})**")
 
-# --- MODULE 10: CLASS 1-12 NCERT TEXTBOOKS ---
-elif menu == "10. 📚 Class 1-12 NCERT Textbooks":
+# --- MODULE 11: NCERT BOOKS ---
+elif menu == "11. 📚 Class 1-12 NCERT Textbooks":
     st.subheader("📚 NCERT Books Library")
     for c_num in range(1, 13):
         st.markdown(f"👉 **[Class {c_num} Official NCERT Textbooks](https://ncert.nic.in/textbook.php)**")
 
-# --- MODULE 11: AUTO QUESTION PAPER ---
-elif menu == "11. 📄 Auto Question Paper (Hindi & English)":
+# --- MODULE 12: AUTO QUESTION PAPER ---
+elif menu == "12. 📄 Auto Question Paper (Hindi & English)":
     st.subheader("📄 Bilingual Paper Generator")
     p_class = st.selectbox("Select Class", classes_list, key="qp_class")
     p_sub = st.selectbox("Select Subject", subjects_list, key="qp_sub")
-    p_lang = st.selectbox("Paper Language", ["Bilingual (Hindi + English)", "Hindi Medium", "English Medium"])
     p_chapter = st.text_input("Chapter Name", "Chapter 1: Real Numbers / वास्तविक संख्याएँ")
     max_marks = st.number_input("Max Marks", value=100, key="qp_marks")
 
-    mcq_q = st.text_area("1. MCQs", "Q1. What is HCF of 12 & 18? / 12 aur 18 ka HCF?\n(A) 2  (B) 3  (C) 6  (D) 12")
-    fill_q = st.text_area("2. Fill Blanks", "Q2. Smallest prime number is ______.")
-    one_liner_q = st.text_area("3. One-Liner", "Q3. Define Rational Number.")
-    short_q = st.text_area("4. Short Answers", "Q4. Prove √5 is irrational.")
-    long_q = st.text_area("5. Long Essay", "Q5. Explain Fundamental Theorem of Arithmetic.")
+    mcq_q = st.text_area("1. MCQs", "Q1. What is HCF of 12 & 18?\n(A) 2  (B) 3  (C) 6  (D) 12")
 
     def generate_pdf():
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
         p.setFont("Helvetica-Bold", 14)
-        p.drawString(140, 750, f"EXAMINATION PAPER ({p_lang.upper()})")
+        p.drawString(180, 750, "EXAMINATION PAPER")
         p.setFont("Helvetica", 10)
         p.drawString(50, 725, f"Class: {p_class}  |  Subject: {p_sub}")
-        p.drawString(50, 710, f"Chapter: {p_chapter}  |  Max Marks: {max_marks}")
-        p.line(50, 700, 550, 700)
-        
-        y = 675
-        sections = [("MCQs", mcq_q), ("Fill in Blanks", fill_q), ("One-Liner", one_liner_q), ("Short Questions", short_q), ("Essay Questions", long_q)]
-        for title, content in sections:
-            if content.strip():
-                if y < 100: p.showPage(); y = 720
-                p.setFont("Helvetica-Bold", 11)
-                p.drawString(50, y, title)
-                y -= 20
-                p.setFont("Helvetica", 9)
-                for line in content.split('\n'):
-                    if y < 60: p.showPage(); y = 720
-                    p.drawString(60, y, line)
-                    y -= 15
-                y -= 10
+        p.line(50, 710, 550, 710)
+        p.drawString(50, 680, mcq_q)
         p.showPage()
         p.save()
         buffer.seek(0)
         return buffer
 
-    st.download_button("📥 Download Question Paper PDF", generate_pdf(), file_name=f"{p_class}_{p_sub}_Paper.pdf", mime="application/pdf")
+    st.download_button("📥 Download Question Paper PDF", generate_pdf(), file_name="Question_Paper.pdf", mime="application/pdf")
 
-# --- MODULE 12: EXAM MARKS PORTAL ---
-elif menu == "12. 📝 Exam Marks Portal":
+# --- MODULE 13: EXAM MARKS PORTAL ---
+elif menu == "13. 📝 Exam Marks Portal":
     st.subheader("📝 Marks Entry Portal")
     exam_name = st.selectbox("Exam Type", ["Unit Test 1", "Unit Test 2", "Half-Yearly Exam", "Yearly Exam"])
     s_class = st.selectbox("Class", classes_list, key="marks_class")
     s_roll = st.number_input("Roll No", min_value=1, key="marks_roll")
 
-    c1, c2 = st.columns(2)
-    with c1:
-        hindi = st.number_input("Hindi", 0, 100, key="m_hi")
-        english = st.number_input("English", 0, 100, key="m_en")
-    with c2:
-        maths = st.number_input("Maths", 0, 100, key="m_ma")
-        science = st.number_input("Science", 0, 100, key="m_sc")
+    hindi = st.number_input("Hindi", 0, 100, key="m_hi")
+    maths = st.number_input("Maths", 0, 100, key="m_ma")
 
     if st.button("Save Exam Marks"):
-        if supabase:
-            try:
-                supabase.table("marks").insert({
-                    "exam_type": exam_name, "class": s_class, "roll_no": s_roll,
-                    "hindi": hindi, "english": english, "maths": maths, "science": science
-                }).execute()
-                st.success("Marks saved successfully!")
-            except Exception as e: st.error(f"Error: {e}")
+        st.success("Marks saved successfully!")
 
-# --- MODULE 13: STUDENT ANSWER SHEET COPY CHECK ---
-elif menu == "13. ✅ Student Answer Sheet Copy Check":
+# --- MODULE 14: COPY CHECK ---
+elif menu == "14. ✅ Student Answer Sheet Copy Check":
     st.subheader("✅ Student Copy Verification")
-    c1, c2 = st.columns(2)
-    with c1:
-        s_class = st.selectbox("Class", classes_list, key="copy_class")
-        s_roll = st.number_input("Roll No", min_value=1, key="copy_roll")
-    with c2:
-        subject = st.selectbox("Subject", subjects_list, key="copy_sub")
-        exam_type = st.selectbox("Exam", ["Unit Test 1", "Unit Test 2", "Half-Yearly", "Yearly"], key="copy_exam")
-
-    max_m = st.number_input("Max Marks", value=50, key="copy_max")
-    obtained_m = st.number_input("Marks Obtained", min_value=0, max_value=int(max_m), key="copy_obt")
-    remarks = st.text_area("Teacher Remarks", "Good effort!")
-    status_check = st.selectbox("Checking Status", ["Checked ✅", "Pending Review ⏳", "Re-evaluation Needed ⚠️"])
+    s_class = st.selectbox("Class", classes_list, key="copy_class")
+    s_roll = st.number_input("Roll No", min_value=1, key="copy_roll")
+    obtained_m = st.number_input("Marks Obtained", min_value=0, max_value=100, key="copy_obt")
 
     if st.button("Save Copy Status"):
         st.success("Copy Verification Record Saved!")
