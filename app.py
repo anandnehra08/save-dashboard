@@ -1016,3 +1016,184 @@ with tab7:
 
     else:
         st.info("ID Card generate karne ke liye pehle student record add karein.")
+        import streamlit as st
+import pandas as pd
+import datetime
+
+# ==========================================
+# 1. CONFIGURATION & LOGIN SYSTEM
+# ==========================================
+st.set_page_config(page_title="Multi-Class School Management System", page_icon="🏫", layout="wide")
+
+# Session State for Authentication
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'is_admin' not in st.session_state:
+    st.session_state.is_admin = False
+
+# Simple Login System
+if not st.session_state.logged_in:
+    st.title("🔐 School Dashboard Login")
+    user_type = st.radio("Login As:", ["Admin (Full Access)", "Other User (Paid Access)"])
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    
+    if st.button("Login", type="primary"):
+        if user_type == "Admin (Full Access)" and username == "admin" and password == "admin123":
+            st.session_state.logged_in = True
+            st.session_state.is_admin = True
+            st.success("Admin Login Successful!")
+            st.rerun()
+        elif user_type == "Other User (Paid Access)":
+            st.warning("⚠️ Other Users: Subscription Plan Active (UPI Payment Required for Full Features)")
+            st.session_state.logged_in = True
+            st.session_state.is_admin = False
+            st.rerun()
+        else:
+            st.error("Invalid Username or Password!")
+    st.stop()
+
+# Logout Button in Sidebar
+st.sidebar.title("👤 Session Info")
+st.sidebar.write(f"Role: **{'Admin (Free)' if st.session_state.is_admin else 'Standard User'}**")
+if st.sidebar.button("🔒 Logout"):
+    st.session_state.logged_in = False
+    st.rerun()
+
+# ==========================================
+# 2. GLOBAL CLASS & SECTION SELECTOR
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.subheader("🏫 Class & Section Filter")
+selected_class = st.sidebar.selectbox("Select Class:", [f"Class {i}" for i in range(1, 13)], index=7) # Default Class 8
+selected_section = st.sidebar.selectbox("Select Section:", ["Section A", "Section B", "Section C", "Section D"])
+
+st.title(f"🏫 {selected_class} ({selected_section}) Management System")
+
+# Sample Multi-Class Database (In Session State)
+if 'students_db' not in st.session_state:
+    st.session_state.students_db = pd.DataFrame([
+        {"roll_no": 8001, "name": "ABHAY CHOUDHARY", "father_name": "PADAM SINGH", "parent_mobile": "9929534777", "class": "Class 8", "section": "Section A", "photo": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
+        {"roll_no": 8002, "name": "ALKA CHOUDHARY", "father_name": "NARENDRA KUMAR", "parent_mobile": "9785735746", "class": "Class 8", "section": "Section A", "photo": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
+    ])
+
+df = st.session_state.students_db
+filtered_df = df[(df['class'] == selected_class) & (df['section'] == selected_section)]
+
+# ==========================================
+# 3. TABS NAVIGATION
+# ==========================================
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📅 Daily Attendance & SMS", 
+    "➕ Add / Edit Student", 
+    "💳 Subscription & Payments", 
+    "📞 Student Directory & Call"
+])
+
+# ------------------------------------------
+# TAB 1: DAILY ATTENDANCE & SMS
+# ------------------------------------------
+with tab1:
+    st.subheader(f"📅 Per Day Attendance Record - {datetime.date.today().strftime('%d/%m/%Y')}")
+    
+    if not filtered_df.empty:
+        att_data = []
+        for idx, row in filtered_df.iterrows():
+            col_a, col_b, col_c, col_d = st.columns([1, 2, 2, 2])
+            with col_a:
+                st.write(f"**{row['roll_no']}**")
+            with col_b:
+                st.write(f"**{row['name']}**")
+            with col_c:
+                status = st.selectbox("Status", ["Present", "Absent"], key=f"att_{row['roll_no']}")
+            with col_d:
+                if status == "Absent":
+                    msg = f"Namaste! Aapka baccha {row['name']} aaj school me Absent hai."
+                    wa_url = f"https://api.whatsapp.com/send?phone=91{row['parent_mobile']}&text={msg.replace(' ', '%20')}"
+                    st.markdown(f'<a href="{wa_url}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:4px 8px; border-radius:4px;">📲 Send Absent SMS</button></a>', unsafe_allow_html=True)
+    else:
+        st.info("Is Class aur Section mein abhi koi student add nahi hai.")
+
+# ------------------------------------------
+# TAB 2: SMART ADD / EDIT STUDENT (AUTO-FILL BY ROLL NO)
+# ------------------------------------------
+with tab2:
+    st.subheader("➕ Add or Edit Student Record")
+    
+    search_roll = st.number_input("Enter Roll No to Auto-Fetch Data:", min_value=100, max_value=9999, value=8001)
+    
+    # Auto Fetching Existing Details
+    existing_student = df[df['roll_no'] == search_roll]
+    
+    default_name = ""
+    default_father = ""
+    default_mobile = ""
+    
+    if not existing_student.empty:
+        st.success(f"✅ Record Found for Roll No {search_roll}! Details loaded below for editing.")
+        default_name = existing_student.iloc[0]['name']
+        default_father = existing_student.iloc[0]['father_name']
+        default_mobile = existing_student.iloc[0]['parent_mobile']
+    else:
+        st.info(f"ℹ️ New Roll No {search_roll}. Fill below details to add new student.")
+    
+    with st.form("student_form"):
+        s_name = st.text_input("Student Name", value=default_name)
+        f_name = st.text_input("Father Name", value=default_father)
+        p_mob = st.text_input("Parent Mobile", value=default_mobile)
+        
+        # Profile Picture Upload Option
+        uploaded_file = st.file_uploader("Upload Profile Picture (PP)", type=["jpg", "png", "jpeg"])
+        
+        save_btn = st.form_submit_button("Save / Update Student Record")
+        
+        if save_btn:
+            photo_url = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+            new_data = {
+                "roll_no": search_roll,
+                "name": s_name,
+                "father_name": f_name,
+                "parent_mobile": p_mob,
+                "class": selected_class,
+                "section": selected_section,
+                "photo": photo_url
+            }
+            
+            # Remove old record if exists and append new
+            st.session_state.students_db = st.session_state.students_db[st.session_state.students_db['roll_no'] != search_roll]
+            st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame([new_data])], ignore_index=True)
+            st.success(f"Student Roll No {search_roll} saved successfully!")
+            st.rerun()
+
+# ------------------------------------------
+# TAB 3: PAYMENT & SUBSCRIPTION GATEWAY
+# ------------------------------------------
+with tab3:
+    st.subheader("💳 App Access & Subscription Plans")
+    if st.session_state.is_admin:
+        st.success("👑 You are logged in as **ADMIN**. All features are 100% FREE for you lifetime!")
+    else:
+        st.warning("🔒 Standard Account Mode. Unlock All Features via Payment.")
+        st.markdown("""
+        ### Premium ERP Subscription
+        * **Monthly Access:** ₹299 / Month
+        * **Annual School Pass:** ₹2,499 / Year
+        """)
+        st.button("💳 Pay via UPI / QR Code")
+
+# ------------------------------------------
+# TAB 4: DIRECT CALL & DIRECTORY
+# ------------------------------------------
+with tab4:
+    st.subheader(f"📞 {selected_class} ({selected_section}) Student Directory")
+    for idx, row in filtered_df.iterrows():
+        c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
+        with c1:
+            st.image(row['photo'], width=50)
+        with c2:
+            st.write(f"**{row['name']}** (Roll: {row['roll_no']})")
+            st.caption(f"Father: {row['father_name']}")
+        with c3:
+            st.write(f"📱 {row['parent_mobile']}")
+        with c4:
+            st.markdown(f'<a href="tel:{row["parent_mobile"]}"><button style="background-color:#007BFF; color:white; border:none; padding:6px 12px; border-radius:4px;">📞 Call Parent</button></a>', unsafe_allow_html=True)
