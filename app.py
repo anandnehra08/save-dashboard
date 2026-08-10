@@ -1197,3 +1197,4 @@ with tab4:
             st.write(f"📱 {row['parent_mobile']}")
         with c4:
             st.markdown(f'<a href="tel:{row["parent_mobile"]}"><button style="background-color:#007BFF; color:white; border:none; padding:6px 12px; border-radius:4px;">📞 Call Parent</button></a>', unsafe_allow_html=True)
+        
