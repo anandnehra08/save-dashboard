@@ -12,13 +12,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Rclone
-        uses: rclone/rclone-action-setup@v2
+      - name: Install Rclone
+        run: |
+          sudo curl https://rclone.org/install.sh | sudo bash
 
-      - name: Sync to Google Drive
+      - name: Configure and Sync to Google Drive
         env:
-          RCLONE_CONFIG_GDRIVE: ${{ secrets.RCLONE_CONFIG }}
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG }}
         run: |
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          echo "$RCLONE_CONFIG_DATA" > ~/.config/rclone/rclone.conf
           rclone copy . gdrive:SchoolERP_Backups --exclude ".git/**"
