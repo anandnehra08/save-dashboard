@@ -8,7 +8,7 @@ import datetime
 import re
 
 # --- 1. MOBILE ANDROID PRO UI CONFIG ---
-st.set_page_config(page_title="Advance School ERP Pro", page_icon="🏫", layout="centered")
+st.set_page_config(page_title="School Dashboard & ERP Pro", page_icon="🏫", layout="centered")
 
 st.markdown("""
     <style>
@@ -38,9 +38,9 @@ if 'logged_in' not in st.session_state:
 if 'role' not in st.session_state:
     st.session_state.role = None
 
-# --- 3. PRO LOGIN SYSTEM ---
+# --- 3. LOGIN SYSTEM ---
 if not st.session_state.logged_in:
-    st.title("🔐 School ERP Pro Login")
+    st.title("🔐 School Portal Login")
     login_mode = st.radio("Select Portal Mode", ["Admin Login (Free)", "Staff / Teacher Login (OTP / Pay)"])
 
     if login_mode == "Admin Login (Free)":
@@ -69,41 +69,68 @@ if not st.session_state.logged_in:
                     st.error("Incorrect OTP!")
     st.stop()
 
-# --- 4. NAVIGATION SYSTEM ---
+# --- 4. NAVIGATION SYSTEM (Purane + Naye Sabhi Modules) ---
 st.sidebar.markdown(f"### 👤 Role: `{st.session_state.role}`")
 if st.sidebar.button("🔴 Logout"):
     st.session_state.logged_in = False
     st.rerun()
 
-menu = st.sidebar.selectbox("📋 Pro ERP Modules", [
-    "🔍 Advance Student Search & Profile",
-    "✏️ Add / Edit Complete Student Data",
-    "📄 Auto NCERT Question Paper Generator",
-    "📅 Attendance & WhatsApp Alert",
-    "💳 Fees Link & Direct Call System",
+menu = st.sidebar.selectbox("📋 Navigation Menu", [
+    "👥 View All Students Table",
+    "🔍 Advance Multi-Search Profile",
+    "✏️ Add / Edit Complete Student Profile",
+    "📅 Mark Attendance & WhatsApp Alert",
+    "💳 Fees Payment, Call & SMS Link",
     "📝 Exam Marks Portal",
-    "👑 Admin Licensing & App Fees"
+    "📄 Auto NCERT Question Paper Generator",
+    "📚 Class 1-12 NCERT Textbooks",
+    "👑 Admin License & App Fees"
 ])
 
 classes_list = [f"Class {i}" for i in range(1, 13)]
 sections_list = ["A", "B", "C", "D"]
 
-# Helper: Aadhaar Validation
 def is_valid_aadhaar(aadhaar_str):
     return bool(re.match(r"^\d{12}$", str(aadhaar_str)))
 
-# --- MODULE 1: ADVANCE STUDENT SEARCH & PROFILE ---
-if menu == "🔍 Advance Student Search & Profile":
-    st.title("🔍 Student Master Search")
+# --- PAGE 1: VIEW ALL STUDENTS TABLE (Purana Feature) ---
+if menu == "👥 View All Students Table":
+    st.title("👥 Student Directory")
     
-    search_query = st.text_input("Enter Roll No, Name, Aadhaar or Mobile No.")
+    col_c, col_s = st.columns(2)
+    with col_c:
+        sel_class = st.selectbox("Filter Class", ["All"] + classes_list)
+    with col_s:
+        sel_sec = st.selectbox("Filter Section", ["All"] + sections_list)
+        
+    if supabase:
+        try:
+            query = supabase.table("students").select("*")
+            if sel_class != "All":
+                query = query.eq("class", sel_class)
+            if sel_sec != "All":
+                query = query.eq("section", sel_sec)
+            
+            res = query.execute()
+            if res.data:
+                st.dataframe(res.data, use_container_width=True)
+            else:
+                st.info("No student records found.")
+        except Exception as e:
+            st.error(f"Error loading records: {e}")
+
+# --- PAGE 2: ADVANCE MULTI-SEARCH PROFILE (Naya Feature) ---
+elif menu == "🔍 Advance Multi-Search Profile":
+    st.title("🔍 Master Student Search")
+    
+    search_query = st.text_input("Search by Roll No, Student/Father Name, Aadhaar or Mobile")
     
     if search_query and supabase:
         try:
-            # Querying multiple parameters
             res = supabase.table("students").select("*").or_(
                 f"roll_no.eq.{search_query if search_query.isdigit() else -1},"
                 f"name.ilike.%{search_query}%,"
+                f"father_name.ilike.%{search_query}%,"
                 f"aadhaar.eq.{search_query},"
                 f"mobile.eq.{search_query}"
             ).execute()
@@ -116,7 +143,7 @@ if menu == "🔍 Advance Student Search & Profile":
                         <p><b>Roll No:</b> {student.get('roll_no', 'N/A')} | <b>DOB:</b> {student.get('dob', 'N/A')}</p>
                         <p><b>Father:</b> {student.get('father_name', 'N/A')} | <b>Mother:</b> {student.get('mother_name', 'N/A')}</p>
                         <p><b>Aadhaar:</b> {student.get('aadhaar', 'N/A')} {'✅ Linked' if is_valid_aadhaar(student.get('aadhaar', '')) else '⚠️ Invalid/Unlinked'}</p>
-                        <p><b>Caste Category:</b> {student.get('caste', 'General')}</p>
+                        <p><b>Caste:</b> {student.get('caste', 'General')}</p>
                         <p><b>Mobile:</b> {student.get('mobile', 'N/A')} | <b>WhatsApp:</b> {student.get('whatsapp', 'N/A')}</p>
                     </div>
                     """, unsafe_allow_html=True)
@@ -126,28 +153,28 @@ if menu == "🔍 Advance Student Search & Profile":
                         if student.get('mobile'):
                             st.markdown(f'<a href="tel:{student.get("mobile")}"><button style="background-color:#2196F3;color:white;width:100%;height:40px;border-radius:8px;">📞 Call Mobile</button></a>', unsafe_allow_html=True)
                     with c2:
-                        if student.get('whatsapp'):
+                        if student.get('whatsapp') or student.get('mobile'):
+                            target_num = student.get('whatsapp') or student.get('mobile')
                             msg = urllib.parse.quote(f"Hello {student.get('name')}, Notice from School ERP Portal.")
-                            st.markdown(f'<a href="https://wa.me/91{student.get("whatsapp")}?text={msg}"><button style="background-color:#25D366;color:white;width:100%;height:40px;border-radius:8px;">💬 WhatsApp SMS</button></a>', unsafe_allow_html=True)
+                            st.markdown(f'<a href="https://wa.me/91{target_num}?text={msg}"><button style="background-color:#25D366;color:white;width:100%;height:40px;border-radius:8px;">💬 WhatsApp SMS</button></a>', unsafe_allow_html=True)
             else:
                 st.warning("No matching student records found.")
         except Exception as e:
             st.error(f"Search Error: {e}")
 
-# --- MODULE 2: ADD / EDIT COMPLETE STUDENT DATA ---
-elif menu == "✏️ Add / Edit Complete Student Data":
-    st.title("✏️ Complete Student Form")
+# --- PAGE 3: ADD / EDIT COMPLETE STUDENT PROFILE (Updated Feature) ---
+elif menu == "✏️ Add / Edit Complete Student Profile":
+    st.title("✏️ Student Master Form")
     
     roll_no = st.number_input("Roll No (Unique ID)", min_value=1, step=1)
     
-    # Auto-fetch if exists
     existing = None
-    if st.button("🔍 Check Existing Data"):
+    if st.button("🔍 Load Existing Student Data"):
         if supabase:
             r = supabase.table("students").select("*").eq("roll_no", roll_no).execute()
             if r.data:
                 existing = r.data[0]
-                st.success("Student details fetched!")
+                st.success("Data fetched successfully!")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -168,10 +195,7 @@ elif menu == "✏️ Add / Edit Complete Student Data":
     with col4:
         wa_mob = st.text_input("WhatsApp Number", value=existing.get('whatsapp', '') if existing else '')
 
-    if st.button("💾 Save Complete Record"):
-        if aadhaar and not is_valid_aadhaar(aadhaar):
-            st.warning("⚠️ Warning: Aadhaar number should be exactly 12 digits.")
-        
+    if st.button("💾 Save / Update Student Profile"):
         payload = {
             "roll_no": roll_no, "name": s_name, "father_name": f_name, "mother_name": m_name,
             "class": s_class, "section": s_sec, "dob": str(s_dob), "aadhaar": aadhaar,
@@ -180,13 +204,87 @@ elif menu == "✏️ Add / Edit Complete Student Data":
         if supabase:
             try:
                 supabase.table("students").upsert(payload).execute()
-                st.success("Student Master Profile Saved Successfully!")
+                st.success("Student Profile Saved Successfully!")
             except Exception as e:
                 st.error(f"Save Failed: {e}")
 
-# --- MODULE 3: AUTOMATIC NCERT QUESTION PAPER GENERATOR ---
+# --- PAGE 4: MARK ATTENDANCE & WHATSAPP ALERT (Merged Feature) ---
+elif menu == "📅 Mark Attendance & WhatsApp Alert":
+    st.title("📅 Daily Attendance")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        sel_c = st.selectbox("Class", classes_list)
+    with c2:
+        sel_s = st.selectbox("Section", sections_list)
+        
+    roll_no = st.number_input("Roll No", min_value=1, step=1)
+    status = st.radio("Status", ["Present", "Absent"], horizontal=True)
+    wa_num = st.text_input("Parent Mobile / WhatsApp Number")
+
+    if st.button("Save & Send Instant WhatsApp Alert"):
+        msg = f"Dear Parent, your child (Roll No: {roll_no}, {sel_c}-{sel_s}) is marked *{status}* today ({datetime.date.today()})."
+        enc_msg = urllib.parse.quote(msg)
+        wa_url = f"https://wa.me/91{wa_num}?text={enc_msg}"
+        
+        if supabase:
+            try:
+                supabase.table("attendance").insert({
+                    "roll_no": roll_no, "class": sel_c, "section": sel_s,
+                    "date": str(datetime.date.today()), "status": status
+                }).execute()
+            except Exception as e:
+                pass
+        
+        st.success(f"Attendance recorded as {status}!")
+        if wa_num:
+            st.markdown(f"📲 **[Click Here to Open WhatsApp & Send Alert]({wa_url})**")
+
+# --- PAGE 5: FEES PAYMENT, CALL & SMS LINK (Merged Feature) ---
+elif menu == "💳 Fees Payment, Call & SMS Link":
+    st.title("💳 Fees & Parent Direct Connect")
+    
+    mob_num = st.text_input("Parent Mobile Number")
+    amount = st.number_input("Fee Due Amount (₹)", value=1500)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if mob_num:
+            st.markdown(f'<a href="tel:{mob_num}"><button style="background-color:#2196F3;color:white;width:100%;height:45px;border-radius:10px;">📞 Call Parent Now</button></a>', unsafe_allow_html=True)
+    with c2:
+        upi_pay = f"upi://pay?pa=schoolfees@upi&pn=SchoolERP&am={amount}&cu=INR"
+        st.markdown(f'👉 **[Send ₹{amount} UPI Payment Link]({upi_pay})**')
+
+# --- PAGE 6: EXAM MARKS PORTAL (Purana Feature) ---
+elif menu == "📝 Exam Marks Portal":
+    st.title("📝 Student Marks Portal")
+    
+    exam_name = st.selectbox("Exam Type", ["Unit Test 1", "Unit Test 2", "Half-Yearly Exam", "Yearly Exam"])
+    s_class = st.selectbox("Class", classes_list)
+    s_roll = st.number_input("Roll No", min_value=1)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        hindi = st.number_input("Hindi", 0, 100)
+        english = st.number_input("English", 0, 100)
+    with c2:
+        maths = st.number_input("Maths", 0, 100)
+        science = st.number_input("Science", 0, 100)
+
+    if st.button("Save Marks Record"):
+        if supabase:
+            try:
+                supabase.table("marks").insert({
+                    "exam_type": exam_name, "class": s_class, "roll_no": s_roll,
+                    "hindi": hindi, "english": english, "maths": maths, "science": science
+                }).execute()
+                st.success("Marks saved successfully!")
+            except Exception as e:
+                st.error(f"Error saving marks: {e}")
+
+# --- PAGE 7: AUTO NCERT QUESTION PAPER GENERATOR (Naya + Chapter Wise Feature) ---
 elif menu == "📄 Auto NCERT Question Paper Generator":
-    st.title("📄 NCERT Auto Paper Generator")
+    st.title("📄 NCERT Chapter Question Paper")
     
     c1, c2 = st.columns(2)
     with c1:
@@ -196,33 +294,21 @@ elif menu == "📄 Auto NCERT Question Paper Generator":
         p_chapter = st.text_input("Chapter Name / No.", "Chapter 1: Real Numbers")
         max_marks = st.number_input("Total Max Marks", value=100)
 
-    st.subheader("📝 Customize Question Types:")
-    
-    # 1. MCQ Questions
+    st.subheader("📝 Question Pattern:")
     mcq_q = st.text_area("1. MCQs (Bahuvikalpi Prashn)", 
                          "Q1. What is the HCF of 12 and 18?\n(A) 2  (B) 3  (C) 6  (D) 12\n\nQ2. Which of the following is an Irrational Number?\n(A) √4  (B) √2  (C) 0.5  (D) 3/5")
-    
-    # 2. Fill in the Blanks
     fill_q = st.text_area("2. Fill in the Blanks (Khali Sthan)", 
                           "Q3. Smallest prime number is _______.\nQ4. Every composite number can be expressed as product of _______.")
-    
-    # 3. One-Liner Questions
     one_liner_q = st.text_area("3. One-Liner Questions (Ek Vakya)", 
                                "Q5. State Euclid's Division Lemma.\nQ6. Define a Rational Number.")
-    
-    # 4. Short Answer Questions
     short_q = st.text_area("4. Short Answer Questions (Laghutratmak)", 
                            "Q7. Prove that √5 is an irrational number.\nQ8. Find the LCM of 24 and 36 using Prime Factorization Method.")
-    
-    # 5. Long Essay Questions
     long_q = st.text_area("5. Long Essay Questions (Nibandhatmak)", 
                           "Q9. Explain the Fundamental Theorem of Arithmetic with a real-world application in detail.")
 
     def generate_pro_pdf():
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
-        
-        # Header
         p.setFont("Helvetica-Bold", 16)
         p.drawString(160, 750, f"SCHOOL EXAMINATION PAPER")
         p.setFont("Helvetica", 11)
@@ -265,94 +351,24 @@ elif menu == "📄 Auto NCERT Question Paper Generator":
         return buffer
 
     pdf_file = generate_pro_pdf()
-    st.download_button("📥 Download Auto NCERT Exam Paper PDF", pdf_file, file_name=f"{p_class}_{p_sub}_Paper.pdf", mime="application/pdf")
+    st.download_button("📥 Download Auto Question Paper PDF", pdf_file, file_name=f"{p_class}_{p_sub}_Paper.pdf", mime="application/pdf")
 
-# --- MODULE 4: ATTENDANCE & WHATSAPP ALERT ---
-elif menu == "📅 Attendance & WhatsApp Alert":
-    st.title("📅 Daily Attendance System")
+# --- PAGE 8: CLASS 1-12 NCERT TEXTBOOKS (Purana Feature) ---
+elif menu == "📚 Class 1-12 NCERT Textbooks":
+    st.title("📚 Official NCERT Books")
+    st.write("Direct Links to Official NCERT Textbooks:")
     
-    c1, c2 = st.columns(2)
-    with c1:
-        sel_c = st.selectbox("Class", classes_list)
-    with c2:
-        sel_s = st.selectbox("Section", sections_list)
-        
-    roll_no = st.number_input("Roll No", min_value=1, step=1)
-    status = st.radio("Status", ["Present", "Absent"], horizontal=True)
-    wa_num = st.text_input("Parent WhatsApp Number")
+    for c_num in range(1, 13):
+        st.markdown(f"👉 **[Class {c_num} NCERT All Subject Books](https://ncert.nic.in/textbook.php)**")
 
-    if st.button("Save & Send Instant WhatsApp Alert"):
-        msg = f"Dear Parent, your child (Roll No: {roll_no}, {sel_c}-{sel_s}) is marked *{status}* today ({datetime.date.today()})."
-        enc_msg = urllib.parse.quote(msg)
-        wa_url = f"https://wa.me/91{wa_num}?text={enc_msg}"
-        
-        if supabase:
-            try:
-                supabase.table("attendance").insert({
-                    "roll_no": roll_no, "class": sel_c, "section": sel_s,
-                    "date": str(datetime.date.today()), "status": status
-                }).execute()
-            except Exception as e:
-                pass
-        
-        st.success(f"Attendance recorded as {status}!")
-        if wa_num:
-            st.markdown(f"📲 **[Click Here to Open WhatsApp & Send Alert]({wa_url})**")
-
-# --- MODULE 5: FEES LINK & DIRECT CALL SYSTEM ---
-elif menu == "💳 Fees Link & Direct Call System":
-    st.title("💳 Fees & Calling Module")
-    
-    mob_num = st.text_input("Parent Mobile Number")
-    amount = st.number_input("Fee Due Amount (₹)", value=1500)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        if mob_num:
-            st.markdown(f'<a href="tel:{mob_num}"><button style="background-color:#2196F3;color:white;width:100%;height:45px;border-radius:10px;">📞 Call Parent Now</button></a>', unsafe_allow_html=True)
-    with c2:
-        upi_pay = f"upi://pay?pa=schoolfees@upi&pn=SchoolERP&am={amount}&cu=INR"
-        st.markdown(f'👉 **[Send ₹{amount} UPI Payment Link]({upi_pay})**')
-
-# --- MODULE 6: EXAM MARKS PORTAL ---
-elif menu == "📝 Exam Marks Portal":
-    st.title("📝 Student Marks Entry")
-    
-    exam_name = st.selectbox("Exam Type", ["Unit Test 1", "Unit Test 2", "Half-Yearly Exam", "Yearly Exam"])
-    s_class = st.selectbox("Class", classes_list)
-    s_roll = st.number_input("Roll No", min_value=1)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        hindi = st.number_input("Hindi", 0, 100)
-        english = st.number_input("English", 0, 100)
-    with c2:
-        maths = st.number_input("Maths", 0, 100)
-        science = st.number_input("Science", 0, 100)
-
-    if st.button("Save Marks Record"):
-        if supabase:
-            try:
-                supabase.table("marks").insert({
-                    "exam_type": exam_name, "class": s_class, "roll_no": s_roll,
-                    "hindi": hindi, "english": english, "maths": maths, "science": science
-                }).execute()
-                st.success("Marks saved successfully!")
-            except Exception as e:
-                st.error(f"Error saving marks: {e}")
-
-# --- MODULE 7: ADMIN LICENSING & APP FEES ---
-elif menu == "👑 Admin Licensing & App Fees":
-    st.title("👑 Admin License & App Fees")
-    
+# --- PAGE 9: ADMIN LICENSE & APP FEES ---
+elif menu == "👑 Admin License & App Fees":
+    st.title("👑 App Licensing")
     st.info("System License Status: ACTIVE (Enterprise Pro)")
-    st.write("Manage App Access Fees for Teachers and Staff Members:")
-    
     st.markdown("""
     <div class="card">
-        <h4>💰 App License Pricing Configuration</h4>
+        <h4>💰 App License Pricing</h4>
         <p>• <b>Teacher License:</b> ₹1000/year</p>
-        <p>• <b>Admin License:</b> Free (Lifetime Access)</p>
-        <p>• <b>Automatic SMS / WhatsApp Gateway:</b> Enabled</p>
+        <p>• <b>Admin Access:</b> Free Lifetime</p>
     </div>
     """, unsafe_allow_html=True)
