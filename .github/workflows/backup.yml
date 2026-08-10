@@ -1,0 +1,21 @@
+name: Daily Google Drive Backup
+
+on:
+  schedule:
+    # Daily raat 12:00 AM UTC par chalega
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Manual trigger ke liye
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rclone
+        uses: rclone/rclone-action@v1
+        with:
+          args: copy . gdrive:SchoolERP_Backups --exclude ".git/**"
+        env:
+          RCLONE_CONFIG: ${{ secrets.RCLONE_CONFIG }}
