@@ -16,9 +16,9 @@ jobs:
         run: |
           sudo curl https://rclone.org/install.sh | sudo bash
 
-      - name: Sync to Google Drive
+      - name: Test Drive Access
         env:
           RCLONE_CONFIG_GDRIVE_TYPE: drive
           RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.RCLONE_TOKEN }}
         run: |
-          rclone copy . gdrive:SchoolERP_Backups --exclude ".git/**" -v
+          rclone lsd gdrive: -vv
