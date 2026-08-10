@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. PREMIUM ANDROID APP UI & BADGES STYLING ---
+# --- 2. MOBILE NATIVE UI & STYLING ---
 st.markdown("""
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
@@ -23,10 +23,11 @@ st.markdown("""
     <meta name="theme-color" content="#1E88E5">
 
     <style>
-    /* Streamlit UI Overrides */
+    /* Hide Streamlit Native Sidebar Header Elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    [data-testid="collapsedControl"] {display: none;} /* Hide sidebar toggle icon */
     
     .main .block-container {
         padding-top: 5px !important;
@@ -35,65 +36,67 @@ st.markdown("""
         margin: 0 auto !important;
     }
     
-    /* Native App Icon Header Bar */
+    /* Native App Bar */
     .app-header-bar {
         background: linear-gradient(135deg, #1565C0, #1E88E5);
         color: white;
-        padding: 16px 20px;
-        border-radius: 0 0 22px 22px;
-        box-shadow: 0 6px 15px rgba(21, 101, 192, 0.3);
-        margin-bottom: 20px;
+        padding: 14px 18px;
+        border-radius: 0 0 20px 20px;
+        box-shadow: 0 4px 12px rgba(21, 101, 192, 0.25);
+        margin-bottom: 12px;
         margin-top: -10px;
         display: flex;
         align-items: center;
         justify-content: space-between;
     }
-    .app-brand { display: flex; align-items: center; gap: 12px; }
+    .app-brand { display: flex; align-items: center; gap: 10px; }
     .app-icon { 
-        font-size: 28px; 
+        font-size: 26px; 
         background: rgba(255, 255, 255, 0.2); 
-        padding: 8px; 
-        border-radius: 14px; 
-        backdrop-filter: blur(5px);
+        padding: 6px 10px; 
+        border-radius: 12px; 
     }
-    .app-title-text { line-height: 1.2; }
-    .app-title-text h3 { margin: 0; font-size: 18px; color: white; font-weight: 800; }
-    .app-title-text span { font-size: 11px; opacity: 0.85; letter-spacing: 0.5px; }
+    .app-title-text h3 { margin: 0; font-size: 17px; color: white; font-weight: 800; }
+    .app-title-text span { font-size: 11px; opacity: 0.85; }
 
-    /* Modern Rounded App Card */
+    /* User Profile Card on Top */
+    .user-profile-card {
+        background: #F0F4F8;
+        padding: 10px 14px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #D9E2EC;
+    }
+
+    /* Cards Styling */
     .card { 
         background: #FFFFFF; 
-        padding: 18px; 
-        border-radius: 20px; 
-        margin-bottom: 15px; 
+        padding: 16px; 
+        border-radius: 18px; 
+        margin-bottom: 14px; 
         border: 1px solid #ECEFF1; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
-    }
-    .badge-status { 
-        background-color: #E8F5E9; 
-        color: #2E7D32; 
-        padding: 4px 10px; 
-        border-radius: 20px; 
-        font-size: 11px; 
-        font-weight: 700; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04); 
     }
 
     /* Primary Android Buttons */
     .stButton>button { 
         width: 100%; 
-        border-radius: 16px !important; 
-        height: 52px !important; 
-        font-size: 16px !important;
+        border-radius: 14px !important; 
+        height: 48px !important; 
+        font-size: 15px !important;
         font-weight: 700 !important; 
         background: linear-gradient(135deg, #1E88E5, #1565C0) !important; 
         color: white !important; 
         border: none !important;
-        box-shadow: 0 6px 14px rgba(30, 136, 229, 0.3) !important;
+        box-shadow: 0 4px 12px rgba(30, 136, 229, 0.25) !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# HD App Header Bar
+# HD Header Bar
 st.markdown("""
 <div class="app-header-bar">
     <div class="app-brand">
@@ -103,7 +106,7 @@ st.markdown("""
             <span>SMART CAMPUS PORTAL</span>
         </div>
     </div>
-    <span class="badge-status">🟢 Online</span>
+    <span style="background:#E8F5E9;color:#2E7D32;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:bold;">🟢 Online</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -156,24 +159,35 @@ if not st.session_state.logged_in:
                     st.error("Incorrect OTP!")
     st.stop()
 
-# --- 5. NAVIGATION SYSTEM ---
-st.sidebar.markdown(f"### 👤 Role: `{st.session_state.role}`")
-if st.sidebar.button("🔴 Logout App"):
-    st.session_state.logged_in = False
-    st.rerun()
+# --- 5. TOP MAIN SCREEN NAVIGATION (SIDEBAR HATA DIYA HAI) ---
+col_prof, col_logout = st.columns([3, 1])
+with col_prof:
+    st.markdown(f"👤 **Role:** `{st.session_state.role}`")
+with col_logout:
+    if st.button("🚪 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
 
-menu = st.sidebar.selectbox("📱 App Modules", [
-    "1. 👑 App License & Pricing",
-    "2. ✏️ Add / Edit Complete Student Profile",
-    "3. 👥 View All Students Table",
-    "4. 🔍 Advance Multi-Search Profile",
-    "5. 💳 Fees Payment, Call & SMS Link",
-    "6. 📅 Mark Attendance & WhatsApp Alert",
-    "7. 📚 Class 1-12 NCERT Textbooks",
-    "8. 📄 Auto Question Paper (Hindi & English)",
-    "9. 📝 Exam Marks Portal",
-    "10. ✅ Student Answer Sheet Copy Check"
-])
+st.markdown("---")
+
+# Front Screen Dropdown Menu (Directly Visible on Mobile Screen)
+menu = st.selectbox(
+    "📱 Select App Module (मॉड्यूल चुनें):", 
+    [
+        "1. 👑 App License & Pricing",
+        "2. ✏️ Add / Edit Complete Student Profile",
+        "3. 👥 View All Students Table",
+        "4. 🔍 Advance Multi-Search Profile",
+        "5. 💳 Fees Payment, Call & SMS Link",
+        "6. 📅 Mark Attendance & WhatsApp Alert",
+        "7. 📚 Class 1-12 NCERT Textbooks",
+        "8. 📄 Auto Question Paper (Hindi & English)",
+        "9. 📝 Exam Marks Portal",
+        "10. ✅ Student Answer Sheet Copy Check"
+    ]
+)
+
+st.markdown("---")
 
 classes_list = [f"Class {i}" for i in range(1, 13)]
 sections_list = ["A", "B", "C", "D"]
