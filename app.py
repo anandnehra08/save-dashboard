@@ -195,18 +195,34 @@ if not st.session_state.logged_in:
     else:
         mobile = st.text_input("Enter 10-digit Mobile Number")
         if mobile:
-            plan_choice = st.radio("Select Subscription Plan", ["Yearly Plan - ₹2,000 / Year", "Lifetime Plan - ₹20,000"])
-            pay_amt = 2000 if "Yearly" in plan_choice else 20000
+            plan_choice = st.radio(
+                "Select Subscription Plan", 
+                [
+                    "🎁 1 Day Free Demo Plan - ₹0 (Trial)", 
+                    "📅 Yearly Plan - ₹2,000 / Year", 
+                    "👑 Lifetime Plan - ₹20,000"
+                ]
+            )
             
-            st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
-            upi_pay = f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
-            st.markdown(f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**")
+            if "Free Demo" in plan_choice:
+                pay_amt = 0
+                st.success("🎉 You selected 1 Day Free Trial! No payment required.")
+            elif "Yearly" in plan_choice:
+                pay_amt = 2000
+                st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
+                upi_pay = f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
+                st.markdown(f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**")
+            else:
+                pay_amt = 20000
+                st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
+                upi_pay = f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
+                st.markdown(f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**")
             
             otp = st.text_input("Enter OTP (Use '1234')", type="password")
             if st.button("Verify OTP & Login"):
                 if otp == "1234":
                     st.session_state.logged_in = True
-                    st.session_state.role = "Teacher"
+                    st.session_state.role = "Teacher (Demo)" if pay_amt == 0 else "Teacher"
                     st.rerun()
                 else:
                     st.error("Incorrect OTP!")
@@ -264,10 +280,11 @@ if menu == "1. 👑 App License & Pricing":
         <p>• <b>Email:</b> anandnehra8@gmail.com</p>
         <hr>
         <h4>💰 Pricing Overview</h4>
-        <p>• <b>Yearly Subscription:</b> ₹2,000 / Year</p>
-        <p>• <b>Lifetime Access:</b> ₹20,000 (One-Time Payment)</p>
-        <p>• <b>Admin Access:</b> Full System Control Included</p>
-        <p>• <b>All 14 Advanced Modules:</b> Unlocked</p>
+        <p>• <b>🎁 1 Day Demo Access:</b> FREE (Complete System Trial)</p>
+        <p>• <b>📅 Yearly Subscription:</b> ₹2,000 / Year</p>
+        <p>• <b>👑 Lifetime Access:</b> ₹20,000 (One-Time Payment)</p>
+        <p>• <b>🔐 Admin Access:</b> Full System Control Included</p>
+        <p>• <b>⚡ Modules Unlocked:</b> All 14 Advanced Modules</p>
     </div>
     """, unsafe_allow_html=True)
 
