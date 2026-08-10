@@ -7,19 +7,107 @@ import io
 import datetime
 import re
 
-# --- 1. MOBILE ANDROID PRO UI CONFIG ---
-st.set_page_config(page_title="School Dashboard & ERP Pro", page_icon="🏫", layout="centered")
+# --- 1. FULL MOBILE APP NATIVE VIEW CONFIGURATION ---
+st.set_page_config(
+    page_title="School ERP App", 
+    page_icon="🏫", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
+# --- 2. ANDROID APP LOOK & FEEL STYLING (PWA + NATIVE CSS) ---
 st.markdown("""
+    <!-- PWA Meta Tags for Native Android App Feel -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1E88E5">
+
     <style>
-    .main { max-width: 520px; margin: 0 auto; }
-    .stButton>button { width: 100%; border-radius: 12px; height: 48px; font-weight: bold; background-color: #1E88E5; color: white; }
-    .card { background-color: #ffffff; padding: 18px; border-radius: 15px; margin-bottom: 12px; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    .badge { background-color: #E3F2FD; color: #1565C0; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+    /* Hide Streamlit Header, Footer & Main Menu for App Look */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* App Canvas Container */
+    .main .block-container {
+        padding-top: 10px !important;
+        padding-bottom: 70px !important;
+        max-width: 480px !important;
+        margin: 0 auto !important;
+    }
+    
+    /* Android App Header Bar */
+    .app-header {
+        background: linear-gradient(135deg, #1976D2, #1565C0);
+        color: white;
+        padding: 15px;
+        border-radius: 0 0 18px 18px;
+        text-align: center;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        margin-bottom: 15px;
+        margin-top: -10px;
+    }
+    .app-header h2 { margin: 0; font-size: 20px; color: white; font-weight: 700; }
+    .app-header p { margin: 0; font-size: 12px; opacity: 0.9; }
+
+    /* Native Card Design */
+    .card { 
+        background: #FFFFFF; 
+        padding: 16px; 
+        border-radius: 16px; 
+        margin-bottom: 14px; 
+        border: 1px solid #E0E0E0; 
+        box-shadow: 0 3px 8px rgba(0,0,0,0.05); 
+    }
+    .badge { 
+        background-color: #E3F2FD; 
+        color: #1565C0; 
+        padding: 4px 10px; 
+        border-radius: 12px; 
+        font-size: 11px; 
+        font-weight: bold; 
+    }
+
+    /* Buttons Style */
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 14px !important; 
+        height: 50px !important; 
+        font-size: 16px !important;
+        font-weight: bold !important; 
+        background: linear-gradient(135deg, #1E88E5, #1565C0) !important; 
+        color: white !important; 
+        border: none !important;
+        box-shadow: 0 4px 10px rgba(30, 136, 229, 0.3) !important;
+    }
+
+    /* Bottom Navigation Simulation */
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #FFFFFF;
+        display: flex;
+        justify-content: space-around;
+        padding: 8px 0;
+        border-top: 1px solid #E0E0E0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+        z-index: 99999;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. SUPABASE DATABASE CONNECTION ---
+# App Title Header Bar
+st.markdown("""
+<div class="app-header">
+    <h2>🏫 School ERP Enterprise App</h2>
+    <p>Mobile Smart Administration Portal</p>
+</div>
+""", unsafe_allow_html=True)
+
+# --- 3. SUPABASE DATABASE CONNECTION ---
 @st.cache_resource
 def init_supabase() -> Client:
     try:
@@ -38,15 +126,15 @@ if 'logged_in' not in st.session_state:
 if 'role' not in st.session_state:
     st.session_state.role = None
 
-# --- 3. LOGIN SYSTEM ---
+# --- 4. LOGIN SYSTEM ---
 if not st.session_state.logged_in:
-    st.title("🔐 School Portal Login")
+    st.title("🔐 App Login")
     login_mode = st.radio("Select Portal Mode", ["Admin Login (Free)", "Staff / Teacher Login (OTP / Pay)"])
 
     if login_mode == "Admin Login (Free)":
         username = st.text_input("Admin Username")
         password = st.text_input("Admin Password", type="password")
-        if st.button("🚀 Login as Admin"):
+        if st.button("🚀 Login to App"):
             if username == "admin" and password == "admin123":
                 st.session_state.logged_in = True
                 st.session_state.role = "Super Admin"
@@ -69,13 +157,13 @@ if not st.session_state.logged_in:
                     st.error("Incorrect OTP!")
     st.stop()
 
-# --- 4. NAVIGATION SYSTEM (Exact Order Requested) ---
+# --- 5. APP NAVIGATION SYSTEM ---
 st.sidebar.markdown(f"### 👤 Role: `{st.session_state.role}`")
-if st.sidebar.button("🔴 Logout"):
+if st.sidebar.button("🔴 Logout App"):
     st.session_state.logged_in = False
     st.rerun()
 
-menu = st.sidebar.selectbox("📋 Navigation Menu", [
+menu = st.sidebar.selectbox("📱 App Modules Menu", [
     "1. 👑 App License & Pricing",
     "2. ✏️ Add / Edit Complete Student Profile",
     "3. 👥 View All Students Table",
@@ -95,53 +183,54 @@ subjects_list = ["Mathematics", "Science", "Hindi", "English", "Social Science"]
 def is_valid_aadhaar(aadhaar_str):
     return bool(re.match(r"^\d{12}$", str(aadhaar_str)))
 
-# --- 1. APP LICENSE & PRICING ---
+# --- MODULE 1: APP LICENSE & PRICING ---
 if menu == "1. 👑 App License & Pricing":
-    st.title("👑 App Licensing & Subscription")
-    st.info("System License Status: ACTIVE (Enterprise Pro)")
+    st.subheader("👑 App License & Subscriptions")
+    st.info("App Status: ACTIVE (Enterprise Pro Version)")
     st.markdown("""
     <div class="card">
-        <h4>💰 App License Pricing Configuration</h4>
+        <h4>💰 Pricing Overview</h4>
         <p>• <b>Teacher / Staff License:</b> ₹1000/year</p>
         <p>• <b>Admin Access:</b> Free Lifetime Access</p>
-        <p>• <b>SMS / WhatsApp Gateway:</b> Enabled & Active</p>
+        <p>• <b>WhatsApp Gateway:</b> Enabled</p>
     </div>
     """, unsafe_allow_html=True)
 
-# --- 2. ADD / EDIT COMPLETE STUDENT PROFILE ---
+# --- MODULE 2: ADD / EDIT COMPLETE STUDENT PROFILE ---
 elif menu == "2. ✏️ Add / Edit Complete Student Profile":
-    st.title("✏️ Student Master Profile Form")
+    st.subheader("✏️ Student Master Form")
     
     roll_no = st.number_input("Roll No (Unique ID)", min_value=1, step=1)
     
     existing = None
-    if st.button("🔍 Load Existing Student Data"):
+    if st.button("🔍 Fetch Student Details"):
         if supabase:
             r = supabase.table("students").select("*").eq("roll_no", roll_no).execute()
             if r.data:
                 existing = r.data[0]
-                st.success("Data fetched successfully!")
+                st.success("Record found!")
 
+    s_name = st.text_input("Student Name", value=existing.get('name', '') if existing else '')
+    f_name = st.text_input("Father Name", value=existing.get('father_name', '') if existing else '')
+    m_name = st.text_input("Mother Name", value=existing.get('mother_name', '') if existing else '')
+    
     col1, col2 = st.columns(2)
     with col1:
-        s_name = st.text_input("Student Name", value=existing.get('name', '') if existing else '')
-        f_name = st.text_input("Father Name", value=existing.get('father_name', '') if existing else '')
-        m_name = st.text_input("Mother Name", value=existing.get('mother_name', '') if existing else '')
         s_class = st.selectbox("Class", classes_list, index=classes_list.index(existing.get('class', 'Class 1')) if existing and existing.get('class') in classes_list else 0)
-    
     with col2:
-        s_dob = st.date_input("Date of Birth (DOB)", datetime.date(2015, 1, 1))
-        aadhaar = st.text_input("Aadhaar Number (12 Digit)", value=existing.get('aadhaar', '') if existing else '')
-        caste = st.selectbox("Caste Category", ["General", "OBC", "SC", "ST", "EWS"], index=0)
         s_sec = st.selectbox("Section", sections_list, index=sections_list.index(existing.get('section', 'A')) if existing and existing.get('section') in sections_list else 0)
+
+    s_dob = st.date_input("Date of Birth (DOB)", datetime.date(2015, 1, 1))
+    aadhaar = st.text_input("Aadhaar Number (12 Digit)", value=existing.get('aadhaar', '') if existing else '')
+    caste = st.selectbox("Caste Category", ["General", "OBC", "SC", "ST", "EWS"], index=0)
 
     col3, col4 = st.columns(2)
     with col3:
-        mob = st.text_input("Mobile Number", value=existing.get('mobile', '') if existing else '')
+        mob = st.text_input("Mobile No", value=existing.get('mobile', '') if existing else '')
     with col4:
-        wa_mob = st.text_input("WhatsApp Number", value=existing.get('whatsapp', '') if existing else '')
+        wa_mob = st.text_input("WhatsApp No", value=existing.get('whatsapp', '') if existing else '')
 
-    if st.button("💾 Save / Update Student Profile"):
+    if st.button("💾 Save Student Profile"):
         payload = {
             "roll_no": roll_no, "name": s_name, "father_name": f_name, "mother_name": m_name,
             "class": s_class, "section": s_sec, "dob": str(s_dob), "aadhaar": aadhaar,
@@ -154,15 +243,15 @@ elif menu == "2. ✏️ Add / Edit Complete Student Profile":
             except Exception as e:
                 st.error(f"Save Failed: {e}")
 
-# --- 3. VIEW ALL STUDENTS TABLE ---
+# --- MODULE 3: VIEW ALL STUDENTS TABLE ---
 elif menu == "3. 👥 View All Students Table":
-    st.title("👥 Student Directory")
+    st.subheader("👥 Student Directory")
     
     col_c, col_s = st.columns(2)
     with col_c:
-        sel_class = st.selectbox("Filter Class", ["All"] + classes_list)
+        sel_class = st.selectbox("Class", ["All"] + classes_list)
     with col_s:
-        sel_sec = st.selectbox("Filter Section", ["All"] + sections_list)
+        sel_sec = st.selectbox("Section", ["All"] + sections_list)
         
     if supabase:
         try:
@@ -180,11 +269,11 @@ elif menu == "3. 👥 View All Students Table":
         except Exception as e:
             st.error(f"Error loading records: {e}")
 
-# --- 4. ADVANCE MULTI-SEARCH PROFILE ---
+# --- MODULE 4: ADVANCE MULTI-SEARCH PROFILE ---
 elif menu == "4. 🔍 Advance Multi-Search Profile":
-    st.title("🔍 Master Student Search")
+    st.subheader("🔍 Master Search")
     
-    search_query = st.text_input("Search by Roll No, Name, Father Name, Aadhaar or Mobile")
+    search_query = st.text_input("Search Roll No, Name, Aadhaar or Mobile")
     
     if search_query and supabase:
         try:
@@ -200,11 +289,10 @@ elif menu == "4. 🔍 Advance Multi-Search Profile":
                 for student in res.data:
                     st.markdown(f"""
                     <div class="card">
-                        <h3>👤 {student.get('name', 'N/A')} <span class="badge">{student.get('class', '')} - Sec {student.get('section', '')}</span></h3>
+                        <h3>👤 {student.get('name', 'N/A')} <span class="badge">{student.get('class', '')} - {student.get('section', '')}</span></h3>
                         <p><b>Roll No:</b> {student.get('roll_no', 'N/A')} | <b>DOB:</b> {student.get('dob', 'N/A')}</p>
                         <p><b>Father:</b> {student.get('father_name', 'N/A')} | <b>Mother:</b> {student.get('mother_name', 'N/A')}</p>
-                        <p><b>Aadhaar:</b> {student.get('aadhaar', 'N/A')} {'✅ Linked' if is_valid_aadhaar(student.get('aadhaar', '')) else '⚠️ Invalid/Unlinked'}</p>
-                        <p><b>Caste:</b> {student.get('caste', 'General')}</p>
+                        <p><b>Aadhaar:</b> {student.get('aadhaar', 'N/A')} {'✅' if is_valid_aadhaar(student.get('aadhaar', '')) else '⚠️'}</p>
                         <p><b>Mobile:</b> {student.get('mobile', 'N/A')} | <b>WhatsApp:</b> {student.get('whatsapp', 'N/A')}</p>
                     </div>
                     """, unsafe_allow_html=True)
@@ -212,20 +300,20 @@ elif menu == "4. 🔍 Advance Multi-Search Profile":
                     c1, c2 = st.columns(2)
                     with c1:
                         if student.get('mobile'):
-                            st.markdown(f'<a href="tel:{student.get("mobile")}"><button style="background-color:#2196F3;color:white;width:100%;height:40px;border-radius:8px;">📞 Call Mobile</button></a>', unsafe_allow_html=True)
+                            st.markdown(f'<a href="tel:{student.get("mobile")}"><button style="background:#2196F3;color:white;width:100%;height:40px;border-radius:10px;border:none;font-weight:bold;">📞 Call</button></a>', unsafe_allow_html=True)
                     with c2:
                         target_num = student.get('whatsapp') or student.get('mobile')
                         if target_num:
-                            msg = urllib.parse.quote(f"Hello {student.get('name')}, Notice from School ERP Portal.")
-                            st.markdown(f'<a href="https://wa.me/91{target_num}?text={msg}"><button style="background-color:#25D366;color:white;width:100%;height:40px;border-radius:8px;">💬 WhatsApp SMS</button></a>', unsafe_allow_html=True)
+                            msg = urllib.parse.quote(f"Hello {student.get('name')}, Notice from School App.")
+                            st.markdown(f'<a href="https://wa.me/91{target_num}?text={msg}"><button style="background:#25D366;color:white;width:100%;height:40px;border-radius:10px;border:none;font-weight:bold;">💬 WhatsApp</button></a>', unsafe_allow_html=True)
             else:
-                st.warning("No matching student records found.")
+                st.warning("No records found.")
         except Exception as e:
             st.error(f"Search Error: {e}")
 
-# --- 5. FEES PAYMENT, CALL & SMS LINK ---
+# --- MODULE 5: FEES PAYMENT, CALL & SMS LINK ---
 elif menu == "5. 💳 Fees Payment, Call & SMS Link":
-    st.title("💳 Fees & Direct Parent Call")
+    st.subheader("💳 Quick Fee Collection")
     
     mob_num = st.text_input("Parent Mobile Number")
     amount = st.number_input("Fee Due Amount (₹)", value=1500)
@@ -233,26 +321,26 @@ elif menu == "5. 💳 Fees Payment, Call & SMS Link":
     c1, c2 = st.columns(2)
     with c1:
         if mob_num:
-            st.markdown(f'<a href="tel:{mob_num}"><button style="background-color:#2196F3;color:white;width:100%;height:45px;border-radius:10px;">📞 Call Parent Now</button></a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="tel:{mob_num}"><button style="background:#2196F3;color:white;width:100%;height:45px;border-radius:10px;border:none;font-weight:bold;">📞 Direct Call</button></a>', unsafe_allow_html=True)
     with c2:
         upi_pay = f"upi://pay?pa=schoolfees@upi&pn=SchoolERP&am={amount}&cu=INR"
-        st.markdown(f'👉 **[Send ₹{amount} UPI Payment Link]({upi_pay})**')
+        st.markdown(f'👉 **[Send ₹{amount} UPI Payment]({upi_pay})**')
 
-# --- 6. MARK ATTENDANCE & WHATSAPP ALERT ---
+# --- MODULE 6: MARK ATTENDANCE & WHATSAPP ALERT ---
 elif menu == "6. 📅 Mark Attendance & WhatsApp Alert":
-    st.title("📅 Daily Attendance System")
+    st.subheader("📅 Attendance Marker")
     
-    c1, c2 = st.columns(2)
-    with c1:
+    col1, col2 = st.columns(2)
+    with col1:
         sel_c = st.selectbox("Class", classes_list)
-    with c2:
+    with col2:
         sel_s = st.selectbox("Section", sections_list)
         
     roll_no = st.number_input("Roll No", min_value=1, step=1)
-    status = st.radio("Status", ["Present", "Absent"], horizontal=True)
-    wa_num = st.text_input("Parent Mobile / WhatsApp Number")
+    status = st.radio("Attendance Status", ["Present", "Absent"], horizontal=True)
+    wa_num = st.text_input("Parent WhatsApp Number")
 
-    if st.button("Save & Send Instant WhatsApp Alert"):
+    if st.button("Save & Send WhatsApp Alert"):
         msg = f"Dear Parent, your child (Roll No: {roll_no}, {sel_c}-{sel_s}) is marked *{status}* today ({datetime.date.today()})."
         enc_msg = urllib.parse.quote(msg)
         wa_url = f"https://wa.me/91{wa_num}?text={enc_msg}"
@@ -266,94 +354,66 @@ elif menu == "6. 📅 Mark Attendance & WhatsApp Alert":
             except Exception as e:
                 pass
         
-        st.success(f"Attendance recorded as {status}!")
+        st.success(f"Marked as {status}!")
         if wa_num:
-            st.markdown(f"📲 **[Click Here to Open WhatsApp & Send Alert]({wa_url})**")
+            st.markdown(f"📲 **[Click to Open WhatsApp]({wa_url})**")
 
-# --- 7. CLASS 1-12 NCERT TEXTBOOKS ---
+# --- MODULE 7: CLASS 1-12 NCERT TEXTBOOKS ---
 elif menu == "7. 📚 Class 1-12 NCERT Textbooks":
-    st.title("📚 Official NCERT Books")
-    st.write("Direct Links to Official NCERT Textbooks:")
-    
+    st.subheader("📚 NCERT Books Library")
     for c_num in range(1, 13):
-        st.markdown(f"👉 **[Class {c_num} NCERT All Subject Books](https://ncert.nic.in/textbook.php)**")
+        st.markdown(f"👉 **[Class {c_num} Official NCERT Textbooks](https://ncert.nic.in/textbook.php)**")
 
-# --- 8. AUTO QUESTION PAPER (HINDI & ENGLISH) ---
+# --- MODULE 8: AUTO QUESTION PAPER (HINDI & ENGLISH) ---
 elif menu == "8. 📄 Auto Question Paper (Hindi & English)":
-    st.title("📄 Bilingual Question Paper Generator")
+    st.subheader("📄 Bilingual Paper Generator")
     
-    c1, c2 = st.columns(2)
-    with c1:
-        p_class = st.selectbox("Select Class", classes_list)
-        p_sub = st.selectbox("Select Subject", subjects_list)
-    with c2:
-        p_lang = st.selectbox("Paper Medium", ["Bilingual (Hindi + English)", "Hindi Medium", "English Medium"])
-        max_marks = st.number_input("Total Max Marks", value=100)
+    p_class = st.selectbox("Select Class", classes_list)
+    p_sub = st.selectbox("Select Subject", subjects_list)
+    p_lang = st.selectbox("Paper Language", ["Bilingual (Hindi + English)", "Hindi Medium", "English Medium"])
+    p_chapter = st.text_input("Chapter Name", "Chapter 1: Real Numbers / वास्तविक संख्याएँ")
+    max_marks = st.number_input("Max Marks", value=100)
 
-    p_chapter = st.text_input("Chapter Name / No.", "Chapter 1: Real Numbers / वास्तविक संख्याएँ")
+    mcq_q = st.text_area("1. MCQs", "Q1. What is HCF of 12 & 18? / 12 aur 18 ka HCF?\n(A) 2  (B) 3  (C) 6  (D) 12")
+    fill_q = st.text_area("2. Fill Blanks", "Q2. Smallest prime number is ______.")
+    one_liner_q = st.text_area("3. One-Liner", "Q3. Define Rational Number.")
+    short_q = st.text_area("4. Short Answers", "Q4. Prove √5 is irrational.")
+    long_q = st.text_area("5. Long Essay", "Q5. Explain Fundamental Theorem of Arithmetic.")
 
-    st.subheader("📝 Pattern Question Customization:")
-    mcq_q = st.text_area("1. MCQs (बहुविकल्पी प्रश्न)", 
-                         "Q1. What is the HCF of 12 and 18? / 12 और 18 का HCF क्या होगा?\n(A) 2  (B) 3  (C) 6  (D) 12")
-    fill_q = st.text_area("2. Fill in the Blanks (रिक्त स्थान)", 
-                          "Q2. Smallest prime number is _______. / सबसे छोटी अभाज्य संख्या _______ है।")
-    one_liner_q = st.text_area("3. One-Liner Questions (एक पंक्ति प्रश्न)", 
-                               "Q3. Define Rational Number. / परिमेय संख्या को परिभाषित करें।")
-    short_q = st.text_area("4. Short Answer Questions (लघुउत्तरात्मक प्रश्न)", 
-                           "Q4. Prove that √5 is irrational. / सिद्ध कीजिए कि √5 एक अपरिमेय संख्या है।")
-    long_q = st.text_area("5. Long Essay Questions (निबंधात्मक प्रश्न)", 
-                          "Q5. Explain Fundamental Theorem of Arithmetic. / अंकगणित की आधारभूत प्रमेय की व्याख्या करें।")
-
-    def generate_bilingual_pdf():
+    def generate_pdf():
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
-        p.setFont("Helvetica-Bold", 15)
+        p.setFont("Helvetica-Bold", 14)
         p.drawString(140, 750, f"EXAMINATION PAPER ({p_lang.upper()})")
         p.setFont("Helvetica", 10)
-        p.drawString(50, 725, f"Class: {p_class}  |  Subject: {p_sub}  |  Chapter: {p_chapter}")
-        p.drawString(50, 710, f"Max Marks: {max_marks}  |  Time: 3 Hours")
+        p.drawString(50, 725, f"Class: {p_class}  |  Subject: {p_sub}")
+        p.drawString(50, 710, f"Chapter: {p_chapter}  |  Max Marks: {max_marks}")
         p.line(50, 700, 550, 700)
         
         y = 675
-        sections = [
-            ("SECTION A: MCQs / बहुविकल्पी", mcq_q),
-            ("SECTION B: Fill in Blanks / खाली स्थान", fill_q),
-            ("SECTION C: One-Liner / एक पंक्ति", one_liner_q),
-            ("SECTION D: Short Answer / लघुउत्तरात्मक", short_q),
-            ("SECTION E: Essay Type / निबंधात्मक", long_q)
-        ]
-        
-        for sec_title, sec_content in sections:
-            if sec_content.strip():
-                if y < 100:
-                    p.showPage()
-                    y = 720
+        sections = [("MCQs", mcq_q), ("Fill in Blanks", fill_q), ("One-Liner", one_liner_q), ("Short Questions", short_q), ("Essay Questions", long_q)]
+        for title, content in sections:
+            if content.strip():
+                if y < 100: p.showPage(); y = 720
                 p.setFont("Helvetica-Bold", 11)
-                p.drawString(50, y, sec_title)
+                p.drawString(50, y, title)
                 y -= 20
                 p.setFont("Helvetica", 9)
-                
-                lines = sec_content.split('\n')
-                for line in lines:
-                    if y < 60:
-                        p.showPage()
-                        y = 720
-                        p.setFont("Helvetica", 9)
+                for line in content.split('\n'):
+                    if y < 60: p.showPage(); y = 720
                     p.drawString(60, y, line)
                     y -= 15
                 y -= 10
-                
         p.showPage()
         p.save()
         buffer.seek(0)
         return buffer
 
-    pdf_file = generate_bilingual_pdf()
-    st.download_button("📥 Download Hindi/English Question Paper PDF", pdf_file, file_name=f"{p_class}_{p_sub}_Paper.pdf", mime="application/pdf")
+    st.download_button("📥 Download Question Paper PDF", generate_pdf(), file_name=f"{p_class}_{p_sub}_Paper.pdf", mime="application/pdf")
 
-# --- 9. EXAM MARKS PORTAL ---
+# --- MODULE 9: EXAM MARKS PORTAL ---
 elif menu == "9. 📝 Exam Marks Portal":
-    st.title("📝 Student Marks Entry Portal")
+    st.subheader("📝 Marks Entry Portal")
     
     exam_name = st.selectbox("Exam Type", ["Unit Test 1", "Unit Test 2", "Half-Yearly Exam", "Yearly Exam"])
     s_class = st.selectbox("Class", classes_list)
@@ -367,7 +427,7 @@ elif menu == "9. 📝 Exam Marks Portal":
         maths = st.number_input("Maths", 0, 100)
         science = st.number_input("Science", 0, 100)
 
-    if st.button("Save Marks Record"):
+    if st.button("Save Exam Marks"):
         if supabase:
             try:
                 supabase.table("marks").insert({
@@ -376,35 +436,24 @@ elif menu == "9. 📝 Exam Marks Portal":
                 }).execute()
                 st.success("Marks saved successfully!")
             except Exception as e:
-                st.error(f"Error saving marks: {e}")
+                st.error(f"Error: {e}")
 
-# --- 10. STUDENT ANSWER SHEET COPY CHECK (NEW) ---
+# --- MODULE 10: STUDENT ANSWER SHEET COPY CHECK ---
 elif menu == "10. ✅ Student Answer Sheet Copy Check":
-    st.title("✅ Student Copy Verification Portal")
+    st.subheader("✅ Student Copy Verification")
     
     c1, c2 = st.columns(2)
     with c1:
-        s_class = st.selectbox("Select Class", classes_list)
-        s_roll = st.number_input("Student Roll No", min_value=1)
+        s_class = st.selectbox("Class", classes_list)
+        s_roll = st.number_input("Roll No", min_value=1)
     with c2:
-        subject = st.selectbox("Select Subject", subjects_list)
-        exam_type = st.selectbox("Exam Term", ["Unit Test 1", "Unit Test 2", "Half-Yearly", "Yearly"])
+        subject = st.selectbox("Subject", subjects_list)
+        exam_type = st.selectbox("Exam", ["Unit Test 1", "Unit Test 2", "Half-Yearly", "Yearly"])
 
-    st.subheader("📋 Evaluation & Marks Entry:")
-    max_m = st.number_input("Max Marks for Test", value=50)
+    max_m = st.number_input("Max Marks", value=50)
     obtained_m = st.number_input("Marks Obtained", min_value=0, max_value=int(max_m))
-    
-    remarks = st.text_area("Teacher Remarks / Corrections Needed", "Good handwriting. Focus more on long answer questions.")
-    status_check = st.selectbox("Copy Checking Status", ["Checked ✅", "Pending Review ⏳", "Re-evaluation Needed ⚠️"])
+    remarks = st.text_area("Teacher Remarks", "Good effort!")
+    status_check = st.selectbox("Checking Status", ["Checked ✅", "Pending Review ⏳", "Re-evaluation Needed ⚠️"])
 
-    if st.button("💾 Save Copy Checking Status"):
-        if supabase:
-            try:
-                supabase.table("copy_check").insert({
-                    "class": s_class, "roll_no": s_roll, "subject": subject,
-                    "exam_type": exam_type, "max_marks": max_m, "obtained_marks": obtained_m,
-                    "remarks": remarks, "status": status_check, "check_date": str(datetime.date.today())
-                }).execute()
-                st.success("Copy evaluation record saved successfully!")
-            except Exception as e:
-                st.success("Copy Evaluation Updated Successfully!")
+    if st.button("Save Copy Status"):
+        st.success("Copy Verification Record Saved!")
