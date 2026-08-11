@@ -400,3 +400,8 @@ elif menu == "13. 📝 Exam Marks Portal":
 
 elif menu == "14. ✅ Student Answer Sheet Copy Check":
     st.subheader("✅ Student Copy Verification")
+    # Sidebar Menu me se NEET CBT option hata dein
+menu = st.sidebar.selectbox("Navigation", ["Home", "Paper Generator", "Attendance", "NCERT Viewer"])
+
+# Agar Aadhar link button bana tha, to use comment / remove kar dein
+# st.markdown("[Aadhar Verification](https://...)")  # <-- Is line ko delete kar dein
