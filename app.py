@@ -76,7 +76,6 @@ st.markdown(
     .admin-info-box p { margin: 2px 0; }
     .admin-info-box a { color: #818CF8; text-decoration: none; font-weight: 700; }
 
-    /* Custom Section Folders Styling */
     .folder-card {
         background: #F1F5F9;
         border-left: 5px solid #4F46E5;
@@ -186,23 +185,30 @@ with col_logout:
 
 st.markdown("---")
 
-# --- CUSTOMIZED FOLDER CATEGORIES ---
+# --- ALL 17 INDIVIDUAL MODULE FOLDERS ---
 menu = st.selectbox(
-    "📁 Select Module Folder (मॉड्यूल फोल्डर चुनें):",
+    "📂 Select Module Folder (मॉड्यूल फोल्डर चुनें):",
     [
-        "📂 FOLDER 1: Student Admission & SR Master (प्रवेश एवं SR रजिस्टर)",
-        "📂 FOLDER 2: Certificates Hub (TC, Character & Study)",
-        "📂 FOLDER 3: Fee Manager & Installments (फीस प्रबंधन)",
-        "📂 FOLDER 4: Results & Marks Management (परिणाम एवं अंक)",
-        "📂 FOLDER 5: Digital Notice & WhatsApp Alerts (नोटीस एवं संदेश)",
-        "📂 FOLDER 6: Transport & Bus Tracking (बस एवं परिवहन)",
-        "📂 FOLDER 7: Academic Materials & NCERT Paper Setter",
-        "📂 FOLDER 8: Accounts & Cash Book (कैश बुक एवं लेजर)",
-        "📂 FOLDER 9: Attendance & Student Analytics (उपस्थिति विश्लेषक)",
-        "📂 FOLDER 10: Online Exam CBT Portal (NEET Level)",
-        "📂 FOLDER 11: Staff Directory & Payroll (स्टाफ प्रबंधन)",
-        "📂 FOLDER 12: Financial Summary & Analytics Dashboard",
-        "📂 FOLDER 13: App License & Developer Info",
+        "📂 FOLDER 1: 📜 Certificate Generator (TC, Character & Study)",
+        (
+            "📂 FOLDER 2: 📖 SR Register & Complete Student Master Profile"
+            " (Student Admission Form)"
+        ),
+        "📂 FOLDER 3: 💳 3-Installment Fee Manager & Receipt",
+        "📂 FOLDER 4: 📊 Hiralal Style Result Generator & Excel Export",
+        "📂 FOLDER 5: 📚 Chapter-Wise NCERT PDF & Paper Generator",
+        "📂 FOLDER 6: 🚌 Bus Tracking, Pickup/Drop & Transport Route",
+        "📂 FOLDER 7: 💼 Busy Software Style Cash Book & Ledger",
+        "📂 FOLDER 8: 📈 Daily Boys/Girls Attendance Analytics",
+        "📂 FOLDER 9: 💻 NEET Level Online CBT Exam Portal",
+        "📂 FOLDER 10: 👨‍🏫 Staff Directory & Payroll",
+        "📂 FOLDER 11: 🔍 Advance Multi-Search Student Search",
+        "📂 FOLDER 12: 🗓️ Academic Calendar & Holiday Notices",
+        "📂 FOLDER 13: 📝 Exam Marks Portal",
+        "📂 FOLDER 14: ✅ Student Answer Sheet Copy Check",
+        "📂 FOLDER 15: 📢 Instant School Notice Board & WhatsApp Alerts",
+        "📂 FOLDER 16: 📊 Complete Financial Summary Dashboard",
+        "📂 FOLDER 17: 👑 App License & Sakshi Solution Info",
     ],
 )
 
@@ -227,67 +233,16 @@ def is_valid_aadhaar(aadhaar_str):
 
 
 # ==========================================
-# FOLDER 1: STUDENT ADMISSION & SR MASTER
+# 1. CERTIFICATE GENERATOR (TC, Character, Study)
 # ==========================================
-if menu == "📂 FOLDER 1: Student Admission & SR Master (प्रवेश एवं SR रजिस्टर)":
+if (
+    menu
+    == "📂 FOLDER 1: 📜 Certificate Generator (TC, Character & Study)"
+):
   st.markdown(
-      '<div class="folder-card">📋 Student Admission Form & Master SR Register</div>',
+      '<div class="folder-card">📜 Certificate Generator Portal</div>',
       unsafe_allow_html=True,
   )
-
-  col1, col2 = st.columns(2)
-  with col1:
-    sr_no = st.number_input("SR Number / Admission ID", min_value=1, step=1)
-    st_name = st.text_input("Student Name")
-    gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
-    s_class = st.selectbox("Class Level", classes_list)
-    s_sec = st.selectbox("Section", sections_list)
-  with col2:
-    roll_no = st.number_input("Roll No", min_value=1, step=1)
-    f_name = st.text_input("Father's Name")
-    m_name = st.text_input("Mother's Name")
-    mobile = st.text_input("Parent Mobile Number")
-    aadhaar = st.text_input("Aadhaar Card Number (12 Digits)")
-
-  st.markdown("---")
-  st.subheader("🚌 Transport Allocation")
-  route = st.text_input("Assigned Bus Route", "Route 1 - City Line")
-  drop_point = st.text_input("Pickup / Drop Point", "Main Market Bus Stop")
-
-  if st.button("💾 Submit Admission & Register Student"):
-    if aadhaar and not is_valid_aadhaar(aadhaar):
-      st.error("Invalid Aadhaar Number! Must be 12 digits.")
-    else:
-      if supabase:
-        try:
-          supabase.table("students").insert({
-              "sr_no": sr_no,
-              "roll_no": roll_no,
-              "student_name": st_name,
-              "father_name": f_name,
-              "gender": gender,
-              "class": s_class,
-              "section": s_sec,
-              "mobile": mobile,
-              "aadhaar": aadhaar,
-              "route": route,
-              "drop_point": drop_point,
-          }).execute()
-          st.success("Student Profile & Admission Successfully Saved!")
-        except Exception as e:
-          st.error(f"Database Error: {e}")
-      else:
-        st.success("Demo Mode: Student SR Record Created!")
-
-# ==========================================
-# FOLDER 2: CERTIFICATES HUB
-# ==========================================
-elif menu == "📂 FOLDER 2: Certificates Hub (TC, Character & Study)":
-  st.markdown(
-      '<div class="folder-card">📜 Official Student Certificate Portal</div>',
-      unsafe_allow_html=True,
-  )
-
   cert_type = st.selectbox(
       "Choose Certificate Type",
       [
@@ -333,23 +288,78 @@ elif menu == "📂 FOLDER 2: Certificates Hub (TC, Character & Study)":
     buffer.seek(0)
     return buffer
 
-  if st.button("📄 Generate Certificate PDF"):
+  if st.button("📄 Generate & Download Certificate PDF"):
     st.download_button(
-        "📥 Download PDF Document",
+        "📥 Download PDF",
         generate_cert_pdf(),
         file_name=f"{cert_type}_{sr_no}.pdf",
         mime="application/pdf",
     )
 
 # ==========================================
-# FOLDER 3: FEE MANAGER
+# 2. SR REGISTER & STUDENT ADMISSION FORM
 # ==========================================
-elif menu == "📂 FOLDER 3: Fee Manager & Installments (फीस प्रबंधन)":
+elif (
+    menu
+    == "📂 FOLDER 2: 📖 SR Register & Complete Student Master Profile (Student"
+    " Admission Form)"
+):
   st.markdown(
-      '<div class="folder-card">💳 3-Installment Fee Manager & Receipt</div>',
+      '<div class="folder-card">📖 Student Admission Form & SR Master Register</div>',
       unsafe_allow_html=True,
   )
+  col1, col2 = st.columns(2)
+  with col1:
+    sr_no = st.number_input("SR Number", min_value=1, step=1)
+    st_name = st.text_input("Student Name")
+    gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
+    s_class = st.selectbox("Class", classes_list)
+    s_sec = st.selectbox("Section", sections_list)
+  with col2:
+    roll_no = st.number_input("Roll No", min_value=1, step=1)
+    f_name = st.text_input("Father Name")
+    m_name = st.text_input("Mother Name")
+    mobile = st.text_input("Parent Mobile Number")
+    aadhaar = st.text_input("Aadhaar Card Number (12 Digits)")
 
+  st.markdown("---")
+  st.subheader("🚌 Transport Allocation")
+  route = st.text_input("Assigned Bus Route", "Route 1 - City Line")
+  drop_point = st.text_input("Pickup / Drop Point", "Main Market Bus Stop")
+
+  if st.button("💾 Save Student Admission Record"):
+    if aadhaar and not is_valid_aadhaar(aadhaar):
+      st.error("Invalid Aadhaar Number! Must be 12 digits.")
+    else:
+      if supabase:
+        try:
+          supabase.table("students").insert({
+              "sr_no": sr_no,
+              "roll_no": roll_no,
+              "student_name": st_name,
+              "father_name": f_name,
+              "gender": gender,
+              "class": s_class,
+              "section": s_sec,
+              "mobile": mobile,
+              "aadhaar": aadhaar,
+              "route": route,
+              "drop_point": drop_point,
+          }).execute()
+          st.success("Student Admission Profile saved successfully!")
+        except Exception as e:
+          st.error(f"Database Error: {e}")
+      else:
+        st.success("Demo Mode: Student Admission Record Created!")
+
+# ==========================================
+# 3. 3-INSTALLMENT FEE MANAGER
+# ==========================================
+elif menu == "📂 FOLDER 3: 💳 3-Installment Fee Manager & Receipt":
+  st.markdown(
+      '<div class="folder-card">💳 Fee Installment & Receipt Management</div>',
+      unsafe_allow_html=True,
+  )
   sr_no = st.number_input("Enter Student SR No", min_value=1, step=1)
   st_name = st.text_input("Student Name")
   total_fee = st.number_input("Total Annual Fee (₹)", value=15000, step=500)
@@ -396,88 +406,85 @@ elif menu == "📂 FOLDER 3: Fee Manager & Installments (फीस प्रब�
     )
 
 # ==========================================
-# FOLDER 4: RESULTS & MARKS MANAGEMENT
+# 4. HIRALAL STYLE RESULT GENERATOR
 # ==========================================
-elif menu == "📂 FOLDER 4: Results & Marks Management (परिणाम एवं अंक)":
+elif (
+    menu
+    == "📂 FOLDER 4: 📊 Hiralal Style Result Generator & Excel Export"
+):
   st.markdown(
-      '<div class="folder-card">📊 Marks Entry & Result Generator</div>',
+      '<div class="folder-card">📊 Hiralal Style Result Sheet & Excel Export</div>',
       unsafe_allow_html=True,
   )
+  data = {
+      "SR No": [101, 102, 103, 104],
+      "Student Name": ["Aarav Sharma", "Priya Verma", "Rahul Singh", "Neha"],
+      "Gender": ["Boy", "Girl", "Boy", "Girl"],
+      "Hindi": [85, 92, 78, 88],
+      "English": [88, 90, 74, 85],
+      "Maths": [95, 88, 65, 92],
+      "Science": [90, 94, 70, 89],
+  }
+  df = pd.DataFrame(data)
+  df["Total Marks"] = df["Hindi"] + df["English"] + df["Maths"] + df["Science"]
+  df["Percentage (%)"] = (df["Total Marks"] / 400) * 100
 
-  tab1, tab2 = st.tabs(["📊 Generate Result Sheet", "📝 Enter Exam Marks"])
+  st.dataframe(df)
 
-  with tab1:
-    data = {
-        "SR No": [101, 102, 103, 104],
-        "Student Name": ["Aarav Sharma", "Priya Verma", "Rahul Singh", "Neha"],
-        "Gender": ["Boy", "Girl", "Boy", "Girl"],
-        "Hindi": [85, 92, 78, 88],
-        "English": [88, 90, 74, 85],
-        "Maths": [95, 88, 65, 92],
-        "Science": [90, 94, 70, 89],
-    }
-    df = pd.DataFrame(data)
-    df["Total Marks"] = (
-        df["Hindi"] + df["English"] + df["Maths"] + df["Science"]
-    )
-    df["Percentage (%)"] = (df["Total Marks"] / 400) * 100
+  output = io.BytesIO()
+  with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    df.to_excel(writer, index=False, sheet_name="ResultSheet")
+  excel_data = output.getvalue()
 
-    st.dataframe(df)
-
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-      df.to_excel(writer, index=False, sheet_name="ResultSheet")
-    excel_data = output.getvalue()
-
-    st.download_button(
-        label="📥 Export Result Sheet to Excel (.xlsx)",
-        data=excel_data,
-        file_name="Hiralal_Result_Sheet_2026.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-  with tab2:
-    sr = st.number_input("Student SR No", min_value=1)
-    sub = st.selectbox("Select Subject", subjects_list)
-    marks = st.number_input("Marks (Out of 100)", 0, 100, 85)
-    if st.button("Save Marks Entry"):
-      st.success("Marks saved successfully!")
+  st.download_button(
+      label="📥 Export Complete Result Sheet to Excel (.xlsx)",
+      data=excel_data,
+      file_name="Hiralal_Result_Sheet_2026.xlsx",
+      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  )
 
 # ==========================================
-# FOLDER 5: NOTICE & WHATSAPP ALERTS
+# 5. NCERT CHAPTER PDF & PAPER GENERATOR
 # ==========================================
-elif menu == "📂 FOLDER 5: Digital Notice & WhatsApp Alerts (नोटीस एवं संदेश)":
+elif (
+    menu
+    == "📂 FOLDER 5: 📚 Chapter-Wise NCERT PDF & Paper Generator"
+):
   st.markdown(
-      '<div class="folder-card">📢 Instant School Notice Board & WhatsApp</div>',
+      '<div class="folder-card">📚 NCERT Chapter Books & Auto Paper Setter</div>',
       unsafe_allow_html=True,
   )
+  s_class = st.selectbox("Select Class Level", classes_list)
+  subject = st.selectbox("Select Subject", subjects_list)
 
-  notice = st.text_area(
-      "Write Notice Message",
-      "Dear Parents, Tomorrow is a holiday on account of heavy rainfall.",
+  st.markdown("### 📖 Direct Chapter-Wise NCERT Links")
+  st.write(
+      f"1. **Chapter 1: Fundamentals of {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
   )
-  parent_phone = st.text_input("Parent Mobile Number (10 Digits)", "9828595276")
+  st.write(
+      f"2. **Chapter 2: Advanced Topics in {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
+  )
 
-  if st.button("Publish Notice to Board"):
-    st.success("Notice published to school notice board!")
-
-  if parent_phone and notice:
-    encoded_notice = urllib.parse.quote(notice)
-    whatsapp_url = f"https://wa.me/91{parent_phone}?text={encoded_notice}"
-    st.markdown(
-        f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; height:45px; background-color:#25D366; color:white; font-weight:bold; border:none; border-radius:12px; cursor:pointer; margin-top:10px;">📲 Direct Send via WhatsApp</button></a>',
-        unsafe_allow_html=True,
+  st.markdown("---")
+  st.subheader("⚡ Auto Question Paper Generator")
+  if st.button("📄 Generate Instant Test Paper"):
+    st.write(f"**Subject:** {subject} | **Class:** {s_class} | **Time:** 2 Hours")
+    st.write("Q1. Explain the fundamental laws of Chapter 1. (3 Marks)")
+    st.write(
+        "Q2. Differentiate between primary and secondary processes. (5 Marks)"
     )
 
 # ==========================================
-# FOLDER 6: TRANSPORT & BUS TRACKING
+# 6. BUS TRACKING & TRANSPORT ROUTE
 # ==========================================
-elif menu == "📂 FOLDER 6: Transport & Bus Tracking (बस एवं परिवहन)":
+elif (
+    menu
+    == "📂 FOLDER 6: 🚌 Bus Tracking, Pickup/Drop & Transport Route"
+):
   st.markdown(
-      '<div class="folder-card">🚌 Transport, Route & Pickup Point Portal</div>',
+      '<div class="folder-card">🚌 Transport Route & Pickup Point Portal</div>',
       unsafe_allow_html=True,
   )
-
   route_no = st.selectbox("Select Route Number", ["Route 1", "Route 2"])
 
   if route_no == "Route 1":
@@ -498,43 +505,13 @@ elif menu == "📂 FOLDER 6: Transport & Bus Tracking (बस एवं पर�
   st.dataframe(pd.DataFrame(bus_data))
 
 # ==========================================
-# FOLDER 7: NCERT & ACADEMIC MATERIALS
+# 7. CASH BOOK & LEDGER
 # ==========================================
-elif menu == "📂 FOLDER 7: Academic Materials & NCERT Paper Setter":
+elif menu == "📂 FOLDER 7: 💼 Busy Software Style Cash Book & Ledger":
   st.markdown(
-      '<div class="folder-card">📚 Chapter-Wise NCERT PDF & Paper Generator</div>',
+      '<div class="folder-card">💼 Busy Style Cash Book & Ledger Entry</div>',
       unsafe_allow_html=True,
   )
-
-  s_class = st.selectbox("Select Class Level", classes_list)
-  subject = st.selectbox("Select Subject", subjects_list)
-
-  st.markdown("### 📖 Chapter-Wise Books")
-  st.write(
-      f"1. **Chapter 1: Fundamentals of {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
-  )
-  st.write(
-      f"2. **Chapter 2: Advanced Topics in {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
-  )
-
-  st.markdown("---")
-  st.subheader("⚡ Auto Question Paper Generator")
-  if st.button("📄 Generate Test Paper"):
-    st.write(f"**Subject:** {subject} | **Class:** {s_class} | **Time:** 2 Hours")
-    st.write("Q1. Explain the fundamental laws of Chapter 1. (3 Marks)")
-    st.write(
-        "Q2. Differentiate between primary and secondary processes. (5 Marks)"
-    )
-
-# ==========================================
-# FOLDER 8: ACCOUNTS & CASH BOOK
-# ==========================================
-elif menu == "📂 FOLDER 8: Accounts & Cash Book (कैश बुक एवं लेजर)":
-  st.markdown(
-      '<div class="folder-card">💼 Busy Software Style Cash Book & Ledger</div>',
-      unsafe_allow_html=True,
-  )
-
   entry_type = st.radio(
       "Transaction Type", ["Cash In (Receipt)", "Cash Out (Payment)"], horizontal=True
   )
@@ -546,20 +523,18 @@ elif menu == "📂 FOLDER 8: Accounts & Cash Book (कैश बुक एवं
     st.success(f"Voucher saved! Amount ₹{amount} logged in Cash Book.")
 
 # ==========================================
-# FOLDER 9: ATTENDANCE & ANALYTICS
+# 8. DAILY BOYS/GIRLS ATTENDANCE ANALYTICS
 # ==========================================
-elif menu == "📂 FOLDER 9: Attendance & Student Analytics (उपस्थिति विश्लेषक)":
+elif menu == "📂 FOLDER 8: 📈 Daily Boys/Girls Attendance Analytics":
   st.markdown(
-      '<div class="folder-card">📈 Daily Boys/Girls Attendance Analytics</div>',
+      '<div class="folder-card">📈 Attendance Analytics & Chart Visualizer</div>',
       unsafe_allow_html=True,
   )
-
   c1, c2 = st.columns(2)
   c1.metric("👦 Boys Present", "240 / 250", "96%")
   c2.metric("👧 Girls Present", "210 / 220", "95.4%")
 
   st.markdown("---")
-
   att_df = pd.DataFrame({
       "Category": ["Boys Present", "Boys Absent", "Girls Present", "Girls Absent"],
       "Count": [240, 10, 210, 10],
@@ -582,14 +557,13 @@ elif menu == "📂 FOLDER 9: Attendance & Student Analytics (उपस्थि�
   st.plotly_chart(fig_att, use_container_width=True)
 
 # ==========================================
-# FOLDER 10: ONLINE CBT EXAM
+# 9. NEET ONLINE CBT EXAM PORTAL
 # ==========================================
-elif menu == "📂 FOLDER 10: Online Exam CBT Portal (NEET Level)":
+elif menu == "📂 FOLDER 9: 💻 NEET Level Online CBT Exam Portal":
   st.markdown(
-      '<div class="folder-card">💻 NEET Level Online CBT Exam Portal</div>',
+      '<div class="folder-card">💻 NTA / NEET Level CBT Online Exam</div>',
       unsafe_allow_html=True,
   )
-
   st.info("⏱️ Test Time: 180 Minutes | Marking: +4, -1")
   st.markdown("**Q1. [Physics]** What is the unit of Electric Dipole Moment?")
   st.radio("Options:", ["Coulomb-meter", "Volt/meter", "Tesla", "Weber"])
@@ -598,14 +572,13 @@ elif menu == "📂 FOLDER 10: Online Exam CBT Portal (NEET Level)":
     st.success("Test Submitted Successfully!")
 
 # ==========================================
-# FOLDER 11: STAFF DIRECTORY & PAYROLL
+# 10. STAFF DIRECTORY & PAYROLL
 # ==========================================
-elif menu == "📂 FOLDER 11: Staff Directory & Payroll (स्टाफ प्रबंधन)":
+elif menu == "📂 FOLDER 10: 👨‍🏫 Staff Directory & Payroll":
   st.markdown(
-      '<div class="folder-card">👨‍🏫 Staff Directory & Payroll</div>',
+      '<div class="folder-card">👨‍🏫 Staff Directory & Payroll Portal</div>',
       unsafe_allow_html=True,
   )
-
   st_name = st.text_input("Staff Name")
   st_role = st.selectbox("Designation", ["PGT", "TGT", "PRT", "Accountant"])
   st_sal = st.number_input("Monthly Salary (₹)", value=25000)
@@ -613,14 +586,90 @@ elif menu == "📂 FOLDER 11: Staff Directory & Payroll (स्टाफ प्�
     st.success(f"Staff record for {st_name} saved.")
 
 # ==========================================
-# FOLDER 12: FINANCIAL DASHBOARD
+# 11. ADVANCE MULTI-SEARCH STUDENT SEARCH
 # ==========================================
-elif menu == "📂 FOLDER 12: Financial Summary & Analytics Dashboard":
+elif menu == "📂 FOLDER 11: 🔍 Advance Multi-Search Student Search":
+  st.markdown(
+      '<div class="folder-card">🔍 Advance Multi-Search Student Search</div>',
+      unsafe_allow_html=True,
+  )
+  search_term = st.text_input("Search by Name or SR Number")
+  if st.button("Search") and search_term:
+    st.write(f"Searching database for '{search_term}'...")
+
+# ==========================================
+# 12. ACADEMIC CALENDAR & HOLIDAY NOTICES
+# ==========================================
+elif menu == "📂 FOLDER 12: 🗓️ Academic Calendar & Holiday Notices":
+  st.markdown(
+      '<div class="folder-card">🗓️ Academic Calendar & School Events</div>',
+      unsafe_allow_html=True,
+  )
+  st.write("• **15th August:** Independence Day Celebration")
+  st.write("• **15th October:** Term-1 Exams Begin")
+
+# ==========================================
+# 13. EXAM MARKS PORTAL
+# ==========================================
+elif menu == "📂 FOLDER 13: 📝 Exam Marks Portal":
+  st.markdown(
+      '<div class="folder-card">📝 Subject-Wise Exam Marks Portal</div>',
+      unsafe_allow_html=True,
+  )
+  sr = st.number_input("SR No", min_value=1)
+  sub = st.selectbox("Subject", subjects_list)
+  marks = st.number_input("Marks (Out of 100)", 0, 100, 85)
+  if st.button("Save Marks"):
+    st.success("Marks saved successfully!")
+
+# ==========================================
+# 14. STUDENT ANSWER SHEET COPY CHECK
+# ==========================================
+elif menu == "📂 FOLDER 14: ✅ Student Answer Sheet Copy Check":
+  st.markdown(
+      '<div class="folder-card">✅ Student Answer Sheet Copy Verification</div>',
+      unsafe_allow_html=True,
+  )
+  up = st.file_uploader("Upload Scanned Answer Sheet", type=["pdf", "jpg"])
+  if up:
+    st.success("File uploaded ready for evaluation.")
+
+# ==========================================
+# 15. INSTANT SCHOOL NOTICE BOARD & WHATSAPP
+# ==========================================
+elif (
+    menu
+    == "📂 FOLDER 15: 📢 Instant School Notice Board & WhatsApp Alerts"
+):
+  st.markdown(
+      '<div class="folder-card">📢 School Notice Board & WhatsApp Broadcaster</div>',
+      unsafe_allow_html=True,
+  )
+  notice = st.text_area(
+      "Write Notice Message",
+      "Dear Parents, Tomorrow is a holiday on account of heavy rainfall.",
+  )
+  parent_phone = st.text_input("Parent Mobile Number (10 Digits)", "9828595276")
+
+  if st.button("Publish Notice"):
+    st.success("Notice published to school notice board!")
+
+  if parent_phone and notice:
+    encoded_notice = urllib.parse.quote(notice)
+    whatsapp_url = f"https://wa.me/91{parent_phone}?text={encoded_notice}"
+    st.markdown(
+        f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; height:45px; background-color:#25D366; color:white; font-weight:bold; border:none; border-radius:12px; cursor:pointer; margin-top:10px;">📲 Direct Send via WhatsApp</button></a>',
+        unsafe_allow_html=True,
+    )
+
+# ==========================================
+# 16. COMPLETE FINANCIAL SUMMARY DASHBOARD
+# ==========================================
+elif menu == "📂 FOLDER 16: 📊 Complete Financial Summary Dashboard":
   st.markdown(
       '<div class="folder-card">📊 Complete Financial Analytics Dashboard</div>',
       unsafe_allow_html=True,
   )
-
   c1, c2 = st.columns(2)
   c1.metric("Total Fees Collected", "₹12,45,000", "+83%")
   c2.metric("Pending Fees", "₹2,55,000", "-17%")
@@ -662,14 +711,13 @@ elif menu == "📂 FOLDER 12: Financial Summary & Analytics Dashboard":
   st.plotly_chart(fig_trend, use_container_width=True)
 
 # ==========================================
-# FOLDER 13: APP LICENSE & DEVELOPER INFO
+# 17. APP LICENSE & SAKSHI SOLUTION INFO
 # ==========================================
-elif menu == "📂 FOLDER 13: App License & Developer Info":
+elif menu == "📂 FOLDER 17: 👑 App License & Sakshi Solution Info":
   st.markdown(
-      '<div class="folder-card">👑 App License & Provider Details</div>',
+      '<div class="folder-card">👑 App License & Enterprise Info</div>',
       unsafe_allow_html=True,
   )
-
   st.markdown(
       """
     <div style="background:#F1F5F9; padding:15px; border-radius:15px; border:1px solid #CBD5E1">
