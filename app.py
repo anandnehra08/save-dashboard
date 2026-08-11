@@ -76,14 +76,25 @@ st.markdown(
     .admin-info-box p { margin: 2px 0; }
     .admin-info-box a { color: #818CF8; text-decoration: none; font-weight: 700; }
 
-    .folder-card { 
-        background: #F1F5F9; 
-        border-left: 5px solid #4F46E5; 
-        padding: 12px 16px; 
-        border-radius: 12px; 
-        margin-bottom: 15px; 
-        font-weight: bold; 
-        color: #1E1B4B; 
+    /* Colored UI Cards for Forms & Certificates */
+    .colored-card-admission {
+        background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+        border-left: 6px solid #3B82F6;
+        padding: 16px;
+        border-radius: 16px;
+        margin-bottom: 15px;
+        color: #1E3A8A;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+    }
+    
+    .colored-card-cert {
+        background: linear-gradient(135deg, #FDF4FF, #FAE8FF);
+        border-left: 6px solid #D946EF;
+        padding: 16px;
+        border-radius: 16px;
+        margin-bottom: 15px;
+        color: #701A75;
+        box-shadow: 0 4px 12px rgba(217, 70, 239, 0.1);
     }
 
     .stButton>button { 
@@ -102,7 +113,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Header Display (Safe formatting to prevent system restriction popups)
+# Header Display
 st.markdown(
     """
 <div class="app-header-bar">
@@ -185,27 +196,27 @@ with col_logout:
 
 st.markdown("---")
 
-# --- ALL 17 MODULE SELECTOR ---
+# --- REARRANGED MODULE SELECTOR (CUSTOM ORDER) ---
 menu = st.selectbox(
     "📱 Select App Module (मॉड्यूल चुनें):",
     [
+        "17. 👑 App License & System Information",
+        "2. 📖 SR Register & Complete Student Master Profile (Admission Form)",
+        "11. 🔍 Advance Multi-Search Student Search",
         "1. 📜 Certificate Generator (TC, Character & Study)",
-        "2. 📖 SR Register & Complete Student Master Profile",
         "3. 💳 3-Installment Fee Manager & Receipt",
+        "8. 📈 Daily Boys/Girls Attendance Analytics",
+        "10. 👨‍🏫 Staff Directory & Payroll",
+        "15. 📢 Instant School Notice Board",
         "4. 📊 Hiralal Style Result Generator & Excel Export",
         "5. 📚 Chapter-Wise NCERT PDF & Paper Generator",
-        "6. 🚌 Bus Tracking, Pickup/Drop & Transport Route",
-        "7. 💼 Busy Software Style Cash Book & Ledger",
-        "8. 📈 Daily Boys/Girls Attendance Analytics",
         "9. 💻 NEET Level Online CBT Exam Portal",
-        "10. 👨‍🏫 Staff Directory & Payroll",
-        "11. 🔍 Advance Multi-Search Student Search",
         "12. 🗓️ Academic Calendar & Holiday Notices",
+        "7. 💼 Busy Software Style Cash Book & Ledger",
         "13. 📝 Exam Marks Portal",
         "14. ✅ Student Answer Sheet Copy Check",
-        "15. 📢 Instant School Notice Board",
         "16. 📊 Complete Financial Summary Dashboard",
-        "17. 👑 App License & System Information",
+        "6. 🚌 Bus Tracking, Pickup/Drop & Transport Route",
     ],
 )
 
@@ -230,10 +241,103 @@ def is_valid_aadhaar(aadhaar_str):
 
 
 # ==========================================
-# 1. CERTIFICATE GENERATOR (TC, Character, Study)
+# 1. APP LICENSE & SYSTEM INFO (Module 17)
 # ==========================================
-if menu == "1. 📜 Certificate Generator (TC, Character & Study)":
-  st.subheader("📜 Certificate Generator Portal")
+if menu == "17. 👑 App License & System Information":
+  st.subheader("👑 Campus School ERP License")
+  st.markdown(
+      """
+    <div style="background:#F1F5F9; padding:15px; border-radius:15px; border:1px solid #CBD5E1">
+        <h4>🏢 System Name: Campus School ERP</h4>
+        <p><b>Configuration:</b> Advanced Institutional Setup</p>
+        <p><b>Support:</b> Helpline Active | System Online</p>
+        <hr>
+        <p><b>License Status:</b> Activated Enterprise Version</p>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
+
+# ==========================================
+# 2. SR REGISTER & ADMISSION FORM (Module 2)
+# ==========================================
+elif menu == "2. 📖 SR Register & Complete Student Master Profile (Admission Form)":
+  st.markdown(
+      """
+    <div class="colored-card-admission">
+        <h3>📖 Student Admission Form & SR Master Profile</h3>
+        <p>Complete New Student Registration & Admission Database Setup.</p>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
+
+  col1, col2 = st.columns(2)
+  with col1:
+    sr_no = st.number_input("SR Number", min_value=1, step=1)
+    st_name = st.text_input("Student Name")
+    gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
+    s_class = st.selectbox("Class", classes_list)
+    s_sec = st.selectbox("Section", sections_list)
+  with col2:
+    roll_no = st.number_input("Roll No", min_value=1, step=1)
+    f_name = st.text_input("Father Name")
+    m_name = st.text_input("Mother Name")
+    mobile = st.text_input("Parent Mobile Number")
+    aadhaar = st.text_input("Aadhaar Number (12 Digits)")
+
+  st.markdown("---")
+  st.subheader("🚌 Transport & Drop Point Setup")
+  route = st.text_input("Assigned Bus Route", "Route 1 - City Line")
+  drop_point = st.text_input("Pickup / Drop Point", "Main Market Bus Stop")
+
+  if st.button("💾 Save Admission Form / SR Register"):
+    if aadhaar and not is_valid_aadhaar(aadhaar):
+      st.error("Invalid Aadhaar Number! Must be 12 digits.")
+    else:
+      if supabase:
+        try:
+          supabase.table("students").insert({
+              "sr_no": sr_no,
+              "roll_no": roll_no,
+              "student_name": st_name,
+              "father_name": f_name,
+              "gender": gender,
+              "class": s_class,
+              "section": s_sec,
+              "mobile": mobile,
+              "aadhaar": aadhaar,
+              "route": route,
+              "drop_point": drop_point,
+          }).execute()
+          st.success("Admission Form Data saved successfully!")
+        except Exception as e:
+          st.error(f"Database Error: {e}")
+      else:
+        st.success("Demo Mode: Admission Form Record Saved!")
+
+# ==========================================
+# 3. ADVANCE MULTI-SEARCH (Module 11)
+# ==========================================
+elif menu == "11. 🔍 Advance Multi-Search Student Search":
+  st.subheader("🔍 Advance Master Search")
+  search_term = st.text_input("Search by Name or SR Number")
+  if st.button("Search") and search_term:
+    st.write(f"Searching database for '{search_term}'...")
+
+# ==========================================
+# 4. CERTIFICATE GENERATOR (Module 1)
+# ==========================================
+elif menu == "1. 📜 Certificate Generator (TC, Character & Study)":
+  st.markdown(
+      """
+    <div class="colored-card-cert">
+        <h3>📜 Official Certificate Generator</h3>
+        <p>Generate styled Transfer, Character, and Study Certificates instantly.</p>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
   cert_type = st.selectbox(
       "Choose Certificate Type",
       [
@@ -288,56 +392,7 @@ if menu == "1. 📜 Certificate Generator (TC, Character & Study)":
     )
 
 # ==========================================
-# 2. SR REGISTER & STUDENT PROFILE
-# ==========================================
-elif menu == "2. 📖 SR Register & Complete Student Master Profile":
-  st.subheader("📖 Student Master SR Register Form")
-  col1, col2 = st.columns(2)
-  with col1:
-    sr_no = st.number_input("SR Number", min_value=1, step=1)
-    st_name = st.text_input("Student Name")
-    gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
-    s_class = st.selectbox("Class", classes_list)
-    s_sec = st.selectbox("Section", sections_list)
-  with col2:
-    roll_no = st.number_input("Roll No", min_value=1, step=1)
-    f_name = st.text_input("Father Name")
-    m_name = st.text_input("Mother Name")
-    mobile = st.text_input("Parent Mobile Number")
-    aadhaar = st.text_input("Aadhaar Number (12 Digits)")
-
-  st.markdown("---")
-  st.subheader("🚌 Transport & Drop Point Setup")
-  route = st.text_input("Assigned Bus Route", "Route 1 - City Line")
-  drop_point = st.text_input("Pickup / Drop Point", "Main Market Bus Stop")
-
-  if st.button("💾 Save to Student SR Register"):
-    if aadhaar and not is_valid_aadhaar(aadhaar):
-      st.error("Invalid Aadhaar Number! Must be 12 digits.")
-    else:
-      if supabase:
-        try:
-          supabase.table("students").insert({
-              "sr_no": sr_no,
-              "roll_no": roll_no,
-              "student_name": st_name,
-              "father_name": f_name,
-              "gender": gender,
-              "class": s_class,
-              "section": s_sec,
-              "mobile": mobile,
-              "aadhaar": aadhaar,
-              "route": route,
-              "drop_point": drop_point,
-          }).execute()
-          st.success("Student profile successfully added to SR Register!")
-        except Exception as e:
-          st.error(f"Database Error: {e}")
-      else:
-        st.success("Demo Mode: Student SR Record Created!")
-
-# ==========================================
-# 3. 3-INSTALLMENT FEE MANAGER
+# 5. 3-INSTALLMENT FEE MANAGER (Module 3)
 # ==========================================
 elif menu == "3. 💳 3-Installment Fee Manager & Receipt":
   st.subheader("💳 Fee Installment & Receipt Management")
@@ -388,104 +443,7 @@ elif menu == "3. 💳 3-Installment Fee Manager & Receipt":
     )
 
 # ==========================================
-# 4. HIRALAL SHEET RESULT & EXCEL EXPORT
-# ==========================================
-elif menu == "4. 📊 Hiralal Style Result Generator & Excel Export":
-  st.subheader("📊 Hiralal Style Result Generator & Excel Sheet Export")
-
-  data = {
-      "SR No": [101, 102, 103, 104],
-      "Student Name": ["Aarav Sharma", "Priya Verma", "Rahul Singh", "Neha"],
-      "Gender": ["Boy", "Girl", "Boy", "Girl"],
-      "Hindi": [85, 92, 78, 88],
-      "English": [88, 90, 74, 85],
-      "Maths": [95, 88, 65, 92],
-      "Science": [90, 94, 70, 89],
-  }
-  df = pd.DataFrame(data)
-  df["Total Marks"] = df["Hindi"] + df["English"] + df["Maths"] + df["Science"]
-  df["Percentage (%)"] = (df["Total Marks"] / 400) * 100
-
-  st.dataframe(df)
-
-  output = io.BytesIO()
-  with pd.ExcelWriter(output, engine="openpyxl") as writer:
-    df.to_excel(writer, index=False, sheet_name="ResultSheet")
-  excel_data = output.getvalue()
-
-  st.download_button(
-      label="📥 Export Complete Result Sheet to Excel (.xlsx)",
-      data=excel_data,
-      file_name="Campus_Result_Sheet_2026.xlsx",
-      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  )
-
-# ==========================================
-# 5. NCERT CHAPTER PDF & PAPER GENERATOR
-# ==========================================
-elif menu == "5. 📚 Chapter-Wise NCERT PDF & Paper Generator":
-  st.subheader("📚 NCERT Chapter Books & Paper Setter Portal")
-  s_class = st.selectbox("Select Class Level", classes_list)
-  subject = st.selectbox("Select Subject", subjects_list)
-
-  st.markdown("### 📖 Direct Chapter-Wise NCERT Links")
-  st.write(
-      f"1. **Chapter 1: Fundamentals of {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
-  )
-  st.write(
-      f"2. **Chapter 2: Advanced Topics in {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
-  )
-
-  st.markdown("---")
-  st.subheader("⚡ Auto Question Paper Generator")
-  if st.button("📄 Generate Instant Test Paper"):
-    st.write(f"**Subject:** {subject} | **Class:** {s_class} | **Time:** 2 Hours")
-    st.write("Q1. Explain the fundamental laws of Chapter 1. (3 Marks)")
-    st.write(
-        "Q2. Differentiate between primary and secondary processes. (5 Marks)"
-    )
-
-# ==========================================
-# 6. BUS TRACKING & ROUTE LIST
-# ==========================================
-elif menu == "6. 🚌 Bus Tracking, Pickup/Drop & Transport Route":
-  st.subheader("🚌 Transport, Route & Pickup Point Portal")
-  route_no = st.selectbox("Select Route Number", ["Route 1", "Route 2"])
-
-  if route_no == "Route 1":
-    bus_data = {
-        "SR No": [101, 103],
-        "Student Name": ["Aarav Sharma", "Rahul Singh"],
-        "Pickup/Drop Point": ["Main Bus Stop", "Station Road"],
-        "Bus Fee (₹)": [1200, 1000],
-    }
-  else:
-    bus_data = {
-        "SR No": [102, 104],
-        "Student Name": ["Priya Verma", "Neha"],
-        "Pickup/Drop Point": ["Civil Lines", "Airport Circle"],
-        "Bus Fee (₹)": [1500, 1500],
-    }
-
-  st.dataframe(pd.DataFrame(bus_data))
-
-# ==========================================
-# 7. BUSY SOFTWARE STYLE CASH BOOK & LEDGER
-# ==========================================
-elif menu == "7. 💼 Busy Software Style Cash Book & Ledger":
-  st.subheader("💼 Busy Style Cash & Ledger Book")
-  entry_type = st.radio(
-      "Transaction Type", ["Cash In (Receipt)", "Cash Out (Payment)"], horizontal=True
-  )
-  category = st.text_input("Head / Category", "Tuition Fees Collection")
-  amount = st.number_input("Amount (₹)", value=5000, step=500)
-  remarks = st.text_input("Voucher Remarks", "Receipt No #1042")
-
-  if st.button("💾 Save Ledger Voucher"):
-    st.success(f"Voucher saved! Amount ₹{amount} logged in Cash Book.")
-
-# ==========================================
-# 8. DAILY BOYS/GIRLS ATTENDANCE ANALYTICS
+# 6. ATTENDANCE ANALYTICS (Module 8)
 # ==========================================
 elif menu == "8. 📈 Daily Boys/Girls Attendance Analytics":
   st.subheader("📈 Daily Attendance Analytics & Visual Breakdown")
@@ -518,19 +476,7 @@ elif menu == "8. 📈 Daily Boys/Girls Attendance Analytics":
   st.plotly_chart(fig_att, use_container_width=True)
 
 # ==========================================
-# 9. NEET ONLINE CBT EXAM PORTAL
-# ==========================================
-elif menu == "9. 💻 NEET Level Online CBT Exam Portal":
-  st.subheader("💻 NTA / NEET Level CBT Test Portal")
-  st.info("⏱️ Test Time: 180 Minutes | Marking: +4, -1")
-  st.markdown("**Q1. [Physics]** What is the unit of Electric Dipole Moment?")
-  st.radio("Options:", ["Coulomb-meter", "Volt/meter", "Tesla", "Weber"])
-  if st.button("Submit CBT Exam"):
-    st.balloons()
-    st.success("Test Submitted Successfully!")
-
-# ==========================================
-# 10. STAFF DIRECTORY & PAYROLL
+# 7. STAFF DIRECTORY & PAYROLL (Module 10)
 # ==========================================
 elif menu == "10. 👨‍🏫 Staff Directory & Payroll":
   st.subheader("👨‍🏫 Staff Directory & Payroll")
@@ -541,48 +487,14 @@ elif menu == "10. 👨‍🏫 Staff Directory & Payroll":
     st.success(f"Staff record for {st_name} saved.")
 
 # ==========================================
-# 11. ADVANCE MULTI-SEARCH PROFILE
-# ==========================================
-elif menu == "11. 🔍 Advance Multi-Search Student Search":
-  st.subheader("🔍 Advance Master Search")
-  search_term = st.text_input("Search by Name or SR Number")
-  if st.button("Search") and search_term:
-    st.write(f"Searching database for '{search_term}'...")
-
-# ==========================================
-# 12. ACADEMIC CALENDAR & NOTICES
-# ==========================================
-elif menu == "12. 🗓️ Academic Calendar & Holiday Notices":
-  st.subheader("🗓️ School Calendar")
-  st.write("• **15th August:** Independence Day Celebration")
-  st.write("• **15th October:** Term-1 Exams Begin")
-
-# ==========================================
-# 13. EXAM MARKS PORTAL
-# ==========================================
-elif menu == "13. 📝 Exam Marks Portal":
-  st.subheader("📝 Marks Entry Portal")
-  sr = st.number_input("SR No", min_value=1)
-  sub = st.selectbox("Subject", subjects_list)
-  marks = st.number_input("Marks (Out of 100)", 0, 100, 85)
-  if st.button("Save Marks"):
-    st.success("Marks saved successfully!")
-
-# ==========================================
-# 14. STUDENT ANSWER SHEET COPY CHECK
-# ==========================================
-elif menu == "14. ✅ Student Answer Sheet Copy Check":
-  st.subheader("✅ Answer Sheet Copy Check")
-  up = st.file_uploader("Upload Scanned Answer Sheet", type=["pdf", "jpg"])
-  if up:
-    st.success("File uploaded ready for evaluation.")
-
-# ==========================================
-# 15. INSTANT NOTICE BOARD & WHATSAPP SENDER
+# 8. INSTANT NOTICE BOARD (Module 15)
 # ==========================================
 elif menu == "15. 📢 Instant School Notice Board":
   st.subheader("📢 School Notice Board")
-  notice = st.text_area("Write Notice Message", "Dear Parents, Tomorrow is a holiday on account of heavy rainfall.")
+  notice = st.text_area(
+      "Write Notice Message",
+      "Dear Parents, Tomorrow is a holiday on account of heavy rainfall.",
+  )
   parent_phone = st.text_input("Parent Mobile Number (10 Digits)", "9828595276")
 
   if st.button("Publish Notice"):
@@ -597,7 +509,124 @@ elif menu == "15. 📢 Instant School Notice Board":
     )
 
 # ==========================================
-# 16. FINANCIAL SUMMARY & VISUAL DASHBOARD
+# 9. HIRALAL SHEET RESULT (Module 4)
+# ==========================================
+elif menu == "4. 📊 Hiralal Style Result Generator & Excel Export":
+  st.subheader("📊 Hiralal Style Result Generator & Excel Sheet Export")
+
+  data = {
+      "SR No": [101, 102, 103, 104],
+      "Student Name": ["Aarav Sharma", "Priya Verma", "Rahul Singh", "Neha"],
+      "Gender": ["Boy", "Girl", "Boy", "Girl"],
+      "Hindi": [85, 92, 78, 88],
+      "English": [88, 90, 74, 85],
+      "Maths": [95, 88, 65, 92],
+      "Science": [90, 94, 70, 89],
+  }
+  df = pd.DataFrame(data)
+  df["Total Marks"] = df["Hindi"] + df["English"] + df["Maths"] + df["Science"]
+  df["Percentage (%)"] = (df["Total Marks"] / 400) * 100
+
+  st.dataframe(df)
+
+  output = io.BytesIO()
+  with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    df.to_excel(writer, index=False, sheet_name="ResultSheet")
+  excel_data = output.getvalue()
+
+  st.download_button(
+      label="📥 Export Complete Result Sheet to Excel (.xlsx)",
+      data=excel_data,
+      file_name="Campus_Result_Sheet_2026.xlsx",
+      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  )
+
+# ==========================================
+# 10. NCERT CHAPTER PDF (Module 5)
+# ==========================================
+elif menu == "5. 📚 Chapter-Wise NCERT PDF & Paper Generator":
+  st.subheader("📚 NCERT Chapter Books & Paper Setter Portal")
+  s_class = st.selectbox("Select Class Level", classes_list)
+  subject = st.selectbox("Select Subject", subjects_list)
+
+  st.markdown("### 📖 Direct Chapter-Wise NCERT Links")
+  st.write(
+      f"1. **Chapter 1: Fundamentals of {subject}** 👉 [Download Chapter"
+      " PDF](https://ncert.nic.in/textbook.php)"
+  )
+  st.write(
+      f"2. **Chapter 2: Advanced Topics in {subject}** 👉 [Download Chapter"
+      " PDF](https://ncert.nic.in/textbook.php)"
+  )
+
+  st.markdown("---")
+  st.subheader("⚡ Auto Question Paper Generator")
+  if st.button("📄 Generate Instant Test Paper"):
+    st.write(f"**Subject:** {subject} | **Class:** {s_class} | **Time:** 2 Hours")
+    st.write("Q1. Explain the fundamental laws of Chapter 1. (3 Marks)")
+    st.write(
+        "Q2. Differentiate between primary and secondary processes. (5 Marks)"
+    )
+
+# ==========================================
+# 11. NEET ONLINE CBT EXAM (Module 9)
+# ==========================================
+elif menu == "9. 💻 NEET Level Online CBT Exam Portal":
+  st.subheader("💻 NTA / NEET Level CBT Test Portal")
+  st.info("⏱️ Test Time: 180 Minutes | Marking: +4, -1")
+  st.markdown("**Q1. [Physics]** What is the unit of Electric Dipole Moment?")
+  st.radio("Options:", ["Coulomb-meter", "Volt/meter", "Tesla", "Weber"])
+  if st.button("Submit CBT Exam"):
+    st.balloons()
+    st.success("Test Submitted Successfully!")
+
+# ==========================================
+# 12. ACADEMIC CALENDAR (Module 12)
+# ==========================================
+elif menu == "12. 🗓️ Academic Calendar & Holiday Notices":
+  st.subheader("🗓️ School Calendar")
+  st.write("• **15th August:** Independence Day Celebration")
+  st.write("• **15th October:** Term-1 Exams Begin")
+
+# ==========================================
+# 13. BUSY SOFTWARE CASH BOOK (Module 7)
+# ==========================================
+elif menu == "7. 💼 Busy Software Style Cash Book & Ledger":
+  st.subheader("💼 Busy Style Cash & Ledger Book")
+  entry_type = st.radio(
+      "Transaction Type",
+      ["Cash In (Receipt)", "Cash Out (Payment)"],
+      horizontal=True,
+  )
+  category = st.text_input("Head / Category", "Tuition Fees Collection")
+  amount = st.number_input("Amount (₹)", value=5000, step=500)
+  remarks = st.text_input("Voucher Remarks", "Receipt No #1042")
+
+  if st.button("💾 Save Ledger Voucher"):
+    st.success(f"Voucher saved! Amount ₹{amount} logged in Cash Book.")
+
+# ==========================================
+# 14. EXAM MARKS PORTAL (Module 13)
+# ==========================================
+elif menu == "13. 📝 Exam Marks Portal":
+  st.subheader("📝 Marks Entry Portal")
+  sr = st.number_input("SR No", min_value=1)
+  sub = st.selectbox("Subject", subjects_list)
+  marks = st.number_input("Marks (Out of 100)", 0, 100, 85)
+  if st.button("Save Marks"):
+    st.success("Marks saved successfully!")
+
+# ==========================================
+# 15. ANSWER SHEET COPY CHECK (Module 14)
+# ==========================================
+elif menu == "14. ✅ Student Answer Sheet Copy Check":
+  st.subheader("✅ Answer Sheet Copy Check")
+  up = st.file_uploader("Upload Scanned Answer Sheet", type=["pdf", "jpg"])
+  if up:
+    st.success("File uploaded ready for evaluation.")
+
+# ==========================================
+# 16. FINANCIAL SUMMARY DASHBOARD (Module 16)
 # ==========================================
 elif menu == "16. 📊 Complete Financial Summary Dashboard":
   st.subheader("📊 Financial Overview & Visual Analytics")
@@ -643,19 +672,25 @@ elif menu == "16. 📊 Complete Financial Summary Dashboard":
   st.plotly_chart(fig_trend, use_container_width=True)
 
 # ==========================================
-# 17. APP LICENSE & SYSTEM INFO
+# 17. BUS TRACKING & ROUTE (Module 6)
 # ==========================================
-elif menu == "17. 👑 App License & System Information":
-  st.subheader("👑 Campus School ERP License")
-  st.markdown(
-      """
-    <div style="background:#F1F5F9; padding:15px; border-radius:15px; border:1px solid #CBD5E1">
-        <h4>🏢 System Name: Campus School ERP</h4>
-        <p><b>Configuration:</b> Advanced Institutional Setup</p>
-        <p><b>Support:</b> Helpline Active | System Online</p>
-        <hr>
-        <p><b>License Status:</b> Activated Enterprise Version</p>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
+elif menu == "6. 🚌 Bus Tracking, Pickup/Drop & Transport Route":
+  st.subheader("🚌 Transport, Route & Pickup Point Portal")
+  route_no = st.selectbox("Select Route Number", ["Route 1", "Route 2"])
+
+  if route_no == "Route 1":
+    bus_data = {
+        "SR No": [101, 103],
+        "Student Name": ["Aarav Sharma", "Rahul Singh"],
+        "Pickup/Drop Point": ["Main Bus Stop", "Station Road"],
+        "Bus Fee (₹)": [1200, 1000],
+    }
+  else:
+    bus_data = {
+        "SR No": [102, 104],
+        "Student Name": ["Priya Verma", "Neha"],
+        "Pickup/Drop Point": ["Civil Lines", "Airport Circle"],
+        "Bus Fee (₹)": [1500, 1500],
+    }
+
+  st.dataframe(pd.DataFrame(bus_data))
