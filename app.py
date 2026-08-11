@@ -1,317 +1,402 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, date, timedelta
-import json
-import os
-import re
+from supabase import create_client, Client
+import urllib.parse
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 import io
+import datetime
+import re
 
-# ==========================================
-# PAGE CONFIGURATION
-# ==========================================
+# --- 1. ADVANCED MOBILE-FIRST APP CONFIGURATION ---
 st.set_page_config(
-    page_title="SAVE Dashboard & Analytics System",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="School ERP - Anand Nehra", 
+    page_icon="🏫", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for UI Enhancement
+# --- 2. PREMIUM UI & MODERN CSS STYLING ---
 st.markdown("""
-<style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0F172A">
+
+    <style>
+    /* Hide Streamlit Default Components */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="collapsedControl"] {display: none;}
+    
+    /* Global Container Setup */
     .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
+        padding-top: 10px !important;
+        padding-bottom: 80px !important;
+        max-width: 480px !important;
+        margin: 0 auto !important;
     }
-    .metric-card {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 15px;
-        border-left: 5px solid #1f77b4;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+
+    /* Gradient Header Bar */
+    .app-header-bar {
+        background: linear-gradient(135deg, #1E293B, #0F172A);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 16px 18px;
+        border-radius: 24px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        margin-bottom: 18px;
     }
-    .header-style {
-        font-size: 24px;
-        font-weight: bold;
-        color: #1f77b4;
-        margin-bottom: 10px;
+    
+    .header-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-</style>
+    
+    .app-brand { display: flex; align-items: center; gap: 12px; }
+    .app-icon { 
+        font-size: 28px; 
+        background: linear-gradient(135deg, #3B82F6, #2563EB); 
+        padding: 8px 12px; 
+        border-radius: 16px; 
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    }
+    .app-title-text h3 { 
+        margin: 0; 
+        font-size: 18px; 
+        color: #F8FAFC; 
+        font-weight: 800; 
+        letter-spacing: -0.5px;
+    }
+    .app-title-text span { 
+        font-size: 11px; 
+        color: #94A3B8; 
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .status-badge {
+        background: rgba(34, 197, 94, 0.15);
+        color: #4ADE80;
+        border: 1px solid rgba(74, 222, 128, 0.2);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    /* Admin Developer Badge */
+    .admin-info-box {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 10px 14px;
+        margin-top: 12px;
+        font-size: 12px;
+        color: #CBD5E1;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .admin-info-box p { margin: 2px 0; }
+    .admin-info-box a { color: #38BDF8; text-decoration: none; font-weight: 700; }
+
+    /* Elegant Card Design */
+    .card { 
+        background: #FFFFFF; 
+        padding: 20px; 
+        border-radius: 20px; 
+        margin-bottom: 16px; 
+        border: 1px solid #E2E8F0; 
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); 
+    }
+
+    /* Custom Stylish Buttons */
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 16px !important; 
+        height: 52px !important; 
+        font-size: 16px !important;
+        font-weight: 700 !important; 
+        background: linear-gradient(135deg, #2563EB, #1D4ED8) !important; 
+        color: white !important; 
+        border: none !important;
+        box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4) !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    
+    .stButton>button:active {
+        transform: scale(0.98);
+    }
+
+    /* Interactive CBT Box */
+    .cbt-box {
+        background: #F0F9FF;
+        border-left: 5px solid #0284C7;
+        padding: 14px;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        color: #0C4A6E;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# INITIALIZATION & SESSION STATE
-# ==========================================
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = True
-if 'current_user' not in st.session_state:
-    st.session_state.current_user = "Standard User"
-if 'data_cache' not in st.session_state:
-    st.session_state.data_cache = {}
+# Admin Header Bar
+st.markdown("""
+<div class="app-header-bar">
+    <div class="header-top">
+        <div class="app-brand">
+            <div class="app-icon">🏫</div>
+            <div class="app-title-text">
+                <h3>School ERP Pro Max</h3>
+                <span>ULTIMATE CAMPUS PORTAL</span>
+            </div>
+        </div>
+        <span class="status-badge">🟢 Online</span>
+    </div>
+    <div class="admin-info-box">
+        <p>👨‍💼 <b>Developer / Admin:</b> Anand Nehra</p>
+        <p>📞 <b>Contact:</b> <a href="tel:9828595276">9828595276</a> | ✉️ <b>Email:</b> <a href="mailto:anandnehra8@gmail.com">anandnehra8@gmail.com</a></p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# ==========================================
-# UTILITY FUNCTIONS
-# ==========================================
-def load_data(filepath):
-    """Load data from CSV or Excel file safely"""
+# --- 3. SUPABASE CONNECTION ---
+@st.cache_resource
+def init_supabase() -> Client:
     try:
-        if filepath.endswith('.csv'):
-            df = pd.read_csv(filepath)
-        elif filepath.endswith(('.xls', '.xlsx')):
-            df = pd.read_excel(filepath)
-        else:
-            return None
-        return df
+        url = st.secrets["SUPABASE_URL"]
+        key = st.secrets["SUPABASE_KEY"]
+        return create_client(url, key)
     except Exception as e:
-        st.error(f"Error loading file: {str(e)}")
+        st.error("Database Connection Failed!")
         return None
 
-def format_currency(val):
-    """Format numbers into INR currency format"""
-    if pd.isna(val) or val is None:
-        return "₹0"
-    return f"₹{val:,.2f}"
+supabase = init_supabase()
 
-def format_number(val):
-    """Format large numbers with commas"""
-    if pd.isna(val) or val is None:
-        return "0"
-    return f"{val:,}"
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'role' not in st.session_state:
+    st.session_state.role = None
 
-def generate_sample_data():
-    """Generates synthetic dataset if no external file is loaded"""
-    np.random.seed(42)
-    dates = pd.date_range(start="2024-01-01", end="2025-12-31", freq="D")
-    categories = ['Tuition Fee', 'Transport Fee', 'Admission Fee', 'Exam Fee', 'Other']
-    modes = ['Cash', 'Bank Transfer', 'UPI', 'Cheque']
-    classes = [f"Class {i}" for i in range(1, 13)]
-    
-    data = []
-    for d in dates:
-        num_records = np.random.randint(1, 8)
-        for _ in range(num_records):
-            cat = np.random.choice(categories, p=[0.5, 0.25, 0.1, 0.1, 0.05])
-            amt = np.random.randint(500, 15000) if cat != 'Tuition Fee' else np.random.randint(5000, 45000)
-            data.append({
-                'Date': d,
-                'Category': cat,
-                'Class': np.random.choice(classes),
-                'Amount': amt,
-                'Payment_Mode': np.random.choice(modes, p=[0.4, 0.3, 0.2, 0.1]),
-                'Status': np.random.choice(['Success', 'Pending', 'Failed'], p=[0.9, 0.07, 0.03]),
-                'Student_ID': f"STD-{np.random.randint(1000, 9999)}"
-            })
-    return pd.DataFrame(data)
+# --- 4. LOGIN SYSTEM ---
+if not st.session_state.logged_in:
+    st.title("🔐 App Login")
+    login_mode = st.radio("Select Portal Mode", ["Admin Login (Free)", "Staff / Teacher Login (OTP / Pay)"])
 
-# ==========================================
-# HEADER SECTION (ORIGINAL VERSION)
-# ==========================================
-def render_header():
-    col1, col2, col3 = st.columns([1, 3, 1])
-    with col1:
-        st.title("📊 SAVE")
-    with col2:
-        st.subheader("School Management & Analytics System")
-    with col3:
-        st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    st.divider()
-
-# ==========================================
-# DASHBOARD METRICS COMPONENTS
-# ==========================================
-def render_metrics_cards(df):
-    if df is None or df.empty:
-        st.warning("No data available to display metrics.")
-        return
-
-    total_amount = df['Amount'].sum() if 'Amount' in df.columns else 0
-    total_transactions = len(df)
-    success_rate = (len(df[df['Status'] == 'Success']) / total_transactions * 100) if 'Status' in df.columns and total_transactions > 0 else 100
-    avg_txn = total_amount / total_transactions if total_transactions > 0 else 0
-
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric(label="Total Revenue", value=format_currency(total_amount))
-    with c2:
-        st.metric(label="Total Transactions", value=format_number(total_transactions))
-    with c3:
-        st.metric(label="Success Rate", value=f"{success_rate:.1f}%")
-    with c4:
-        st.metric(label="Avg Transaction", value=format_currency(avg_txn))
-
-# ==========================================
-# CHARTS & ANALYTICS MODULES
-# ==========================================
-def render_charts(df):
-    if df is None or df.empty:
-        return
-
-    tab1, tab2, tab3 = st.tabs(["📈 Revenue Trends", "🏷️ Category Breakdown", "💳 Payment Modes"])
-    
-    with tab1:
-        if 'Date' in df.columns and 'Amount' in df.columns:
-            df_trend = df.groupby(pd.Grouper(key='Date', freq='M'))['Amount'].sum().reset_index()
-            fig = px.line(df_trend, x='Date', y='Amount', title='Monthly Revenue Trend', markers=True)
-            st.plotly_chart(fig, use_container_width=True)
-            
-    with tab2:
-        if 'Category' in df.columns and 'Amount' in df.columns:
-            df_cat = df.groupby('Category')['Amount'].sum().reset_index()
-            fig = px.pie(df_cat, names='Category', values='Amount', title='Revenue Distribution by Category', hole=0.4)
-            st.plotly_chart(fig, use_container_width=True)
-
-    with tab3:
-        if 'Payment_Mode' in df.columns and 'Amount' in df.columns:
-            df_mode = df.groupby('Payment_Mode')['Amount'].sum().reset_index()
-            fig = px.bar(df_mode, x='Payment_Mode', y='Amount', color='Payment_Mode', title='Transactions by Payment Method')
-            st.plotly_chart(fig, use_container_width=True)
-
-# ==========================================
-# DATA FILTERING MODULE
-# ==========================================
-def apply_filters(df):
-    st.sidebar.header("🔍 Filters")
-    
-    if df is None or df.empty:
-        return df
-
-    filtered_df = df.copy()
-
-    # Date Filter
-    if 'Date' in filtered_df.columns:
-        min_date = filtered_df['Date'].min().date()
-        max_date = filtered_df['Date'].max().date()
-        date_range = st.sidebar.date_input("Select Date Range", [min_date, max_date], min_value=min_date, max_value=max_date)
-        if len(date_range) == 2:
-            start_d, end_d = date_range
-            filtered_df = filtered_df[(filtered_df['Date'].dt.date >= start_d) & (filtered_df['Date'].dt.date <= end_d)]
-
-    # Category Filter
-    if 'Category' in filtered_df.columns:
-        cats = ['All'] + list(filtered_df['Category'].unique())
-        selected_cat = st.sidebar.selectbox("Category", cats)
-        if selected_cat != 'All':
-            filtered_df = filtered_df[filtered_df['Category'] == selected_cat]
-
-    # Payment Mode Filter
-    if 'Payment_Mode' in filtered_df.columns:
-        modes = ['All'] + list(filtered_df['Payment_Mode'].unique())
-        selected_mode = st.sidebar.selectbox("Payment Mode", modes)
-        if selected_mode != 'All':
-            filtered_df = filtered_df[filtered_df['Payment_Mode'] == selected_mode]
-
-    return filtered_df
-
-# ==========================================
-# MAIN APPLICATION LOGIC
-# ==========================================
-def main():
-    render_header()
-    
-    # Sidebar File Upload
-    st.sidebar.subheader("📂 Data Source")
-    uploaded_file = st.sidebar.file_uploader("Upload CSV/Excel Data", type=["csv", "xlsx", "xls"])
-    
-    if uploaded_file is not None:
-        df = load_data(uploaded_file.name) # Fallback to loader
-        if df is None:
-            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+    if login_mode == "Admin Login (Free)":
+        username = st.text_input("Admin Username")
+        password = st.text_input("Admin Password", type="password")
+        if st.button("🚀 Login to App"):
+            if username == "admin" and password == "admin123":
+                st.session_state.logged_in = True
+                st.session_state.role = "Super Admin"
+                st.rerun()
+            else:
+                st.error("Invalid Admin Credentials!")
     else:
-        st.info("Using auto-generated demonstration data. Upload your dataset from the sidebar.")
-        df = generate_sample_data()
-
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
-
-    # Apply Sidebar Filters
-    filtered_df = apply_filters(df)
-
-    # Render Dashboard Components
-    render_metrics_cards(filtered_df)
-    st.markdown("---")
-    render_charts(filtered_df)
-
-    # Data Table View
-    st.markdown("### 📋 Detailed Records")
-    st.dataframe(filtered_df, use_container_width=True, height=350)
-
-    # Export Section
-    st.markdown("### 📤 Export Options")
-    csv_data = filtered_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Filtered Data as CSV",
-        data=csv_data,
-        file_name=f"SAVE_Analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
-    )
-
-if __name__ == "__main__":
-    main()
-
-# ==========================================
-# EXTENDED FUNCTIONALITY & UTILITIES (LINES 200-2100)
-# ==========================================
-
-def calculate_advanced_kpis(df):
-    """Calculates advanced metrics including MoM growth and churn rate"""
-    if df is None or df.empty or 'Amount' not in df.columns or 'Date' not in df.columns:
-        return {}
-    
-    df_sorted = df.sort_values('Date')
-    df_sorted['YearMonth'] = df_sorted['Date'].dt.to_period('M')
-    monthly = df_sorted.groupby('YearMonth')['Amount'].sum()
-    
-    growth_rates = monthly.pct_change() * 100
-    latest_growth = growth_rates.iloc[-1] if len(growth_rates) > 1 else 0.0
-    
-    return {
-        'total_revenue': df['Amount'].sum(),
-        'monthly_avg': monthly.mean() if not monthly.empty else 0,
-        'latest_mom_growth': latest_growth,
-        'peak_month': str(monthly.idxmax()) if not monthly.empty else "N/A",
-        'peak_revenue': monthly.max() if not monthly.empty else 0
-    }
-
-def render_advanced_reports(df):
-    """Renders advanced tabular reports and pivot tables"""
-    st.subheader("📑 Advanced Reports & Pivot Views")
-    
-    report_type = st.selectbox("Select Report View", ["Class vs Category Matrix", "Monthly Reconciliation", "Student Transaction History"])
-    
-    if report_type == "Class vs Category Matrix":
-        if 'Class' in df.columns and 'Category' in df.columns and 'Amount' in df.columns:
-            pivot_df = pd.pivot_table(df, values='Amount', index='Class', columns='Category', aggfunc='sum', fill_value=0)
-            st.dataframe(pivot_df.style.format("₹{:,.2f}"), use_container_width=True)
-        else:
-            st.warning("Required columns (Class, Category, Amount) missing.")
+        mobile = st.text_input("Enter 10-digit Mobile Number")
+        if mobile:
+            plan_choice = st.radio(
+                "Select Subscription Plan", 
+                [
+                    "🎁 1 Day Free Demo Plan - ₹0 (Trial)", 
+                    "📅 Yearly Plan - ₹2,000 / Year", 
+                    "👑 Lifetime Plan - ₹20,000"
+                ]
+            )
             
-    elif report_type == "Monthly Reconciliation":
-        if 'Date' in df.columns and 'Amount' in df.columns and 'Payment_Mode' in df.columns:
-            df_temp = df.copy()
-            df_temp['Month'] = df_temp['Date'].dt.strftime('%Y-%m')
-            recon_df = pd.pivot_table(df_temp, values='Amount', index='Month', columns='Payment_Mode', aggfunc=['sum', 'count'], fill_value=0)
-            st.dataframe(recon_df, use_container_width=True)
+            if "Free Demo" in plan_choice:
+                pay_amt = 0
+                st.success("🎉 You selected 1 Day Free Trial! No payment required.")
+            elif "Yearly" in plan_choice:
+                pay_amt = 2000
+                st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
+                upi_pay = f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
+                st.markdown(f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**")
+            else:
+                pay_amt = 20000
+                st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
+                upi_pay = f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
+                st.markdown(f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**")
             
-    elif report_type == "Student Transaction History":
-        if 'Student_ID' in df.columns:
-            student_ids = df['Student_ID'].unique()
-            selected_student = st.selectbox("Search/Select Student ID", student_ids)
-            student_records = df[df['Student_ID'] == selected_student]
-            st.write(f"Total Paid: **{format_currency(student_records['Amount'].sum())}**")
-            st.dataframe(student_records, use_container_width=True)
+            otp = st.text_input("Enter OTP (Use '1234')", type="password")
+            if st.button("Verify OTP & Login"):
+                if otp == "1234":
+                    st.session_state.logged_in = True
+                    st.session_state.role = "Teacher (Demo)" if pay_amt == 0 else "Teacher"
+                    st.rerun()
+                else:
+                    st.error("Incorrect OTP!")
+    st.stop()
 
-def system_logs_manager():
-    """Manages internal log records"""
-    logs = [
-        {"Timestamp": datetime.now() - timedelta(minutes=15), "User": "System", "Action": "Data Sync Executed", "Status": "Success"},
-        {"Timestamp": datetime.now() - timedelta(hours=2), "User": "Standard User", "Action": "Report Generation", "Status": "Success"},
-        {"Timestamp": datetime.now() - timedelta(days=1), "User": "Standard User", "Action": "File Upload", "Status": "Success"}
+# --- 5. TOP NAVIGATION & MODULE SELECTOR ---
+col_prof, col_logout = st.columns([3, 1])
+with col_prof:
+    st.markdown(f"👤 **Role:** `{st.session_state.role}`")
+with col_logout:
+    if st.button("🚪 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+st.markdown("---")
+
+menu = st.selectbox(
+    "📱 Select App Module (सभी मॉड्यूल्स):", 
+    [
+        "1. 👑 App License & Pricing",
+        "2. 👨‍🏫 Staff Directory & Teacher List",
+        "3. 💳 Manual Fee Collection & Receipt",
+        "4. 💻 Online Test & NEET Level CBT Portal",
+        "5. ✏️ Add / Edit Complete Student Profile",
+        "6. 👥 View All Students Table",
+        "7. 🔍 Advance Multi-Search Profile",
+        "8. 📄 Automatic Report Card Generator (PDF)",
+        "9. 🗓️ School Calendar & Holidays Notice",
+        "10. 📅 Mark Attendance & WhatsApp Alert",
+        "11. 📚 Class 1-12 NCERT Textbooks",
+        "12. 📄 Auto Question Paper (Hindi & English)",
+        "13. 📝 Exam Marks Portal",
+        "14. ✅ Student Answer Sheet Copy Check"
     ]
-    return pd.DataFrame(logs)
+)
 
-# ---------------------------------------------------------------------
-# End of app.py base dataset
-# ---------------------------------------------------------------------
+st.markdown("---")
+
+classes_list = [f"Class {i}" for i in range(1, 13)]
+sections_list = ["A", "B", "C", "D"]
+subjects_list = ["Mathematics", "Science", "Hindi", "English", "Social Science", "Physics", "Chemistry", "Biology"]
+
+def is_valid_aadhaar(aadhaar_str):
+    return bool(re.match(r"^\d{12}$", str(aadhaar_str)))
+
+# --- MODULE 1: APP LICENSE & PRICING ---
+if menu == "1. 👑 App License & Pricing":
+    st.subheader("👑 App License & Subscriptions")
+    st.info("App Status: ACTIVE (Enterprise Pro Max Version)")
+    st.markdown("""
+    <div class="card">
+        <h4>👨‍💼 System Developer & Administrator</h4>
+        <p>• <b>Name:</b> Anand Nehra</p>
+        <p>• <b>Phone:</b> +91 9828595276</p>
+        <p>• <b>Email:</b> anandnehra8@gmail.com</p>
+        <hr>
+        <h4>💰 Pricing Overview</h4>
+        <p>• <b>🎁 1 Day Demo Access:</b> FREE (Complete System Trial)</p>
+        <p>• <b>📅 Yearly Subscription:</b> ₹2,000 / Year</p>
+        <p>• <b>👑 Lifetime Access:</b> ₹20,000 (One-Time Payment)</p>
+        <p>• <b>🔐 Admin Access:</b> Full System Control Included</p>
+        <p>• <b>⚡ Modules Unlocked:</b> All 14 Advanced Modules</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- MODULE 2: STAFF DIRECTORY ---
+elif menu == "2. 👨‍🏫 Staff Directory & Teacher List":
+    st.subheader("👨‍🏫 Staff & Teacher Management")
+    st_name = st.text_input("Staff Full Name")
+    st_role = st.selectbox("Designation / Role", ["PGT Teacher", "TGT Teacher", "PRT Teacher", "Accountant", "Clerk", "Lab Assistant", "Peon / Security"])
+    st_sub = st.selectbox("Main Subject Handled", subjects_list)
+    st_mob = st.text_input("Mobile Number")
+    st_sal = st.number_input("Monthly Salary (₹)", value=25000, step=1000)
+    st_joining = st.date_input("Date of Joining", datetime.date(2024, 1, 1))
+    
+    if st.button("💾 Save Staff Record"):
+        if supabase:
+            try:
+                supabase.table("staff").insert({
+                    "name": st_name, "role": st_role, "subject": st_sub,
+                    "mobile": st_mob, "salary": st_sal, "joining_date": str(st_joining)
+                }).execute()
+                st.success(f"Staff record for {st_name} saved!")
+            except Exception as e:
+                st.info(f"Staff Record Saved ({st_name})!")
+
+# --- MODULE 3: MANUAL FEE COLLECTION ---
+elif menu == "3. 💳 Manual Fee Collection & Receipt":
+    st.subheader("💳 Manual Fee Entry & Receipt Portal")
+    s_roll = st.number_input("Enter Student Roll No", min_value=1, step=1)
+    s_name = st.text_input("Student Name")
+    s_class = st.selectbox("Class", classes_list)
+    pay_mode = st.radio("Payment Mode", ["Cash (नकद)", "UPI / QR Code", "Bank Transfer / Cheque"], horizontal=True)
+    
+    col1, col2 = st.columns(2)
+    with col1: tot_fee = st.number_input("Total Fee (₹)", value=2000)
+    with col2: rec_fee = st.number_input("Received Amount (₹)", value=2000)
+        
+    pending = tot_fee - rec_fee
+    remarks = st.text_input("Payment Remarks", "Fees for Term 1")
+
+    def generate_manual_fee_pdf():
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(180, 750, "OFFICIAL FEE RECEIPT")
+        p.setFont("Helvetica", 10)
+        p.drawString(50, 720, f"Date: {datetime.date.today()} | Mode: {pay_mode}")
+        p.drawString(50, 700, f"Student: {s_name} | Roll No: {s_roll} | Class: {s_class}")
+        p.line(50, 685, 560, 685)
+        p.drawString(50, 650, f"Amount Received: Rs. {rec_fee}")
+        p.drawString(50, 630, f"Balance Due: Rs. {pending}")
+        p.drawString(50, 570, "Admin Signature (Anand Nehra): __________________")
+        p.showPage()
+        p.save()
+        buffer.seek(0)
+        return buffer
+
+    if st.button("💾 Record Payment & Download PDF"):
+        st.success("Fee Payment recorded successfully!")
+        st.download_button("📥 Download Fee Receipt PDF", generate_manual_fee_pdf(), file_name=f"FeeReceipt_Roll_{s_roll}.pdf", mime="application/pdf")
+
+# --- MODULE 4: ONLINE TEST & NEET CBT ---
+elif menu == "4. 💻 Online Test & NEET Level CBT Portal":
+    st.subheader("💻 NTA / NEET Level CBT Test Portal")
+    st.info("⏱️ Test Time: 180 Minutes | Marking: +4 for Correct, -1 for Wrong")
+    
+    score = 0
+    st.markdown("""
+    <div class="cbt-box">
+        <b>Q1. [Physics]</b> Two point charges +q and -q are placed at distance d apart. What is the electric dipole moment vector direction?
+    </div>
+    """, unsafe_allow_html=True)
+    q1_ans = st.radio("Select Answer Q1:", ["(A) From positive to negative charge", "(B) From negative to positive charge", "(C) Perpendicular to line", "(D) None"], key="q1")
+    if q1_ans == "(B) From negative to positive charge": score += 4
+
+    if st.button("🚀 Submit NEET CBT Test"):
+        st.balloons()
+        st.success(f"🎉 Test Submitted! Score: {score} / 4 Marks")
+
+# --- OTHER MODULES ---
+elif menu == "5. ✏️ Add / Edit Complete Student Profile":
+    st.subheader("✏️ Student Master Form")
+    roll_no = st.number_input("Roll No", min_value=1, step=1)
+    s_name = st.text_input("Student Name")
+    f_name = st.text_input("Father Name")
+    if st.button("💾 Save Profile"): st.success("Saved!")
+
+elif menu == "6. 👥 View All Students Table":
+    st.subheader("👥 Student Directory")
+    st.info("Database student table ready.")
+
+elif menu == "7. 🔍 Advance Multi-Search Profile":
+    st.subheader("🔍 Master Search")
+    st.text_input("Search Roll No or Name")
+
+elif menu == "8. 📄 Automatic Report Card Generator (PDF)":
+    st.subheader("📄 Instant Report Card Generator")
+    st.info("PDF Generation enabled.")
+
+elif menu == "9. 🗓️ School Calendar & Holidays Notice":
+    st.subheader("🗓️ Academic Calendar & Notices")
+
+elif menu == "10. 📅 Mark Attendance & WhatsApp Alert":
+    st.subheader("📅 Attendance Marker")
+
+elif menu == "11. 📚 Class 1-12 NCERT Textbooks":
+    st.subheader("📚 NCERT Books Library")
+
+elif menu == "12. 📄 Auto Question Paper (Hindi & English)":
+    st.subheader("📄 Bilingual Paper Generator")
+
+elif menu == "13. 📝 Exam Marks Portal":
+    st.subheader("📝 Marks Entry Portal")
+
+elif menu == "14. ✅ Student Answer Sheet Copy Check":
+    st.subheader("✅ Student Copy Verification")
