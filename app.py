@@ -545,3 +545,104 @@ elif menu == "17. 📱 Notebook Check, Call Log & Daily Present SMS Hub":
       wa_link = f"https://wa.me/91{target_mob}?text={encoded_sms}"
       st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; height:45px; background-color:#25D366; color:white; font-weight:bold; border:none; border-radius:12px;">📲 Send Present Report via WhatsApp</button></a>', unsafe_allow_html=True)
       st.success("SMS Link Generated Successfully!")
+        import streamlit as st
+
+# --- CSS STYLING ---
+st.markdown(
+    """
+    <style>
+    .app-header-bar { 
+        background: linear-gradient(135deg, #1E1B4B, #312E81); 
+        border: 1px solid rgba(255, 255, 255, 0.1); 
+        color: white; 
+        padding: 16px 18px; 
+        border-radius: 24px; 
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); 
+        margin-bottom: 18px; 
+    } 
+    .header-top { 
+        display: flex; 
+        align-items: center; 
+        justify-content: space-between; 
+    } 
+    .app-brand { 
+        display: flex; 
+        align-items: center; 
+        gap: 12px; 
+    } 
+    .app-icon { 
+        font-size: 28px; 
+        background: linear-gradient(135deg, #6366F1, #4F46E5); 
+        padding: 8px 12px; 
+        border-radius: 16px; 
+    } 
+    .app-title-text h3 { 
+        margin: 0; 
+        font-size: 18px; 
+        color: #F8FAFC; 
+        font-weight: 800; 
+    } 
+    .app-title-text span { 
+        font-size: 11px; 
+        color: #C7D2FE; 
+        font-weight: 600; 
+    }
+    .status-badge { 
+        background: rgba(34, 197, 94, 0.15); 
+        color: #4ADE80; 
+        border: 1px solid rgba(74, 222, 128, 0.2); 
+        padding: 4px 10px; 
+        border-radius: 20px; 
+        font-size: 11px; 
+        font-weight: 700; 
+    }
+    .admin-info-box { 
+        background: rgba(255, 255, 255, 0.08); 
+        border-radius: 16px; 
+        padding: 10px 14px; 
+        margin-top: 12px; 
+        font-size: 12px; 
+        color: #E0E7FF; 
+        border: 1px solid rgba(255, 255, 255, 0.12); 
+    } 
+    .admin-info-box p { 
+        margin: 2px 0; 
+    } 
+    .admin-info-box a { 
+        color: #818CF8; 
+        text-decoration: none; 
+        font-weight: 700; 
+    }
+    .colored-card-admission { 
+        background: linear-gradient(135deg, #EFF6FF, #DBEAFE); 
+        border-left: 6px solid #3B82F6; 
+        padding: 16px; 
+        border-radius: 16px; 
+        margin-bottom: 15px; 
+        color: #1E3A8A; 
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1); 
+    }
+    .colored-card-cert { 
+        background: linear-gradient(135deg, #FDF4FF, #FAE8FF); 
+        border-left: 6px solid #D946EF; 
+        padding: 16px; 
+        border-radius: 16px; 
+        margin-bottom: 15px; 
+        color: #701A75; 
+        box-shadow: 0 4px 12px rgba(217, 70, 239, 0.1); 
+    }
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 16px !important; 
+        height: 50px !important; 
+        font-size: 15px !important;
+        font-weight: 700 !important; 
+        background: linear-gradient(135deg, #4F46E5, #4338CA) !important; 
+        color: white !important; 
+        border: none !important;
+        box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.4) !important;
+    }    
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
