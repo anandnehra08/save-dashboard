@@ -545,7 +545,7 @@ elif menu == "17. 📱 Notebook Check, Call Log & Daily Present SMS Hub":
       wa_link = f"https://wa.me/91{target_mob}?text={encoded_sms}"
       st.markdown(f'<a href="{wa_link}" target="_blank"><button style="width:100%; height:45px; background-color:#25D366; color:white; font-weight:bold; border:none; border-radius:12px;">📲 Send Present Report via WhatsApp</button></a>', unsafe_allow_html=True)
       st.success("SMS Link Generated Successfully!")
- import streamlit as st  # यह बिल्कुल शुरुआत से होना चाहिए (बिना किसी स्पेस के)
+import streamlit as st # यह बिल्कुल शुरुआत से होना चाहिए (बिना किसी स्पेस के)
 
 # --- CSS STYLING ---
 st.markdown(
