@@ -646,3 +646,23 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+st.markdown(
+    """
+    <div class="app-header-bar">
+        <div class="header-top">
+            <div class="app-brand">
+                <div class="app-icon">🎓</div>
+                <div class="app-title-text">
+                    <h3>Campus School ERP</h3>
+                    <span>PRO EDITION</span>
+                </div>
+            </div>
+            <div class="status-badge">Active</div>
+        </div>
+        <div class="admin-info-box">
+            <p>Developer: Anand Nehra</p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
