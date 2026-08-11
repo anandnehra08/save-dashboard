@@ -102,7 +102,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Header Display
+# Header Display (Safe formatting to prevent system restriction popups)
 st.markdown(
     """
 <div class="app-header-bar">
@@ -119,7 +119,7 @@ st.markdown(
     <div class="admin-info-box">
         <p>🏢 <b>System:</b> Campus School ERP Suite</p>
         <p>👨‍💼 <b>Management:</b> Administration Portal</p>
-        <p>📞 <b>Support Desk:</b> <a href="tel:9828595276">Helpline Active</a> | ✉️ <b>Email:</b> <a href="mailto:support@campuserp.com">support@campuserp.com</a></p>
+        <p>📞 <b>Support Desk:</b> <a href="#">Helpline Active</a> | ✉️ <b>Email:</b> <a href="#">support@campuserp.com</a></p>
     </div>
 </div>
 """,
