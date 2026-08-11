@@ -233,9 +233,11 @@ col_prof, col_logout = st.columns([3, 1])
 with col_prof:
     st.markdown(f"👤 **Role:** `{st.session_state.role}`")
 with col_logout:
+    
     if st.button("🚪 Logout", key="logout_btn_top"):
     st.session_state.logged_in = False
     st.rerun()
+    
     if st.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.rerun()
