@@ -2,11 +2,12 @@ import datetime
 import io
 import re
 import urllib.parse
+import pandas as pd
+import plotly.express as px
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import streamlit as st
 from supabase import Client, create_client
-import pandas as pd
 
 # --- 1. APP CONFIGURATION ---
 st.set_page_config(
@@ -257,9 +258,7 @@ if menu == "1. 📜 Certificate Generator (TC, Character & Study)":
     p.drawString(60, 630, f"SR Number: {sr_no}")
     p.drawString(60, 605, f"This is to certify that Master/Miss: {st_name}")
     p.drawString(60, 580, f"Son/Daughter of Shri: {f_name}")
-    p.drawString(
-        60, 555, f"Is/Was a bona fide student of Class: {s_class}"
-    )
+    p.drawString(60, 555, f"Is/Was a bona fide student of Class: {s_class}")
     p.drawString(60, 530, f"Date of Birth: {dob.strftime('%d-%m-%Y')}")
     p.drawString(60, 505, f"General Conduct & Character: {conduct}")
 
@@ -394,9 +393,7 @@ elif menu == "4. 📊 Hiralal Style Result Generator & Excel Export":
       "Science": [90, 94, 70, 89],
   }
   df = pd.DataFrame(data)
-  df["Total Marks"] = (
-      df["Hindi"] + df["English"] + df["Maths"] + df["Science"]
-  )
+  df["Total Marks"] = df["Hindi"] + df["English"] + df["Maths"] + df["Science"]
   df["Percentage (%)"] = (df["Total Marks"] / 400) * 100
 
   st.dataframe(df)
@@ -433,9 +430,7 @@ elif menu == "5. 📚 Chapter-Wise NCERT PDF & Paper Generator":
   st.markdown("---")
   st.subheader("⚡ Auto Question Paper Generator")
   if st.button("📄 Generate Instant Test Paper"):
-    st.write(
-        f"**Subject:** {subject} | **Class:** {s_class} | **Time:** 2 Hours"
-    )
+    st.write(f"**Subject:** {subject} | **Class:** {s_class} | **Time:** 2 Hours")
     st.write("Q1. Explain the fundamental laws of Chapter 1. (3 Marks)")
     st.write(
         "Q2. Differentiate between primary and secondary processes. (5 Marks)"
@@ -470,7 +465,9 @@ elif menu == "6. 🚌 Bus Tracking, Pickup/Drop & Transport Route":
 # ==========================================
 elif menu == "7. 💼 Busy Software Style Cash Book & Ledger":
   st.subheader("💼 Busy Style Cash & Ledger Book")
-  entry_type = st.radio("Transaction Type", ["Cash In (Receipt)", "Cash Out (Payment)"], horizontal=True)
+  entry_type = st.radio(
+      "Transaction Type", ["Cash In (Receipt)", "Cash Out (Payment)"], horizontal=True
+  )
   category = st.text_input("Head / Category", "Tuition Fees Collection")
   amount = st.number_input("Amount (₹)", value=5000, step=500)
   remarks = st.text_input("Voucher Remarks", "Receipt No #1042")
@@ -482,13 +479,35 @@ elif menu == "7. 💼 Busy Software Style Cash Book & Ledger":
 # 8. DAILY BOYS/GIRLS ATTENDANCE ANALYTICS
 # ==========================================
 elif menu == "8. 📈 Daily Boys/Girls Attendance Analytics":
-  st.subheader("📈 Daily Attendance Analytics")
-  col1, col2 = st.columns(2)
-  col1.metric("👦 Total Boys Present", "240 / 250")
-  col2.metric("👧 Total Girls Present", "210 / 220")
+  st.subheader("📈 Daily Attendance Analytics & Visual Breakdown")
+
+  c1, c2 = st.columns(2)
+  c1.metric("👦 Boys Present", "240 / 250", "96%")
+  c2.metric("👧 Girls Present", "210 / 220", "95.4%")
 
   st.markdown("---")
-  st.write("📊 **Overall Attendance Percentage:** **95.7%**")
+
+  # Interactive Attendance Donut Chart
+  att_df = pd.DataFrame({
+      "Category": ["Boys Present", "Boys Absent", "Girls Present", "Girls Absent"],
+      "Count": [240, 10, 210, 10],
+  })
+
+  fig_att = px.pie(
+      att_df,
+      values="Count",
+      names="Category",
+      hole=0.4,
+      color="Category",
+      color_discrete_map={
+          "Boys Present": "#4F46E5",
+          "Boys Absent": "#93C5FD",
+          "Girls Present": "#EC48PNG" if False else "#EC4899",
+          "Girls Absent": "#FBCFE8",
+      },
+  )
+  fig_att.update_layout(margin=dict(t=20, b=20, l=10, r=10), height=300)
+  st.plotly_chart(fig_att, use_container_width=True)
 
 # ==========================================
 # 9. NEET ONLINE CBT EXAM PORTAL
@@ -496,9 +515,7 @@ elif menu == "8. 📈 Daily Boys/Girls Attendance Analytics":
 elif menu == "9. 💻 NEET Level Online CBT Exam Portal":
   st.subheader("💻 NTA / NEET Level CBT Test Portal")
   st.info("⏱️ Test Time: 180 Minutes | Marking: +4, -1")
-  st.markdown(
-      "**Q1. [Physics]** What is the unit of Electric Dipole Moment?"
-  )
+  st.markdown("**Q1. [Physics]** What is the unit of Electric Dipole Moment?")
   st.radio("Options:", ["Coulomb-meter", "Volt/meter", "Tesla", "Weber"])
   if st.button("Submit CBT Exam"):
     st.balloons()
@@ -553,22 +570,71 @@ elif menu == "14. ✅ Student Answer Sheet Copy Check":
     st.success("File uploaded ready for evaluation.")
 
 # ==========================================
-# 15. INSTANT NOTICE BOARD
+# 15. INSTANT NOTICE BOARD & WHATSAPP SENDER
 # ==========================================
 elif menu == "15. 📢 Instant School Notice Board":
   st.subheader("📢 School Notice Board")
-  notice = st.text_area("Write Notice Message")
+  notice = st.text_area("Write Notice Message", "Dear Parents, Tomorrow is a holiday on account of heavy rainfall.")
+  parent_phone = st.text_input("Parent Mobile Number (10 Digits)", "9828595276")
+
   if st.button("Publish Notice"):
-    st.success("Notice published to all students!")
+    st.success("Notice published to school notice board!")
+
+  if parent_phone and notice:
+    encoded_notice = urllib.parse.quote(notice)
+    whatsapp_url = f"https://wa.me/91{parent_phone}?text={encoded_notice}"
+    st.markdown(
+        f'<a href="{whatsapp_url}" target="_blank" style="text-decoration:none;"><button style="width:100%; height:45px; background-color:#25D366; color:white; font-weight:bold; border:none; border-radius:12px; cursor:pointer; margin-top:10px;">📲 Direct Send via WhatsApp</button></a>',
+        unsafe_allow_html=True,
+    )
 
 # ==========================================
-# 16. FINANCIAL SUMMARY DASHBOARD
+# 16. FINANCIAL SUMMARY & VISUAL DASHBOARD
 # ==========================================
 elif menu == "16. 📊 Complete Financial Summary Dashboard":
-  st.subheader("📊 Admin Financial Overview")
+  st.subheader("📊 Financial Overview & Visual Analytics")
+
   c1, c2 = st.columns(2)
-  c1.metric(" Total Fees Collected", "₹12,45,000")
-  c2.metric("⏳ Pending Outstanding Fees", "₹2,10,000")
+  c1.metric("Total Fees Collected", "₹12,45,000", "+83%")
+  c2.metric("Pending Fees", "₹2,55,000", "-17%")
+
+  st.markdown("---")
+
+  # Fee Donut Chart
+  fee_df = pd.DataFrame({
+      "Status": ["Collected Fee", "Pending Fee"],
+      "Amount": [1245000, 255000],
+  })
+
+  fig_fee = px.pie(
+      fee_df,
+      values="Amount",
+      names="Status",
+      color="Status",
+      color_discrete_map={
+          "Collected Fee": "#4F46E5",
+          "Pending Fee": "#EF4444",
+      },
+      hole=0.4,
+  )
+  fig_fee.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=260)
+  st.plotly_chart(fig_fee, use_container_width=True)
+
+  # Monthly Collection Line Trend
+  st.markdown("### 📈 Monthly Collection Trend")
+  monthly_trend = pd.DataFrame({
+      "Month": ["Apr", "May", "Jun", "Jul", "Aug", "Sep"],
+      "Collection (₹)": [180000, 220000, 150000, 310000, 245000, 140000],
+  })
+  fig_trend = px.line(
+      monthly_trend,
+      x="Month",
+      y="Collection (₹)",
+      markers=True,
+  )
+  fig_trend.update_traces(line_color="#10B981", line_width=3)
+  fig_trend.update_layout(height=280, margin=dict(t=10, b=10, l=10, r=10))
+  st.plotly_chart(fig_trend, use_container_width=True)
 
 # ==========================================
 # 17. APP LICENSE & SAKSHI SOLUTION INFO
