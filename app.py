@@ -1362,3 +1362,248 @@ elif menu == "14. ✅ Student Answer Sheet Copy Check":
     st.subheader("✅ Student Copy Verification")
 elif menu == "14. ✅ Student Answer Sheet Copy Check":
     st.subheader("✅ Student Copy Verification")
+import streamlit as st
+from supabase import create_client, Client
+import urllib.parse
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import io
+import datetime
+import re
+
+# ==========================================
+# 0. AI SAFE-KEY SYSTEM (MUST BE AT THE TOP)
+# ==========================================
+if 'widget_counters' not in st.session_state:
+    st.session_state.widget_counters = {}
+
+def get_ai_key(base_name: str) -> str:
+    count = st.session_state.widget_counters.get(base_name, 0) + 1
+    st.session_state.widget_counters[base_name] = count
+    return f"ai_key_{base_name}_{count}"
+
+# ==========================================
+# 1. APP CONFIGURATION & STYLING
+# ==========================================
+st.set_page_config(
+    page_title="School ERP - Anand Nehra", 
+    page_icon="🏫", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
+st.markdown("""
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="collapsedControl"] {display: none;}
+    
+    .main .block-container {
+        padding-top: 10px !important;
+        padding-bottom: 80px !important;
+        max-width: 480px !important;
+        margin: 0 auto !important;
+    }
+
+    .app-header-bar {
+        background: linear-gradient(135deg, #1E293B, #0F172A);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 16px 18px;
+        border-radius: 24px;
+        margin-bottom: 18px;
+    }
+    
+    .header-top { display: flex; align-items: center; justify-content: space-between; }
+    .app-brand { display: flex; align-items: center; gap: 12px; }
+    .app-icon { font-size: 28px; background: #2563EB; padding: 8px 12px; border-radius: 16px; }
+    .app-title-text h3 { margin: 0; font-size: 18px; color: #F8FAFC; }
+    .app-title-text span { font-size: 11px; color: #94A3B8; }
+    .status-badge { background: rgba(34, 197, 94, 0.15); color: #4ADE80; padding: 4px 10px; border-radius: 20px; font-size: 11px; }
+
+    .admin-info-box {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 10px 14px;
+        margin-top: 12px;
+        font-size: 12px;
+        color: #CBD5E1;
+    }
+
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 16px !important; 
+        height: 52px !important; 
+        font-size: 16px !important;
+        font-weight: 700 !important; 
+        background: linear-gradient(135deg, #2563EB, #1D4ED8) !important; 
+        color: white !important; 
+        border: none !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Admin Header
+st.markdown("""
+<div class="app-header-bar">
+    <div class="header-top">
+        <div class="app-brand">
+            <div class="app-icon">🏫</div>
+            <div class="app-title-text">
+                <h3>School ERP Pro Max</h3>
+                <span>ULTIMATE CAMPUS PORTAL</span>
+            </div>
+        </div>
+        <span class="status-badge">🟢 Online</span>
+    </div>
+    <div class="admin-info-box">
+        <p>👨‍💼 <b>Developer / Admin:</b> Anand Nehra</p>
+        <p>📞 <b>Contact:</b> 9828595276 | ✉️ <b>Email:</b> anandnehra8@gmail.com</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# 2. SUPABASE CONNECTION
+# ==========================================
+@st.cache_resource
+def init_supabase() -> Client:
+    try:
+        url = st.secrets["SUPABASE_URL"]
+        key = st.secrets["SUPABASE_KEY"]
+        return create_client(url, key)
+    except Exception as e:
+        st.error("Database Connection Failed!")
+        return None
+
+supabase = init_supabase()
+
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'role' not in st.session_state:
+    st.session_state.role = None
+
+# ==========================================
+# 3. LOGIN SYSTEM
+# ==========================================
+if not st.session_state.logged_in:
+    st.title("🔐 App Login")
+    login_mode = st.radio("Select Portal Mode", ["Admin Login (Free)", "Staff / Teacher Login (OTP / Pay)"], key=get_ai_key("login_mode"))
+
+    if login_mode == "Admin Login (Free)":
+        username = st.text_input("Admin Username", key=get_ai_key("adm_user"))
+        password = st.text_input("Admin Password", type="password", key=get_ai_key("adm_pass"))
+        if st.button("🚀 Login to App", key=get_ai_key("adm_login_btn")):
+            if username == "admin" and password == "admin123":
+                st.session_state.logged_in = True
+                st.session_state.role = "Super Admin"
+                st.rerun()
+            else:
+                st.error("Invalid Admin Credentials!")
+    else:
+        mobile = st.text_input("Enter 10-digit Mobile Number", key=get_ai_key("tch_mob"))
+        if mobile:
+            plan_choice = st.radio(
+                "Select Subscription Plan", 
+                ["🎁 1 Day Free Demo Plan - ₹0 (Trial)", "📅 Yearly Plan - ₹2,000 / Year", "👑 Lifetime Plan - ₹20,000"],
+                key=get_ai_key("plan_choice")
+            )
+            
+            if "Free Demo" in plan_choice:
+                pay_amt = 0
+                st.success("🎉 You selected 1 Day Free Trial! No payment required.")
+            elif "Yearly" in plan_choice:
+                pay_amt = 2000
+                st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
+            else:
+                pay_amt = 20000
+                st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
+            
+            otp = st.text_input("Enter OTP (Use '1234')", type="password", key=get_ai_key("otp_inp"))
+            if st.button("Verify OTP & Login", key=get_ai_key("otp_btn")):
+                if otp == "1234":
+                    st.session_state.logged_in = True
+                    st.session_state.role = "Teacher (Demo)" if pay_amt == 0 else "Teacher"
+                    st.rerun()
+                else:
+                    st.error("Incorrect OTP!")
+    st.stop()
+
+# ==========================================
+# 4. TOP NAVIGATION
+# ==========================================
+col_prof, col_logout = st.columns([3, 1])
+with col_prof:
+    st.markdown(f"👤 **Role:** `{st.session_state.role}`")
+with col_logout:
+    if st.button("🚪 Logout", key=get_ai_key("top_logout_btn")):
+        st.session_state.logged_in = False
+        st.rerun()
+
+st.markdown("---")
+
+menu = st.selectbox(
+    "📱 Select App Module (सभी मॉड्यूल्स):", 
+    [
+        "1. 👑 App License & Pricing",
+        "2. 👨‍🏫 Staff Directory & Teacher List",
+        "3. 💳 Manual Fee Collection & Receipt",
+        "4. 💻 Online Test & NEET Level CBT Portal",
+        "5. ✏️ Add / Edit Complete Student Profile",
+        "6. 👥 View All Students Table",
+        "7. 🚌 Transport & Bus Tracking System",
+        "8. 📢 Instant Notice Board",
+        "9. 📊 Financial Summary Dashboard"
+    ],
+    key=get_ai_key("main_menu_select")
+)
+
+st.markdown("---")
+
+classes_list = [f"Class {i}" for i in range(1, 13)]
+
+# ==========================================
+# 5. MODULES
+# ==========================================
+if menu == "1. 👑 App License & Pricing":
+    st.subheader("👑 App License & Subscriptions")
+    st.info("App Status: ACTIVE (Enterprise Pro Max Version)")
+
+elif menu == "2. 👨‍🏫 Staff Directory & Teacher List":
+    st.subheader("👨‍🏫 Staff Management")
+    st_name = st.text_input("Staff Full Name", key=get_ai_key("st_name"))
+    if st.button("💾 Save Staff Record", key=get_ai_key("st_save_btn")):
+        st.success("Staff Saved!")
+
+elif menu == "3. 💳 Manual Fee Collection & Receipt":
+    st.subheader("💳 Manual Fee Entry & Receipt Portal")
+    s_roll = st.number_input("Enter Student Roll No", min_value=1, step=1, key=get_ai_key("fee_roll"))
+    s_name = st.text_input("Student Name", key=get_ai_key("fee_name"))
+    if st.button("💾 Record Payment", key=get_ai_key("fee_save_btn")):
+        st.success("Fee Saved!")
+
+elif menu == "4. 💻 Online Test & NEET Level CBT Portal":
+    st.subheader("💻 NEET Level CBT Test Portal")
+    st.info("⏱️ Test Time: 180 Minutes")
+
+elif menu == "5. ✏️ Add / Edit Complete Student Profile":
+    st.subheader("✏️ Student Master Form")
+    roll_no = st.number_input("Roll No", min_value=1, step=1, key=get_ai_key("std_roll"))
+    s_name = st.text_input("Student Name", key=get_ai_key("std_name"))
+    if st.button("💾 Save Profile", key=get_ai_key("std_save_btn")):
+        st.success("Student Saved!")
+
+elif menu == "6. 👥 View All Students Table":
+    st.subheader("👥 Student Directory")
+
+elif menu == "7. 🚌 Transport & Bus Tracking System":
+    st.subheader("🚌 Transport Manager")
+
+elif menu == "8. 📢 Instant Notice Board":
+    st.subheader("📢 Notice Board")
+
+elif menu == "9. 📊 Financial Summary Dashboard":
+    st.subheader("📊 Financial Overview")
+    
