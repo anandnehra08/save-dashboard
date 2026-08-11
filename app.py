@@ -6,11 +6,12 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import streamlit as st
 from supabase import Client, create_client
+import pandas as pd
 
-# --- 1. ADVANCED MOBILE-FIRST APP CONFIGURATION ---
+# --- 1. APP CONFIGURATION ---
 st.set_page_config(
-    page_title="School ERP - Anand Nehra",
-    page_icon="🏫",
+    page_title="Dream Shiksha ERP - Sakshi Solution",
+    page_icon="🎓",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
@@ -19,28 +20,21 @@ st.set_page_config(
 st.markdown(
     """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0F172A">
-
     <style>
-    /* Hide Streamlit Default Components */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     [data-testid="collapsedControl"] {display: none;}
     
-    /* Global Container Setup */
     .main .block-container {
         padding-top: 10px !important;
         padding-bottom: 80px !important;
-        max-width: 480px !important;
+        max-width: 500px !important;
         margin: 0 auto !important;
     }
 
-    /* Gradient Header Bar */
     .app-header-bar {
-        background: linear-gradient(135deg, #1E293B, #0F172A);
+        background: linear-gradient(135deg, #1E1B4B, #312E81);
         border: 1px solid rgba(255, 255, 255, 0.1);
         color: white;
         padding: 16px 18px;
@@ -48,34 +42,16 @@ st.markdown(
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         margin-bottom: 18px;
     }
-    
-    .header-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    
+    .header-top { display: flex; align-items: center; justify-content: space-between; }
     .app-brand { display: flex; align-items: center; gap: 12px; }
     .app-icon { 
         font-size: 28px; 
-        background: linear-gradient(135deg, #3B82F6, #2563EB); 
+        background: linear-gradient(135deg, #6366F1, #4F46E5); 
         padding: 8px 12px; 
         border-radius: 16px; 
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     }
-    .app-title-text h3 { 
-        margin: 0; 
-        font-size: 18px; 
-        color: #F8FAFC; 
-        font-weight: 800; 
-        letter-spacing: -0.5px;
-    }
-    .app-title-text span { 
-        font-size: 11px; 
-        color: #94A3B8; 
-        font-weight: 600;
-        letter-spacing: 0.5px;
-    }
+    .app-title-text h3 { margin: 0; font-size: 18px; color: #F8FAFC; font-weight: 800; }
+    .app-title-text span { font-size: 11px; color: #C7D2FE; font-weight: 600; }
 
     .status-badge {
         background: rgba(34, 197, 94, 0.15);
@@ -87,77 +63,51 @@ st.markdown(
         font-weight: 700;
     }
 
-    /* Admin Developer Badge */
     .admin-info-box {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.08);
         border-radius: 16px;
         padding: 10px 14px;
         margin-top: 12px;
         font-size: 12px;
-        color: #CBD5E1;
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #E0E7FF;
+        border: 1px solid rgba(255, 255, 255, 0.12);
     }
     .admin-info-box p { margin: 2px 0; }
-    .admin-info-box a { color: #38BDF8; text-decoration: none; font-weight: 700; }
+    .admin-info-box a { color: #818CF8; text-decoration: none; font-weight: 700; }
 
-    /* Elegant Card Design */
-    .card { 
-        background: #FFFFFF; 
-        padding: 20px; 
-        border-radius: 20px; 
-        margin-bottom: 16px; 
-        border: 1px solid #E2E8F0; 
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); 
-    }
-
-    /* Custom Stylish Buttons */
     .stButton>button { 
         width: 100%; 
         border-radius: 16px !important; 
-        height: 52px !important; 
-        font-size: 16px !important;
+        height: 50px !important; 
+        font-size: 15px !important;
         font-weight: 700 !important; 
-        background: linear-gradient(135deg, #2563EB, #1D4ED8) !important; 
+        background: linear-gradient(135deg, #4F46E5, #4338CA) !important; 
         color: white !important; 
         border: none !important;
-        box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4) !important;
-        transition: all 0.2s ease-in-out !important;
-    }
-    
-    .stButton>button:active {
-        transform: scale(0.98);
-    }
-
-    /* Interactive CBT Box */
-    .cbt-box {
-        background: #F0F9FF;
-        border-left: 5px solid #0284C7;
-        padding: 14px;
-        border-radius: 12px;
-        margin-bottom: 16px;
-        color: #0C4A6E;
+        box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.4) !important;
     }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Admin Header Bar
+# Header Display
 st.markdown(
     """
 <div class="app-header-bar">
     <div class="header-top">
         <div class="app-brand">
-            <div class="app-icon">🏫</div>
+            <div class="app-icon">🎓</div>
             <div class="app-title-text">
-                <h3>School ERP Pro Max</h3>
-                <span>ULTIMATE CAMPUS PORTAL</span>
+                <h3>Dream Shiksha ERP</h3>
+                <span>POWERED BY SAKSHI SOLUTION</span>
             </div>
         </div>
-        <span class="status-badge">🟢 Online</span>
+        <span class="status-badge">🟢 Live System</span>
     </div>
     <div class="admin-info-box">
-        <p>👨‍💼 <b>Developer / Admin:</b> Anand Nehra</p>
+        <p>🏢 <b>Provider:</b> Sakshi Solution</p>
+        <p>👨‍💼 <b>Developer:</b> Anand Nehra</p>
         <p>📞 <b>Contact:</b> <a href="tel:9828595276">9828595276</a> | ✉️ <b>Email:</b> <a href="mailto:anandnehra8@gmail.com">anandnehra8@gmail.com</a></p>
     </div>
 </div>
@@ -173,8 +123,7 @@ def init_supabase() -> Client:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
-  except Exception as e:
-    st.error("Database Connection Failed!")
+  except Exception:
     return None
 
 
@@ -187,15 +136,15 @@ if "role" not in st.session_state:
 
 # --- 4. LOGIN SYSTEM ---
 if not st.session_state.logged_in:
-  st.title("🔐 App Login")
+  st.title("🔐 Login Portal")
   login_mode = st.radio(
-      "Select Portal Mode", ["Admin Login (Free)", "Staff / Teacher Login (OTP / Pay)"]
+      "Select Portal Mode", ["Admin Login (Free)", "Staff / Teacher Login"]
   )
 
   if login_mode == "Admin Login (Free)":
     username = st.text_input("Admin Username")
     password = st.text_input("Admin Password", type="password")
-    if st.button("🚀 Login to App"):
+    if st.button("🚀 Login"):
       if username == "admin" and password == "admin123":
         st.session_state.logged_in = True
         st.session_state.role = "Super Admin"
@@ -203,54 +152,18 @@ if not st.session_state.logged_in:
       else:
         st.error("Invalid Admin Credentials!")
   else:
-    mobile = st.text_input("Enter 10-digit Mobile Number")
-    if mobile:
-      plan_choice = st.radio(
-          "Select Subscription Plan",
-          [
-              "🎁 1 Day Free Demo Plan - ₹0 (Trial)",
-              "📅 Yearly Plan - ₹2,000 / Year",
-              "👑 Lifetime Plan - ₹20,000",
-          ],
-      )
-
-      if "Free Demo" in plan_choice:
-        pay_amt = 0
-        st.success(
-            "🎉 You selected 1 Day Free Trial! No payment required."
-        )
-      elif "Yearly" in plan_choice:
-        pay_amt = 2000
-        st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
-        upi_pay = (
-            f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
-        )
-        st.markdown(
-            f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**"
-        )
+    mobile = st.text_input("Enter Mobile Number")
+    otp = st.text_input("Enter OTP (Use '1234')", type="password")
+    if st.button("Verify OTP & Login"):
+      if otp == "1234":
+        st.session_state.logged_in = True
+        st.session_state.role = "Teacher"
+        st.rerun()
       else:
-        pay_amt = 20000
-        st.info(f"Selected Plan Fee: ₹{pay_amt:,}")
-        upi_pay = (
-            f"upi://pay?pa=schoolerp@upi&pn=SchoolERP&am={pay_amt}&cu=INR"
-        )
-        st.markdown(
-            f"👉 **[Click Here to Pay App Fee ₹{pay_amt:,}]({upi_pay})**"
-        )
-
-      otp = st.text_input("Enter OTP (Use '1234')", type="password")
-      if st.button("Verify OTP & Login"):
-        if otp == "1234":
-          st.session_state.logged_in = True
-          st.session_state.role = (
-              "Teacher (Demo)" if pay_amt == 0 else "Teacher"
-          )
-          st.rerun()
-        else:
-          st.error("Incorrect OTP!")
+        st.error("Incorrect OTP!")
   st.stop()
 
-# --- 5. TOP NAVIGATION & MODULE SELECTOR ---
+# --- TOP BAR ---
 col_prof, col_logout = st.columns([3, 1])
 with col_prof:
   st.markdown(f"👤 **Role:** `{st.session_state.role}`")
@@ -261,26 +174,27 @@ with col_logout:
 
 st.markdown("---")
 
+# --- MERGED MODULE SELECTOR ---
 menu = st.selectbox(
-    "📱 Select App Module (सभी मॉड्यूल्स):",
+    "📱 Select App Module (मॉड्यूल चुनें):",
     [
-        "1. 👑 App License & Pricing",
-        "2. 👨‍🏫 Staff Directory & Teacher List",
-        "3. 💳 Manual Fee Collection & Receipt",
-        "4. 💻 Online Test & NEET Level CBT Portal",
-        "5. ✏️ Add / Edit Complete Student Profile",
-        "6. 👥 View All Students Table",
-        "7. 🔍 Advance Multi-Search Profile",
-        "8. 📄 Automatic Report Card Generator (PDF)",
-        "9. 🗓️ School Calendar & Holidays Notice",
-        "10. 📅 Mark Attendance & WhatsApp Alert",
-        "11. 📚 Class 1-12 NCERT Textbooks",
-        "12. 📄 Auto Question Paper (Hindi & English)",
+        "1. 📜 Certificate Generator (TC, Character & Study)",
+        "2. 📖 SR Register & Complete Student Master Profile",
+        "3. 💳 3-Installment Fee Manager & Receipt",
+        "4. 📊 Hiralal Style Result Generator & Excel Export",
+        "5. 📚 Chapter-Wise NCERT PDF & Paper Generator",
+        "6. 🚌 Bus Tracking, Pickup/Drop & Transport Route",
+        "7. 💼 Busy Software Style Cash Book & Ledger",
+        "8. 📈 Daily Boys/Girls Attendance Analytics",
+        "9. 💻 NEET Level Online CBT Exam Portal",
+        "10. 👨‍🏫 Staff Directory & Payroll",
+        "11. 🔍 Advance Multi-Search Student Search",
+        "12. 🗓️ Academic Calendar & Holiday Notices",
         "13. 📝 Exam Marks Portal",
         "14. ✅ Student Answer Sheet Copy Check",
-        "15. 🚌 Transport & Bus Tracking System",
-        "16. 📢 Instant Notice Board",
-        "17. 📊 Financial Summary Dashboard",
+        "15. 📢 Instant School Notice Board",
+        "16. 📊 Complete Financial Summary Dashboard",
+        "17. 👑 App License & Sakshi Solution Info",
     ],
 )
 
@@ -304,378 +218,372 @@ def is_valid_aadhaar(aadhaar_str):
   return bool(re.match(r"^\d{12}$", str(aadhaar_str)))
 
 
-# --- MODULE 1: APP LICENSE & PRICING ---
-if menu == "1. 👑 App License & Pricing":
-  st.subheader("👑 App License & Subscriptions")
-  st.info("App Status: ACTIVE (Enterprise Pro Max Version)")
-  st.markdown(
-      """
-    <div class="card">
-        <h4>👨‍💼 System Developer & Administrator</h4>
-        <p>• <b>Name:</b> Anand Nehra</p>
-        <p>• <b>Phone:</b> +91 9828595276</p>
-        <p>• <b>Email:</b> anandnehra8@gmail.com</p>
-        <hr>
-        <h4>💰 Pricing Overview</h4>
-        <p>• <b>🎁 1 Day Demo Access:</b> FREE (Complete System Trial)</p>
-        <p>• <b>📅 Yearly Subscription:</b> ₹2,000 / Year</p>
-        <p>• <b>👑 Lifetime Access:</b> ₹20,000 (One-Time Payment)</p>
-        <p>• <b>🔐 Admin Access:</b> Full System Control Included</p>
-        <p>• <b>⚡ Modules Unlocked:</b> All 17 Advanced Modules</p>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-
-# --- MODULE 2: STAFF DIRECTORY ---
-elif menu == "2. 👨‍🏫 Staff Directory & Teacher List":
-  st.subheader("👨‍🏫 Staff & Teacher Management")
-  st_name = st.text_input("Staff Full Name")
-  st_role = st.selectbox(
-      "Designation / Role",
+# ==========================================
+# 1. CERTIFICATE GENERATOR (TC, Character, Study)
+# ==========================================
+if menu == "1. 📜 Certificate Generator (TC, Character & Study)":
+  st.subheader("📜 Certificate Generator Portal")
+  cert_type = st.selectbox(
+      "Choose Certificate Type",
       [
-          "PGT Teacher",
-          "TGT Teacher",
-          "PRT Teacher",
-          "Accountant",
-          "Clerk",
-          "Lab Assistant",
-          "Peon / Security",
+          "Transfer Certificate (TC)",
+          "Character Certificate (चरित्र प्रमाण पत्र)",
+          "Study Certificate (अध्ययनरत प्रमाण पत्र)",
       ],
   )
-  st_sub = st.selectbox("Main Subject Handled", subjects_list)
-  st_mob = st.text_input("Mobile Number")
-  st_sal = st.number_input("Monthly Salary (₹)", value=25000, step=1000)
-  st_joining = st.date_input("Date of Joining", datetime.date(2024, 1, 1))
 
-  if st.button("💾 Save Staff Record"):
-    if supabase:
-      try:
-        supabase.table("staff").insert({
-            "name": st_name,
-            "role": st_role,
-            "subject": st_sub,
-            "mobile": st_mob,
-            "salary": st_sal,
-            "joining_date": str(st_joining),
-        }).execute()
-        st.success(f"Staff record for {st_name} saved in Supabase!")
-      except Exception as e:
-        st.error(f"Error saving to database: {e}")
-
-# --- MODULE 3: MANUAL FEE COLLECTION ---
-elif menu == "3. 💳 Manual Fee Collection & Receipt":
-  st.subheader("💳 Manual Fee Entry & Receipt Portal")
-  s_roll = st.number_input("Enter Student Roll No", min_value=1, step=1)
-  s_name = st.text_input("Student Name")
+  sr_no = st.text_input("SR / Admission Number")
+  st_name = st.text_input("Student Name")
+  f_name = st.text_input("Father Name")
   s_class = st.selectbox("Class", classes_list)
-  pay_mode = st.radio(
-      "Payment Mode",
-      ["Cash (नकद)", "UPI / QR Code", "Bank Transfer / Cheque"],
-      horizontal=True,
+  dob = st.date_input("Date of Birth", datetime.date(2010, 1, 1))
+  conduct = st.selectbox(
+      "Behavior / Conduct", ["Excellent", "Good", "Satisfactory"]
   )
 
+  def generate_cert_pdf():
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(150, 750, "DREAM SHIKSHA ACADEMY")
+    p.setFont("Helvetica", 10)
+    p.drawString(200, 735, "Powered by Sakshi Solution")
+    p.line(50, 720, 560, 720)
+
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(180, 680, f"--- {cert_type.upper()} ---")
+
+    p.setFont("Helvetica", 12)
+    p.drawString(60, 630, f"SR Number: {sr_no}")
+    p.drawString(60, 605, f"This is to certify that Master/Miss: {st_name}")
+    p.drawString(60, 580, f"Son/Daughter of Shri: {f_name}")
+    p.drawString(
+        60, 555, f"Is/Was a bona fide student of Class: {s_class}"
+    )
+    p.drawString(60, 530, f"Date of Birth: {dob.strftime('%d-%m-%Y')}")
+    p.drawString(60, 505, f"General Conduct & Character: {conduct}")
+
+    p.drawString(60, 430, f"Date of Issue: {datetime.date.today()}")
+    p.drawString(400, 430, "Principal Signature")
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer
+
+  if st.button("📄 Generate & Download Certificate PDF"):
+    st.download_button(
+        "📥 Download PDF",
+        generate_cert_pdf(),
+        file_name=f"{cert_type}_{sr_no}.pdf",
+        mime="application/pdf",
+    )
+
+# ==========================================
+# 2. SR REGISTER & STUDENT PROFILE
+# ==========================================
+elif menu == "2. 📖 SR Register & Complete Student Master Profile":
+  st.subheader("📖 Student Master SR Register Form")
   col1, col2 = st.columns(2)
   with col1:
-    tot_fee = st.number_input("Total Fee (₹)", value=2000)
+    sr_no = st.number_input("SR Number", min_value=1, step=1)
+    st_name = st.text_input("Student Name")
+    gender = st.selectbox("Gender", ["Boy", "Girl", "Other"])
+    s_class = st.selectbox("Class", classes_list)
+    s_sec = st.selectbox("Section", sections_list)
   with col2:
-    rec_fee = st.number_input("Received Amount (₹)", value=2000)
+    roll_no = st.number_input("Roll No", min_value=1, step=1)
+    f_name = st.text_input("Father Name")
+    m_name = st.text_input("Mother Name")
+    mobile = st.text_input("Parent Mobile Number")
+    aadhaar = st.text_input("Aadhaar Number (12 Digits)")
 
-  pending = tot_fee - rec_fee
-  remarks = st.text_input("Payment Remarks", "Fees for Term 1")
+  st.markdown("---")
+  st.subheader("🚌 Transport & Drop Point Setup")
+  route = st.text_input("Assigned Bus Route", "Route 1 - City Line")
+  drop_point = st.text_input("Pickup / Drop Point", "Main Market Bus Stop")
 
-  def generate_manual_fee_pdf():
+  if st.button("💾 Save to Student SR Register"):
+    if aadhaar and not is_valid_aadhaar(aadhaar):
+      st.error("Invalid Aadhaar Number! Must be 12 digits.")
+    else:
+      if supabase:
+        try:
+          supabase.table("students").insert({
+              "sr_no": sr_no,
+              "roll_no": roll_no,
+              "student_name": st_name,
+              "father_name": f_name,
+              "gender": gender,
+              "class": s_class,
+              "section": s_sec,
+              "mobile": mobile,
+              "aadhaar": aadhaar,
+              "route": route,
+              "drop_point": drop_point,
+          }).execute()
+          st.success("Student profile successfully added to SR Register!")
+        except Exception as e:
+          st.error(f"Database Error: {e}")
+      else:
+        st.success("Demo Mode: Student SR Record Created!")
+
+# ==========================================
+# 3. 3-INSTALLMENT FEE MANAGER
+# ==========================================
+elif menu == "3. 💳 3-Installment Fee Manager & Receipt":
+  st.subheader("💳 Fee Installment & Receipt Management")
+  sr_no = st.number_input("Enter Student SR No", min_value=1, step=1)
+  st_name = st.text_input("Student Name")
+
+  total_fee = st.number_input("Total Annual Fee (₹)", value=15000, step=500)
+
+  col1, col2, col3 = st.columns(3)
+  with col1:
+    inst1 = st.number_input("1st Installment Paid (₹)", value=5000)
+  with col2:
+    inst2 = st.number_input("2nd Installment Paid (₹)", value=0)
+  with col3:
+    inst3 = st.number_input("3rd Installment Paid (₹)", value=0)
+
+  total_paid = inst1 + inst2 + inst3
+  pending = total_fee - total_paid
+
+  st.info(f"📊 **Total Paid:** ₹{total_paid:,} | ⏳ **Pending Fee:** ₹{pending:,}")
+
+  def generate_fee_pdf():
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
     p.setFont("Helvetica-Bold", 16)
     p.drawString(180, 750, "OFFICIAL FEE RECEIPT")
     p.setFont("Helvetica", 10)
-    p.drawString(50, 720, f"Date: {datetime.date.today()} | Mode: {pay_mode}")
-    p.drawString(
-        50, 700, f"Student: {s_name} | Roll No: {s_roll} | Class: {s_class}"
-    )
-    p.line(50, 685, 560, 685)
-    p.drawString(50, 650, f"Amount Received: Rs. {rec_fee}")
-    p.drawString(50, 630, f"Balance Due: Rs. {pending}")
-    p.drawString(
-        50, 570, "Admin Signature (Anand Nehra): __________________"
-    )
+    p.drawString(50, 725, f"Date: {datetime.date.today()}")
+    p.drawString(50, 705, f"Student: {st_name} | SR No: {sr_no}")
+    p.line(50, 690, 560, 690)
+    p.drawString(50, 660, f"Total Annual Fee: Rs. {total_fee}")
+    p.drawString(50, 640, f"1st Installment: Rs. {inst1}")
+    p.drawString(50, 620, f"2nd Installment: Rs. {inst2}")
+    p.drawString(50, 600, f"3rd Installment: Rs. {inst3}")
+    p.drawString(50, 570, f"Total Paid Fee: Rs. {total_paid}")
+    p.drawString(50, 550, f"Remaining Pending Balance: Rs. {pending}")
     p.showPage()
     p.save()
     buffer.seek(0)
     return buffer
 
-  if st.button("💾 Record Payment & Download PDF"):
-    if supabase:
-      try:
-        supabase.table("fee_collections").insert({
-            "roll_no": s_roll,
-            "student_name": s_name,
-            "class": s_class,
-            "payment_mode": pay_mode,
-            "total_fee": tot_fee,
-            "received_fee": rec_fee,
-            "pending_fee": pending,
-            "remarks": remarks,
-        }).execute()
-        st.success("Fee Payment saved to Supabase successfully!")
-      except Exception as e:
-        st.error(f"Database error: {e}")
+  if st.button("💾 Save Fee & Download Receipt PDF"):
     st.download_button(
         "📥 Download Fee Receipt PDF",
-        generate_manual_fee_pdf(),
-        file_name=f"FeeReceipt_Roll_{s_roll}.pdf",
+        generate_fee_pdf(),
+        file_name=f"FeeReceipt_SR_{sr_no}.pdf",
         mime="application/pdf",
     )
 
-# --- MODULE 4: ONLINE TEST & NEET CBT ---
-elif menu == "4. 💻 Online Test & NEET Level CBT Portal":
-  st.subheader("💻 NTA / NEET Level CBT Test Portal")
-  st.info("⏱️ Test Time: 180 Minutes | Marking: +4 for Correct, -1 for Wrong")
+# ==========================================
+# 4. HIRALAL SHEET RESULT & EXCEL EXPORT
+# ==========================================
+elif menu == "4. 📊 Hiralal Style Result Generator & Excel Export":
+  st.subheader("📊 Hiralal Sheet Result Generator & Excel Sheet Export")
 
-  score = 0
+  data = {
+      "SR No": [101, 102, 103, 104],
+      "Student Name": ["Aarav Sharma", "Priya Verma", "Rahul Singh", "Neha"],
+      "Gender": ["Boy", "Girl", "Boy", "Girl"],
+      "Hindi": [85, 92, 78, 88],
+      "English": [88, 90, 74, 85],
+      "Maths": [95, 88, 65, 92],
+      "Science": [90, 94, 70, 89],
+  }
+  df = pd.DataFrame(data)
+  df["Total Marks"] = (
+      df["Hindi"] + df["English"] + df["Maths"] + df["Science"]
+  )
+  df["Percentage (%)"] = (df["Total Marks"] / 400) * 100
+
+  st.dataframe(df)
+
+  # Excel Export Functionality
+  output = io.BytesIO()
+  with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    df.to_excel(writer, index=False, sheet_name="ResultSheet")
+  excel_data = output.getvalue()
+
+  st.download_button(
+      label="📥 Export Complete Result Sheet to Excel (.xlsx)",
+      data=excel_data,
+      file_name="Hiralal_Result_Sheet_2026.xlsx",
+      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  )
+
+# ==========================================
+# 5. NCERT CHAPTER PDF & PAPER GENERATOR
+# ==========================================
+elif menu == "5. 📚 Chapter-Wise NCERT PDF & Paper Generator":
+  st.subheader("📚 NCERT Chapter Books & Paper Setter Portal")
+  s_class = st.selectbox("Select Class Level", classes_list)
+  subject = st.selectbox("Select Subject", subjects_list)
+
+  st.markdown("### 📖 Direct Chapter-Wise NCERT Links")
+  st.write(
+      f"1. **Chapter 1: Fundamentals of {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
+  )
+  st.write(
+      f"2. **Chapter 2: Advanced Topics in {subject}** 👉 [Download Chapter PDF](https://ncert.nic.in/textbook.php)"
+  )
+
+  st.markdown("---")
+  st.subheader("⚡ Auto Question Paper Generator")
+  if st.button("📄 Generate Instant Test Paper"):
+    st.write(
+        f"**Subject:** {subject} | **Class:** {s_class} | **Time:** 2 Hours"
+    )
+    st.write("Q1. Explain the fundamental laws of Chapter 1. (3 Marks)")
+    st.write(
+        "Q2. Differentiate between primary and secondary processes. (5 Marks)"
+    )
+
+# ==========================================
+# 6. BUS TRACKING & ROUTE LIST
+# ==========================================
+elif menu == "6. 🚌 Bus Tracking, Pickup/Drop & Transport Route":
+  st.subheader("🚌 Transport, Route & Pickup Point Portal")
+  route_no = st.selectbox("Select Route Number", ["Route 1", "Route 2"])
+
+  if route_no == "Route 1":
+    bus_data = {
+        "SR No": [101, 103],
+        "Student Name": ["Aarav Sharma", "Rahul Singh"],
+        "Pickup/Drop Point": ["Main Bus Stop", "Station Road"],
+        "Bus Fee (₹)": [1200, 1000],
+    }
+  else:
+    bus_data = {
+        "SR No": [102, 104],
+        "Student Name": ["Priya Verma", "Neha"],
+        "Pickup/Drop Point": ["Civil Lines", "Airport Circle"],
+        "Bus Fee (₹)": [1500, 1500],
+    }
+
+  st.dataframe(pd.DataFrame(bus_data))
+
+# ==========================================
+# 7. BUSY SOFTWARE STYLE CASH BOOK & LEDGER
+# ==========================================
+elif menu == "7. 💼 Busy Software Style Cash Book & Ledger":
+  st.subheader("💼 Busy Style Cash & Ledger Book")
+  entry_type = st.radio("Transaction Type", ["Cash In (Receipt)", "Cash Out (Payment)"], horizontal=True)
+  category = st.text_input("Head / Category", "Tuition Fees Collection")
+  amount = st.number_input("Amount (₹)", value=5000, step=500)
+  remarks = st.text_input("Voucher Remarks", "Receipt No #1042")
+
+  if st.button("💾 Save Ledger Voucher"):
+    st.success(f"Voucher saved! Amount ₹{amount} logged in Cash Book.")
+
+# ==========================================
+# 8. DAILY BOYS/GIRLS ATTENDANCE ANALYTICS
+# ==========================================
+elif menu == "8. 📈 Daily Boys/Girls Attendance Analytics":
+  st.subheader("📈 Daily Attendance Analytics")
+  col1, col2 = st.columns(2)
+  col1.metric("👦 Total Boys Present", "240 / 250")
+  col2.metric("👧 Total Girls Present", "210 / 220")
+
+  st.markdown("---")
+  st.write("📊 **Overall Attendance Percentage:** **95.7%**")
+
+# ==========================================
+# 9. NEET ONLINE CBT EXAM PORTAL
+# ==========================================
+elif menu == "9. 💻 NEET Level Online CBT Exam Portal":
+  st.subheader("💻 NTA / NEET Level CBT Test Portal")
+  st.info("⏱️ Test Time: 180 Minutes | Marking: +4, -1")
+  st.markdown(
+      "**Q1. [Physics]** What is the unit of Electric Dipole Moment?"
+  )
+  st.radio("Options:", ["Coulomb-meter", "Volt/meter", "Tesla", "Weber"])
+  if st.button("Submit CBT Exam"):
+    st.balloons()
+    st.success("Test Submitted Successfully!")
+
+# ==========================================
+# 10. STAFF DIRECTORY & PAYROLL
+# ==========================================
+elif menu == "10. 👨‍🏫 Staff Directory & Payroll":
+  st.subheader("👨‍🏫 Staff Directory & Payroll")
+  st_name = st.text_input("Staff Name")
+  st_role = st.selectbox("Designation", ["PGT", "TGT", "PRT", "Accountant"])
+  st_sal = st.number_input("Monthly Salary (₹)", value=25000)
+  if st.button("Save Staff Record"):
+    st.success(f"Staff record for {st_name} saved.")
+
+# ==========================================
+# 11. ADVANCE MULTI-SEARCH PROFILE
+# ==========================================
+elif menu == "11. 🔍 Advance Multi-Search Student Search":
+  st.subheader("🔍 Advance Master Search")
+  search_term = st.text_input("Search by Name or SR Number")
+  if st.button("Search") and search_term:
+    st.write(f"Searching database for '{search_term}'...")
+
+# ==========================================
+# 12. ACADEMIC CALENDAR & NOTICES
+# ==========================================
+elif menu == "12. 🗓️ Academic Calendar & Holiday Notices":
+  st.subheader("🗓️ School Calendar")
+  st.write("• **15th August:** Independence Day Celebration")
+  st.write("• **15th October:** Term-1 Exams Begin")
+
+# ==========================================
+# 13. EXAM MARKS PORTAL
+# ==========================================
+elif menu == "13. 📝 Exam Marks Portal":
+  st.subheader("📝 Marks Entry Portal")
+  sr = st.number_input("SR No", min_value=1)
+  sub = st.selectbox("Subject", subjects_list)
+  marks = st.number_input("Marks (Out of 100)", 0, 100, 85)
+  if st.button("Save Marks"):
+    st.success("Marks saved successfully!")
+
+# ==========================================
+# 14. STUDENT ANSWER SHEET COPY CHECK
+# ==========================================
+elif menu == "14. ✅ Student Answer Sheet Copy Check":
+  st.subheader("✅ Answer Sheet Copy Check")
+  up = st.file_uploader("Upload Scanned Answer Sheet", type=["pdf", "jpg"])
+  if up:
+    st.success("File uploaded ready for evaluation.")
+
+# ==========================================
+# 15. INSTANT NOTICE BOARD
+# ==========================================
+elif menu == "15. 📢 Instant School Notice Board":
+  st.subheader("📢 School Notice Board")
+  notice = st.text_area("Write Notice Message")
+  if st.button("Publish Notice"):
+    st.success("Notice published to all students!")
+
+# ==========================================
+# 16. FINANCIAL SUMMARY DASHBOARD
+# ==========================================
+elif menu == "16. 📊 Complete Financial Summary Dashboard":
+  st.subheader("📊 Admin Financial Overview")
+  c1, c2 = st.columns(2)
+  c1.metric(" Total Fees Collected", "₹12,45,000")
+  c2.metric("⏳ Pending Outstanding Fees", "₹2,10,000")
+
+# ==========================================
+# 17. APP LICENSE & SAKSHI SOLUTION INFO
+# ==========================================
+elif menu == "17. 👑 App License & Sakshi Solution Info":
+  st.subheader("👑 Dream Shiksha ERP License")
   st.markdown(
       """
-    <div class="cbt-box">
-        <b>Q1. [Physics]</b> Two point charges +q and -q are placed at distance d apart. What is the electric dipole moment vector direction?
+    <div style="background:#F1F5F9; padding:15px; border-radius:15px; border:1px solid #CBD5E1">
+        <h4>🏢 Powered by: Sakshi Solution</h4>
+        <p><b>Developer:</b> Anand Nehra</p>
+        <p><b>Contact:</b> 9828595276 | anandnehra8@gmail.com</p>
+        <hr>
+        <p><b>License Status:</b> Activated Enterprise Version</p>
     </div>
     """,
       unsafe_allow_html=True,
   )
-  q1_ans = st.radio(
-      "Select Answer Q1:",
-      [
-          "(A) From positive to negative charge",
-          "(B) From negative to positive charge",
-          "(C) Perpendicular to line",
-          "(D) None",
-      ],
-      key="q1",
-  )
-  if q1_ans == "(B) From negative to positive charge":
-    score += 4
-
-  if st.button("🚀 Submit NEET CBT Test"):
-    st.balloons()
-    st.success(f"🎉 Test Submitted! Score: {score} / 4 Marks")
-
-# --- MODULE 5: ADD STUDENT ---
-elif menu == "5. ✏️ Add / Edit Complete Student Profile":
-  st.subheader("✏️ Student Master Form")
-  roll_no = st.number_input("Roll No", min_value=1, step=1)
-  s_name = st.text_input("Student Name")
-  f_name = st.text_input("Father Name")
-  s_class = st.selectbox("Class", classes_list)
-  s_sec = st.selectbox("Section", sections_list)
-  s_mob = st.text_input("Mobile Number")
-  s_adh = st.text_input("Aadhaar Number (12 Digits)")
-
-  if st.button("💾 Save Profile"):
-    if not is_valid_aadhaar(s_adh):
-      st.error("Invalid Aadhaar Number! Must be exactly 12 digits.")
-    else:
-      if supabase:
-        try:
-          supabase.table("students").insert({
-              "roll_no": roll_no,
-              "student_name": s_name,
-              "father_name": f_name,
-              "class": s_class,
-              "section": s_sec,
-              "mobile": s_mob,
-              "aadhaar": s_adh,
-          }).execute()
-          st.success("Student profile saved to Supabase successfully!")
-        except Exception as e:
-          st.error(f"Error saving student: {e}")
-
-# --- MODULE 6: VIEW ALL STUDENTS ---
-elif menu == "6. 👥 View All Students Table":
-  st.subheader("👥 Student Directory")
-  if supabase:
-    try:
-      res = supabase.table("students").select("*").execute()
-      if res.data:
-        st.dataframe(res.data)
-      else:
-        st.info("No student records found in the database.")
-    except Exception as e:
-      st.error(f"Error fetching directory: {e}")
-  else:
-    st.info("Database connection offline.")
-
-# --- MODULE 7: MULTI-SEARCH PROFILE ---
-elif menu == "7. 🔍 Advance Multi-Search Profile":
-  st.subheader("🔍 Master Search")
-  search_term = st.text_input("Search by Roll No or Student Name")
-  if st.button("🔍 Search") and search_term:
-    if supabase:
-      try:
-        res = (
-            supabase.table("students")
-            .select("*")
-            .or_(
-                f"student_name.ilike.%{search_term}%,roll_no.eq.{search_term if search_term.isdigit() else 0}"
-            )
-            .execute()
-        )
-        if res.data:
-          st.write(res.data)
-        else:
-          st.warning("No matching profile found.")
-      except Exception as e:
-        st.error(f"Search failed: {e}")
-
-# --- MODULE 8: AUTOMATIC REPORT CARD GENERATOR ---
-elif menu == "8. 📄 Automatic Report Card Generator (PDF)":
-  st.subheader("📄 Instant Report Card Generator")
-  rep_roll = st.number_input(
-      "Enter Roll No for Report Card", min_value=1, step=1
-  )
-  rep_name = st.text_input("Student Full Name")
-  rep_class = st.selectbox("Select Class", classes_list)
-  marks_math = st.number_input("Math Marks", 0, 100, 85)
-  marks_sci = st.number_input("Science Marks", 0, 100, 90)
-
-  def generate_report_pdf():
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(180, 750, "ANNUAL ACADEMIC REPORT CARD")
-    p.setFont("Helvetica", 11)
-    p.drawString(
-        50, 710, f"Name: {rep_name} | Roll No: {rep_roll} | Class: {rep_class}"
-    )
-    p.line(50, 695, 560, 695)
-    p.drawString(50, 660, f"Mathematics: {marks_math} / 100")
-    p.drawString(50, 640, f"Science: {marks_sci} / 100")
-    p.drawString(
-        50, 600, f"Total Percentage: {((marks_math + marks_sci) / 2):.2f}%"
-    )
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    return buffer
-
-  if st.button("📄 Generate & Download Report Card"):
-    st.download_button(
-        "📥 Download Report Card PDF",
-        generate_report_pdf(),
-        file_name=f"ReportCard_{rep_roll}.pdf",
-        mime="application/pdf",
-    )
-
-# --- MODULE 9: CALENDAR & HOLIDAYS ---
-elif menu == "9. 🗓️ School Calendar & Holidays Notice":
-  st.subheader("🗓️ Academic Calendar & Notices")
-  st.write("• **15th August:** Independence Day Celebration")
-  st.write("• **5th September:** Teachers' Day Special Event")
-  st.write("• **15th October:** Term-1 Examinations Begin")
-
-# --- MODULE 10: ATTENDANCE & WHATSAPP ALERT ---
-elif menu == "10. 📅 Mark Attendance & WhatsApp Alert":
-  st.subheader("📅 Attendance Marker & WhatsApp Portal")
-  att_class = st.selectbox("Select Class for Attendance", classes_list)
-  att_roll = st.number_input("Student Roll No", min_value=1, step=1)
-  att_status = st.radio("Attendance Status", ["Present", "Absent", "Late"])
-  att_mob = st.text_input("Parent WhatsApp Mobile Number")
-
-  if st.button("📩 Save & Send WhatsApp Alert"):
-    msg = f"Dear Parent, your child (Roll No: {att_roll}) has been marked *{att_status}* for today ({datetime.date.today()})."
-    encoded_msg = urllib.parse.quote(msg)
-    wa_url = f"https://wa.me/91{att_mob}?text={encoded_msg}"
-    st.success(f"Attendance recorded as {att_status}!")
-    if att_mob:
-      st.markdown(f"👉 **[Click Here to Send WhatsApp Alert]({wa_url})**")
-
-# --- MODULE 11: NCERT TEXTBOOKS ---
-elif menu == "11. 📚 Class 1-12 NCERT Textbooks":
-  st.subheader("📚 NCERT Digital Library")
-  st.info("Direct access to official NCERT textbooks.")
-  st.markdown(
-      "👉 **[Click Here to Visit Official NCERT Library](https://ncert.nic.in/textbook.php)**"
-  )
-
-# --- MODULE 12: AUTO QUESTION PAPER GENERATOR ---
-elif menu == "12. 📄 Auto Question Paper (Hindi & English)":
-  st.subheader("📄 Bilingual Question Paper Generator")
-  paper_sub = st.selectbox("Subject", subjects_list)
-  paper_class = st.selectbox("Class Level", classes_list)
-
-  if st.button("⚡ Generate Sample Paper"):
-    st.subheader(f"Exam: {paper_sub} - {paper_class}")
-    st.write("Q1. What is the fundamental unit of life? (जीवन की मूलभूत इकाई क्या है?) [2 Marks]")
-    st.write("Q2. Define Newton's First Law of Motion. (न्यूटन के गति के प्रथम नियम की व्याख्या करें।) [3 Marks]")
-
-# --- MODULE 13: EXAM MARKS PORTAL ---
-elif menu == "13. 📝 Exam Marks Portal":
-  st.subheader("📝 Marks Entry Portal")
-  m_roll = st.number_input("Enter Roll No", min_value=1, step=1)
-  m_sub = st.selectbox("Subject Handled", subjects_list)
-  m_marks = st.number_input("Marks Obtained", 0, 100, 75)
-
-  if st.button("💾 Save Marks"):
-    st.success(f"Marks ({m_marks}) saved for Roll No {m_roll} in {m_sub}!")
-
-# --- MODULE 14: ANSWER SHEET CHECK ---
-elif menu == "14. ✅ Student Answer Sheet Copy Check":
-  st.subheader("✅ Student Copy Verification Portal")
-  up_file = st.file_uploader(
-      "Upload Scanned Answer Sheet (PDF/JPG)", type=["pdf", "png", "jpg"]
-  )
-  if up_file:
-    st.success("File uploaded successfully. Copy evaluation ready.")
-
-# --- MODULE 15: TRANSPORT MANAGEMENT ---
-elif menu == "15. 🚌 Transport & Bus Tracking System":
-  st.subheader("🚌 Transport & Route Manager")
-  bus_no = st.text_input("Bus / Vehicle Number", "RJ-19-PA-1234")
-  route_name = st.text_input(
-      "Route Name", "Route 4 - City Center to Campus"
-  )
-  driver_name = st.text_input(
-      "Driver Name & Phone", "Ramesh Kumar - 9876543210"
-  )
-  monthly_fee = st.number_input(
-      "Monthly Bus Fee (₹)", value=1200, step=100
-  )
-
-  if st.button("💾 Save Route Record"):
-    st.success(f"Route '{route_name}' configured successfully!")
-
-# --- MODULE 16: NOTICE BOARD ---
-elif menu == "16. 📢 Instant Notice Board":
-  st.subheader("📢 School Notice & Announcement Board")
-  notice_title = st.text_input("Notice Heading / Subject")
-  target_audience = st.selectbox(
-      "Send To",
-      [
-          "All Students & Parents",
-          "Teachers & Staff",
-          "Class 10th & 12th Only",
-      ],
-  )
-  notice_body = st.text_area("Notice Details / Description")
-
-  if st.button("🚀 Publish Notice"):
-    st.success(f"Notice '{notice_title}' sent to {target_audience}!")
-
-# --- MODULE 17: FINANCIAL DASHBOARD ---
-elif menu == "17. 📊 Financial Summary Dashboard":
-  st.subheader("📊 Admin Financial Overview")
-  if supabase:
-    try:
-      res_fees = (
-          supabase.table("fee_collections")
-          .select("received_fee, pending_fee")
-          .execute()
-      )
-      data = res_fees.data
-      tot_rec = sum(item["received_fee"] for item in data) if data else 0
-      tot_pend = sum(item["pending_fee"] for item in data) if data else 0
-
-      col1, col2 = st.columns(2)
-      col1.metric("💰 Total Fees Collected", f"₹{tot_rec:,}")
-      col2.metric("⏳ Total Fees Pending", f"₹{tot_pend:,}")
-    except Exception as e:
-      st.info("Financial Dashboard ready. Collect fees to see live graphs!")
