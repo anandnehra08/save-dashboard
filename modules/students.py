@@ -1,4 +1,3 @@
-import datetime
 import pandas as pd
 import streamlit as st
 from database.supabase import supabase
@@ -37,7 +36,7 @@ def render_students_module():
                 if not student_name.strip():
                     st.error("Please enter the student's name.")
                 else:
-                    # Core record required fields
+                    # Required base fields only
                     record = {
                         "sr_no": int(sr_no),
                         "roll_no": int(roll_no),
@@ -47,26 +46,37 @@ def render_students_module():
                         "section": section,
                         "father_name": father_name.strip(),
                         "mother_name": mother_name.strip(),
-                        "mobile": mobile.strip(),
-                        "bus_route": bus_route.strip(),
-                        "drop_point": drop_point.strip()
+                        "mobile": mobile.strip()
                     }
+                    
+                    # Optional fields added only if provided
+                    if bus_route.strip():
+                        record["bus_route"] = bus_route.strip()
+                    if drop_point.strip():
+                        record["drop_point"] = drop_point.strip()
+                    if aadhaar_input.strip():
+                        record["aadhaar"] = aadhaar_input.strip()
                     
                     try:
                         if supabase:
-                            # Try inserting with Aadhaar if provided
-                            if aadhaar_input.strip():
-                                record["aadhaar"] = aadhaar_input.strip()
-                            
                             try:
                                 supabase.table("students").insert(record).execute()
-                            except Exception as inner_e:
-                                # Fallback: If aadhaar column is missing in schema, remove it and retry
-                                if "aadhaar" in record:
-                                    del record["aadhaar"]
-                                supabase.table("students").insert(record).execute()
-
-                            st.success(f"Student **{student_name}** (SR No: {sr_no}) registered successfully!")
+                                st.success(f"Student **{student_name}** (SR No: {sr_no}) registered successfully!")
+                            except Exception as db_err:
+                                # Fallback: If optional columns trigger schema errors, strip optional fields and save core student data
+                                core_record = {
+                                    "sr_no": int(sr_no),
+                                    "roll_no": int(roll_no),
+                                    "student_name": student_name.strip(),
+                                    "gender": gender,
+                                    "class": class_name,
+                                    "section": section,
+                                    "father_name": father_name.strip(),
+                                    "mother_name": mother_name.strip(),
+                                    "mobile": mobile.strip()
+                                }
+                                supabase.table("students").insert(core_record).execute()
+                                st.success(f"Student **{student_name}** registered successfully! (Note: Optional fields were skipped due to DB schema cache updates).")
                     except Exception as e:
                         st.error(f"Error saving student: {e}")
 
@@ -87,19 +97,14 @@ def render_students_module():
                 res = query.execute()
                 if res.data:
                     df = pd.DataFrame(res.data)
-                    
-                    # Search filtering in pandas
                     if search_query.strip():
                         df = df[
                             df["student_name"].str.contains(search_query, case=False, na=False) |
                             df["sr_no"].astype(str).str.contains(search_query, case=False, na=False)
                         ]
-                    
                     st.write(f"Total Students Found: **{len(df)}**")
                     st.dataframe(df, use_container_width=True)
                 else:
                     st.info("No students found in database.")
             except Exception as e:
                 st.warning("Could not load student directory. Please check Supabase table connection.")
-                # Alias to support app.py import
-render_student_module = render_students_module
