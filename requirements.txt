@@ -1,9 +1,4 @@
 streamlit
 supabase
 pandas
-weasyprint
-reportlabstreamlit
-supabase
 reportlab
-plotly
-pandas
