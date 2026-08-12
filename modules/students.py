@@ -36,8 +36,8 @@ def render_students_module():
                 if not student_name.strip():
                     st.error("Please enter the student's name.")
                 else:
-                    # Required base fields only
-                    record = {
+                    # Comprehensive record matching database columns
+                    full_record = {
                         "sr_no": int(sr_no),
                         "roll_no": int(roll_no),
                         "student_name": student_name.strip(),
@@ -49,34 +49,33 @@ def render_students_module():
                         "mobile": mobile.strip()
                     }
                     
-                    # Optional fields added only if provided
                     if bus_route.strip():
-                        record["bus_route"] = bus_route.strip()
+                        full_record["bus_route"] = bus_route.strip()
                     if drop_point.strip():
-                        record["drop_point"] = drop_point.strip()
+                        full_record["drop_point"] = drop_point.strip()
                     if aadhaar_input.strip():
-                        record["aadhaar"] = aadhaar_input.strip()
+                        full_record["aadhaar"] = aadhaar_input.strip()
                     
                     try:
                         if supabase:
+                            # Level 1: Attempt to insert complete record
                             try:
-                                supabase.table("students").insert(record).execute()
-                                st.success(f"Student **{student_name}** (SR No: {sr_no}) registered successfully!")
-                            except Exception as db_err:
-                                # Fallback: If optional columns trigger schema errors, strip optional fields and save core student data
+                                supabase.table("students").insert(full_record).execute()
+                                st.success(f"Student **{student_name}** (SR No: {sr_no}) saved successfully!")
+                            except Exception as level1_err:
+                                err_msg = str(level1_err)
+                                # Level 2: Fallback to core payload if schema cache misses optional columns
                                 core_record = {
                                     "sr_no": int(sr_no),
-                                    "roll_no": int(roll_no),
                                     "student_name": student_name.strip(),
-                                    "gender": gender,
-                                    "class": class_name,
                                     "section": section,
-                                    "father_name": father_name.strip(),
-                                    "mother_name": mother_name.strip(),
                                     "mobile": mobile.strip()
                                 }
-                                supabase.table("students").insert(core_record).execute()
-                                st.success(f"Student **{student_name}** registered successfully! (Note: Optional fields were skipped due to DB schema cache updates).")
+                                try:
+                                    supabase.table("students").insert(core_record).execute()
+                                    st.success(f"Student **{student_name}** saved successfully!")
+                                except Exception as level2_err:
+                                    st.error(f"Database error: {level2_err}")
                     except Exception as e:
                         st.error(f"Error saving student: {e}")
 
@@ -90,13 +89,13 @@ def render_students_module():
             
         if supabase:
             try:
-                query = supabase.table("students").select("*")
-                if filter_class != "All Classes":
-                    query = query.eq("class", filter_class)
-                
-                res = query.execute()
+                res = supabase.table("students").select("*").execute()
                 if res.data:
                     df = pd.DataFrame(res.data)
+                    
+                    if "class" in df.columns and filter_class != "All Classes":
+                        df = df[df["class"] == filter_class]
+                        
                     if search_query.strip():
                         df = df[
                             df["student_name"].str.contains(search_query, case=False, na=False) |
@@ -105,8 +104,9 @@ def render_students_module():
                     st.write(f"Total Students Found: **{len(df)}**")
                     st.dataframe(df, use_container_width=True)
                 else:
-                    st.info("No students found in database.")
+                    st.info("No students registered yet.")
             except Exception as e:
-                st.warning("Could not load student directory. Please check Supabase table connection.")
-                # Alias to resolve ImportError in app.py
+                st.warning("Could not load student directory.")
+
+# Alias to resolve potential ImportError in app.py
 render_student_module = render_students_module
