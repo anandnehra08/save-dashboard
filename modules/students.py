@@ -36,11 +36,11 @@ def render_students_module():
                 if not student_name.strip():
                     st.error("Please enter the student's name.")
                 else:
-                    # Comprehensive record matching database columns
+                    # Full record dict
                     full_record = {
                         "sr_no": int(sr_no),
-                        "roll_no": int(roll_no),
                         "student_name": student_name.strip(),
+                        "roll_no": int(roll_no),
                         "gender": gender,
                         "class": class_name,
                         "section": section,
@@ -56,28 +56,22 @@ def render_students_module():
                     if aadhaar_input.strip():
                         full_record["aadhaar"] = aadhaar_input.strip()
                     
-                    try:
-                        if supabase:
-                            # Level 1: Attempt to insert complete record
+                    if supabase:
+                        try:
+                            # Attempt 1: Full record
+                            supabase.table("students").insert(full_record).execute()
+                            st.success(f"Student **{student_name}** (SR No: {sr_no}) saved successfully!")
+                        except Exception as e1:
+                            # Attempt 2: Minimal core record if optional columns/cache fail
                             try:
-                                supabase.table("students").insert(full_record).execute()
-                                st.success(f"Student **{student_name}** (SR No: {sr_no}) saved successfully!")
-                            except Exception as level1_err:
-                                err_msg = str(level1_err)
-                                # Level 2: Fallback to core payload if schema cache misses optional columns
-                                core_record = {
+                                minimal_record = {
                                     "sr_no": int(sr_no),
-                                    "student_name": student_name.strip(),
-                                    "section": section,
-                                    "mobile": mobile.strip()
+                                    "student_name": student_name.strip()
                                 }
-                                try:
-                                    supabase.table("students").insert(core_record).execute()
-                                    st.success(f"Student **{student_name}** saved successfully!")
-                                except Exception as level2_err:
-                                    st.error(f"Database error: {level2_err}")
-                    except Exception as e:
-                        st.error(f"Error saving student: {e}")
+                                supabase.table("students").insert(minimal_record).execute()
+                                st.success(f"Student **{student_name}** (SR No: {sr_no}) saved successfully!")
+                            except Exception as e2:
+                                st.error(f"Failed to save student: {e2}")
 
     with tab2:
         st.subheader("Filter & Search Students")
@@ -108,5 +102,5 @@ def render_students_module():
             except Exception as e:
                 st.warning("Could not load student directory.")
 
-# Alias to resolve potential ImportError in app.py
+# Alias for app.py import compatibility
 render_student_module = render_students_module
