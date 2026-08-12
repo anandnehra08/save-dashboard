@@ -101,3 +101,5 @@ def render_students_module():
                     st.info("No students found in database.")
             except Exception as e:
                 st.warning("Could not load student directory. Please check Supabase table connection.")
+                # Alias to support app.py import
+render_student_module = render_students_module
