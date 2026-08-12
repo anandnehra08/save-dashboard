@@ -76,3 +76,32 @@ elif menu == "9. 💼 Accounts Cash Book & Ledger":
     render_accounts_module()
 elif menu == "10. 📱 WhatsApp & Broadcast Portal":
     render_communication_module()
+    import streamlit as st
+from modules.students import render_students_module
+
+st.set_page_config(page_title="Campus School ERP Pro", page_icon="🏫", layout="wide")
+
+st.sidebar.title("🏫 Campus ERP Pro")
+menu = st.sidebar.radio(
+    "Modules Navigation",
+    ["Dashboard", "Student Master", "Fee Management", "Attendance", "Examination", "Settings"]
+)
+
+if menu == "Dashboard":
+    st.title("📊 School Overview Dashboard")
+    st.info("Welcome to Campus School ERP Pro V2! Select a module from the sidebar.")
+    
+elif menu == "Student Master":
+    render_students_module()
+
+elif menu == "Fee Management":
+    st.title("💰 Fee Collection & Accounts")
+    st.write("Fee Module Under Integration...")
+
+elif menu == "Attendance":
+    st.title("📅 Daily Attendance Engine")
+    st.write("Attendance Module Under Integration...")
+
+elif menu == "Examination":
+    st.title("📝 Examination & Marksheets")
+    st.write("Exam Engine Under Integration...")
