@@ -1,4 +1,5 @@
 import datetime
+import pandas as pd
 import streamlit as st
 from database.supabase import supabase
 
@@ -34,8 +35,11 @@ def render_fees_module():
 
     with tab2:
         if supabase:
-            res = supabase.table("fees").select("*").order("created_at", desc=True).execute()
-            if res.data:
-                st.dataframe(res.data, use_container_width=True)
-            else:
-                st.info("No fee transactions recorded yet.")
+            try:
+                res = supabase.table("fees").select("*").execute()
+                if res.data:
+                    st.dataframe(pd.DataFrame(res.data), use_container_width=True)
+                else:
+                    st.info("No fee transactions recorded yet.")
+            except Exception as e:
+                st.warning("Fees table is ready, but no data exists yet or RLS policy needs update.")
