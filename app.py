@@ -1,4 +1,5 @@
 import streamlit as st
+from modules.cbt_exam import render_cbt_module
 
 # 1. Page Config (यह पूरे ऐप में सबसे ऊपर केवल एक बार रहेगा)
 st.set_page_config(
@@ -32,19 +33,21 @@ else:
         st.write(f"👤 **{user_email}** ({user_role.capitalize()})")
         st.markdown("---")
 
-        # रोल अनुसार नेविगेशन ऑप्शंस
+        # रोल अनुसार नेविगेशन ऑप्शंस (CBT Portal दोनों जगह जोड़ा गया है)
         if user_role == "admin":
             menu_options = [
                 "📊 Dashboard", 
                 "👨‍🎓 Student Directory", 
                 "📅 Attendance Register", 
                 "💳 Accounting & Fees", 
-                "📝 Exam & Marks"
+                "📝 Exam & Marks",
+                "🎯 NEET 2027 CBT Portal"   # <-- Admin Menu
             ]
         else:
             menu_options = [
                 "📅 Attendance Register", 
-                "📝 Exam & Marks"
+                "📝 Exam & Marks",
+                "🎯 NEET 2027 CBT Portal"   # <-- Non-Admin / Teacher Menu
             ]
 
         # SINGLE Radio Widget (Duplicate Key Error रोकने के लिए)
@@ -74,3 +77,6 @@ else:
 
     elif menu == "📝 Exam & Marks":
         render_exams_module()
+
+    elif menu == "🎯 NEET 2027 CBT Portal":
+        render_cbt_module()
