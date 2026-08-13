@@ -105,3 +105,15 @@ elif menu == "Attendance":
 elif menu == "Examination":
     st.title("📝 Examination & Marksheets")
     st.write("Exam Engine Under Integration...")
+    import streamlit as st
+from modules.attendance import render_attendance_module
+from modules.students import render_students_module
+
+st.set_page_config(page_title="Campus School ERP Pro", page_icon="🏫", layout="wide")
+
+menu = st.sidebar.radio("Navigation", ["Dashboard", "Student Master", "Attendance", "Fees", "Exams"])
+
+if menu == "Attendance":
+    render_attendance_module()
+elif menu == "Student Master":
+    render_students_module()
