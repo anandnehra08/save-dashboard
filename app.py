@@ -1,102 +1,78 @@
 import streamlit as st
 
-# Page Configuration (यह हमेशा सबसे ऊपर होना चाहिए)
+# 1. Page Configuration (पूरे ऐप में केवल एक बार सबसे ऊपर होना चाहिए)
 st.set_page_config(
-    page_title="Campus School ERP Pro",
-    page_icon="🏫",
+    page_title="Campus ERP Pro", 
+    page_icon="🏫", 
     layout="wide"
 )
 
-# Modules Import (हमेशा टॉप पर रखना बेहतर प्रैक्टिस है)
-from modules.students import render_students_module
-from modules.attendance import render_attendance_module
-from modules.fees import render_fees_module
-
-# Custom Sidebar Header
-st.sidebar.title("🏫 Campus ERP Pro")
-
-# Sidebar Navigation (Unique Key के साथ)
-menu = st.sidebar.radio(
-    label="Modules Menu",
-    options=["Dashboard", "Student Master", "Attendance", "Fee Management", "Examination"],
-    key="main_erp_menu"
-)
-
-# Navigation Logic
-if menu == "Dashboard":
-    st.title("📊 School Overview Dashboard")
-    st.info("Welcome to Campus School ERP Pro V2! Select a module from the sidebar.")
-
-elif menu == "Student Master":
-    render_students_module()
-
-elif menu == "Attendance":
-    render_attendance_module()
-
-elif menu == "Fee Management":
-    render_fees_module()
-
-elif menu == "Examination":
-    st.title("📝 Examination & Marksheets")
-    st.info("Exam Module coming soon!")
-    import streamlit as st
+# 2. Imports
 from modules.auth import render_login_page, logout_user
 from modules.students import render_students_module
 from modules.attendance import render_attendance_module
+from modules.fees import render_fees_module
+from modules.exams import render_exams_module
 
-st.set_page_config(page_title="Campus ERP Pro", layout="wide")
-
-# Session state इन्शियलाइज़ करें
+# 3. Session State Initialization
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
-# अगर लॉगिन नहीं है तो लॉगिन पेज दिखाएं
+# 4. Auth & Navigation Logic
 if not st.session_state['authenticated']:
+    # अगर यूजर लॉगिन नहीं है तो केवल लॉगिन पेज दिखाएं
     render_login_page()
 else:
-    # Sidebar Navigation
+    # यूज़र की डिटेल्स और रोल निकालें
     user_role = st.session_state.get('user_role', 'teacher')
     user_email = st.session_state.get('user_email', '')
-    
+
+    # Sidebar Header
     st.sidebar.title("🏫 Campus ERP Pro")
     st.sidebar.write(f"👤 **{user_email}** ({user_role.capitalize()})")
-    
-    # रोल के अनुसार मेनू विकल्प
+    st.sidebar.markdown("---")
+
+    # रोल के अनुसार साइडबार मेनू के विकल्प
     if user_role == "admin":
-        menu_options = ["Student Directory", "Attendance Register", "Admin Dashboard"]
+        menu_options = [
+            "📊 Dashboard", 
+            "👨‍🎓 Student Directory", 
+            "📅 Attendance Register", 
+            "💳 Fee Management", 
+            "📝 Exam & Marks",
+            "⚙️ Admin Control Panel"
+        ]
     else:
-        menu_options = ["Attendance Register"]  # Teacher को केवल अटेंडेंस एक्सेस
-        
-    menu = st.sidebar.radio("Navigation", menu_options)
-    
+        # Teacher Role को केवल जरूरी एक्सेस
+        menu_options = [
+            "📅 Attendance Register", 
+            "📝 Exam & Marks"
+        ]
+
+    # Single Sidebar Radio Menu (एक ही जगह)
+    menu = st.sidebar.radio("Navigation Menu", menu_options, key="main_erp_navigation")
+
+    st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Logout", use_container_width=True):
         logout_user()
-        
-    # Selected Page Render करें
-    if menu == "Student Directory":
+
+    # Page Rendering Logic
+    if menu == "📊 Dashboard":
+        st.title("📊 School Overview Dashboard")
+        st.info("Welcome to Campus ERP Pro! Select a module from the sidebar.")
+
+    elif menu == "👨‍🎓 Student Directory":
         render_students_module()
-    elif menu == "Attendance Register":
+
+    elif menu == "📅 Attendance Register":
         render_attendance_module()
-    elif menu == "Admin Dashboard":
+
+    elif menu == "💳 Fee Management":
+        render_fees_module()
+
+    elif menu == "📝 Exam & Marks":
+        render_exams_module()
+
+    elif menu == "⚙️ Admin Control Panel":
         st.title("⚙️ Admin Control Panel")
-        st.info("यहाँ आप सिस्टम सेटिंग्स और यूज़र मैनेजमेंट संभाल सकते हैं।")
-        import streamlit as st
-from modules.students import render_students_module
-from modules.attendance import render_attendance_module
-from modules.exams import render_exams_module
-
-st.set_page_config(page_title="Campus ERP Pro", layout="wide")
-
-st.sidebar.title("🏫 Campus ERP Pro")
-menu = st.sidebar.radio("Navigation", [
-    "Student Directory", 
-    "Attendance Register", 
-    "Exam & Marks Management"
-])
-
-if menu == "Student Directory":
-    render_students_module()
-elif menu == "Attendance Register":
-    render_attendance_module()
-elif menu == "Exam & Marks Management":
-    render_exams_module()
+        st.info("System settings and user management controls go here.")
