@@ -65,5 +65,7 @@ def render_main_dashboard():
         </div>
     """, unsafe_allow_html=True)
 
-# Call Function
-render_main_dashboard()
+# Main Function Call
+if __name__ == "__main__":
+    st.set_page_config(page_title="Campus ERP Pro - Dashboard", page_icon="🏫", layout="wide")
+    render_main_dashboard()
