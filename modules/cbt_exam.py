@@ -176,12 +176,13 @@ def render_exam_portal():
             # Options Selection
             saved_ans = st.session_state['cbt_user_answers'].get(curr_q['id'], None)
             
-            opts = {
-                "A": curr_q['option_a'],
-                "B": curr_q['option_b'],
-                "C": curr_q['option_c'],
-                "D": curr_q['option_d']
-            }
+          # पुराने रेडियो बटन वाले कोड को बदलकर यह लिखें:
+opts = {
+    "A": f"(a) {curr_q['option_a']}",
+    "B": f"(b) {curr_q['option_b']}",
+    "C": f"(c) {curr_q['option_c']}",
+    "D": f"(d) {curr_q['option_d']}"
+}
 
             opt_choices = ["None / Unattempted"] + [f"{k}) {v}" for k, v in opts.items()]
             default_index = 0
