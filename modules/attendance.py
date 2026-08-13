@@ -71,8 +71,8 @@ def render_attendance_module():
                         
                         for index, st_data in enumerate(students):
                             sr = st_data["sr_no"]
-                            name = st_data["student_name"]
-                            roll = st_data["roll_no"]
+                            name = st_data.get("student_name", "N/A")
+                            roll = st_data.get("roll_no", 0)
                             
                             # Set default status based on existing data or bulk action
                             default_status = existing_map.get(sr, "Present" if bulk_present else "Present")
@@ -91,9 +91,11 @@ def render_attendance_module():
                                 label_visibility="collapsed"
                             )
                             
+                            # Payload containing student_name to prevent NOT NULL constraint error
                             attendance_payload.append({
                                 "date": str(att_date),
                                 "sr_no": sr,
+                                "student_name": name,  # <-- Added student_name
                                 "class": selected_class,
                                 "section": selected_sec,
                                 "status": status,
@@ -135,7 +137,7 @@ def render_attendance_module():
             
             try:
                 res = supabase.table("attendance") \
-                    .select("date, sr_no, status, class, section, students(student_name, gender)") \
+                    .select("date, sr_no, status, class, section, student_name, students(gender)") \
                     .eq("class", rep_class) \
                     .gte("date", start_date) \
                     .lte("date", end_date) \
@@ -148,8 +150,9 @@ def render_attendance_module():
                 else:
                     df = pd.DataFrame(att_records)
                     
-                    # Extract Student Name and Gender from joined JSON
-                    df['student_name'] = df['students'].apply(lambda x: x.get('student_name') if x else 'N/A')
+                    # Fallback for student name and gender
+                    if 'student_name' not in df.columns:
+                        df['student_name'] = df['students'].apply(lambda x: x.get('student_name') if x else 'N/A')
                     df['gender'] = df['students'].apply(lambda x: x.get('gender') if x else 'N/A')
                     
                     # Overall Summary Metrics
