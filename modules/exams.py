@@ -33,21 +33,20 @@ def render_exams_module():
             
         if supabase:
             try:
-                # 1. Fetch Subjects for Selected Class
+                # 1. Fetch Subjects safely
                 sub_res = supabase.table("subjects").select("subject_name").eq("class", selected_class).execute()
-                subject_list = [s["subject_name"] for s in (sub_res.data or [])]
+                subject_list = [s["subject_name"] for s in (sub_res.data or []) if "subject_name" in s]
                 
                 with c4:
                     if subject_list:
                         selected_subject = st.selectbox("Select Subject", subject_list, key="exam_sub")
                     else:
-                        st.warning("No subjects found.")
                         selected_subject = None
                 
                 if not subject_list:
-                    st.info(f"💡 {selected_class} के लिए कोई सब्जेक्ट नहीं मिला। कृपया पहले '**📚 Manage Subjects**' टैब में जाकर सब्जेक्ट्स जोड़ें।")
+                    st.info(f"💡 {selected_class} के लिए कोई सब्जेक्ट नहीं मिला। कृपया पहले '**📚 Manage Subjects**' टैब में जाकर सब्जेक्ट जोड़ें।")
                 else:
-                    # 2. Fetch Students for Selected Class & Section
+                    # 2. Fetch Students safely
                     st_res = supabase.table("students") \
                         .select("sr_no, student_name, roll_no") \
                         .eq("class", selected_class) \
@@ -61,19 +60,26 @@ def render_exams_module():
                         st.warning(f"⚠️ No students found in {selected_class} - {selected_sec}. कृपया 'Student Directory' में स्टूडेंट दर्ज करें।")
                     else:
                         st.success(f"📋 Found {len(students)} students for {selected_subject} ({selected_exam})")
+                        max_marks = st.number_input("Max Marks", min_value=10, max_value=200, value=100)
                         
-                        max_marks = st.number_input("Max Marks for this Subject", min_value=10, max_value=200, value=100)
-                        
-                        # Existing marks if already added
-                        existing_marks_res = supabase.table("exam_marks") \
-                            .select("sr_no, marks_obtained") \
-                            .eq("class", selected_class) \
-                            .eq("section", selected_sec) \
-                            .eq("exam_type", selected_exam) \
-                            .eq("subject", selected_subject) \
-                            .execute()
+                        # Fetch existing marks with error safety
+                        existing_marks_map = {}
+                        try:
+                            existing_marks_res = supabase.table("exam_marks") \
+                                .select("*") \
+                                .eq("class", selected_class) \
+                                .eq("section", selected_sec) \
+                                .eq("exam_type", selected_exam) \
+                                .eq("subject", selected_subject) \
+                                .execute()
                             
-                        existing_marks_map = {item['sr_no']: item['marks_obtained'] for item in (existing_marks_res.data or [])}
+                            for item in (existing_marks_res.data or []):
+                                sr_val = item.get('sr_no')
+                                marks_val = item.get('marks_obtained', item.get('marks', 0))
+                                if sr_val is not None:
+                                    existing_marks_map[sr_val] = marks_val
+                        except Exception:
+                            existing_marks_map = {}
                         
                         with st.form("marks_entry_form"):
                             st.write("---")
@@ -124,7 +130,7 @@ def render_exams_module():
                 st.error(f"Database Error: {ex}")
 
     # -------------------------------------------------------------
-    # TAB 2: MANAGE SUBJECTS (नया टैब)
+    # TAB 2: MANAGE SUBJECTS
     # -------------------------------------------------------------
     with tab2:
         st.subheader("Add / Manage Class Subjects")
@@ -145,17 +151,18 @@ def render_exams_module():
                     st.success(f"✅ Subject '{new_subject_name}' added to {add_sub_class} successfully!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error adding subject (it might already exist): {e}")
+                    st.error(f"Error adding subject: {e}")
             else:
                 st.warning("Please enter a valid subject name.")
                 
         st.write("---")
         st.markdown(f"##### Existing Subjects for {add_sub_class}")
         try:
-            curr_subs = supabase.table("subjects").select("id, subject_name").eq("class", add_sub_class).execute()
+            curr_subs = supabase.table("subjects").select("*").eq("class", add_sub_class).execute()
             if curr_subs.data:
                 sub_df = pd.DataFrame(curr_subs.data)
-                st.dataframe(sub_df[["id", "subject_name"]], use_container_width=True)
+                cols_to_show = [c for c in ["id", "subject_name"] if c in sub_df.columns]
+                st.dataframe(sub_df[cols_to_show if cols_to_show else sub_df.columns], use_container_width=True)
             else:
                 st.info(f"No subjects registered for {add_sub_class} yet.")
         except Exception as e:
@@ -175,9 +182,8 @@ def render_exams_module():
             
         if st.button("📄 View Report Card"):
             try:
-                # Fetch Exam Marks
                 marks_res = supabase.table("exam_marks") \
-                    .select("subject, marks_obtained, max_marks, student_name, class, section") \
+                    .select("*") \
                     .eq("sr_no", rep_sr) \
                     .eq("exam_type", rep_exam) \
                     .execute()
@@ -187,21 +193,36 @@ def render_exams_module():
                 if not marks_data:
                     st.warning("No marks records found for this SR Number and Exam.")
                 else:
-                    st_info = marks_data[0]
-                    st.success(f"Report Card Generated for **{st_info['student_name']}** ({st_info['class']} - {st_info['section']})")
-                    
                     df_rep = pd.DataFrame(marks_data)
+                    
+                    if "marks_obtained" not in df_rep.columns and "marks" in df_rep.columns:
+                        df_rep["marks_obtained"] = df_rep["marks"]
+                    if "max_marks" not in df_rep.columns:
+                        df_rep["max_marks"] = 100
+                    if "student_name" not in df_rep.columns:
+                        df_rep["student_name"] = "N/A"
+                    if "class" not in df_rep.columns:
+                        df_rep["class"] = "N/A"
+                    if "section" not in df_rep.columns:
+                        df_rep["section"] = "N/A"
+                    
+                    st_name = df_rep["student_name"].iloc[0]
+                    st_cls = df_rep["class"].iloc[0]
+                    st_sec = df_rep["section"].iloc[0]
+                    
+                    st.success(f"Report Card Generated for **{st_name}** ({st_cls} - {st_sec})")
                     
                     tot_obtained = df_rep['marks_obtained'].sum()
                     tot_max = df_rep['max_marks'].sum()
                     percentage = (tot_obtained / tot_max * 100) if tot_max > 0 else 0
                     
                     col_m1, col_m2, col_m3 = st.columns(3)
-                    col_m1.metric("Total Marks Obtained", f"{tot_obtained} / {tot_max}")
+                    col_m1.metric("Total Marks Obtained", f"{tot_obtained:.0f} / {tot_max:.0f}")
                     col_m2.metric("Percentage", f"{percentage:.2f}%")
                     col_m3.metric("Grade", "A+" if percentage>=90 else "A" if percentage>=75 else "B" if percentage>=60 else "C" if percentage>=33 else "F")
                     
-                    st.dataframe(df_rep[["subject", "marks_obtained", "max_marks"]], use_container_width=True)
+                    display_cols = [c for c in ["subject", "marks_obtained", "max_marks"] if c in df_rep.columns]
+                    st.dataframe(df_rep[display_cols], use_container_width=True)
             except Exception as e:
                 st.error(f"Error fetching report card: {e}")
 
@@ -216,7 +237,7 @@ def render_exams_module():
         if st.button("📊 Analyze Class Performance"):
             try:
                 perf_res = supabase.table("exam_marks") \
-                    .select("student_name, subject, marks_obtained") \
+                    .select("*") \
                     .eq("class", p_cls) \
                     .eq("exam_type", p_exam) \
                     .execute()
@@ -224,9 +245,19 @@ def render_exams_module():
                 p_data = perf_res.data or []
                 if p_data:
                     pdf = pd.DataFrame(p_data)
-                    fig = px.bar(pdf, x="student_name", y="marks_obtained", color="subject", barmode="group", title=f"Student Performance - {p_cls} ({p_exam})")
+                    if "marks_obtained" not in pdf.columns and "marks" in pdf.columns:
+                        pdf["marks_obtained"] = pdf["marks"]
+                    
+                    fig = px.bar(
+                        pdf, 
+                        x="student_name" if "student_name" in pdf.columns else "sr_no", 
+                        y="marks_obtained", 
+                        color="subject" if "subject" in pdf.columns else None, 
+                        barmode="group", 
+                        title=f"Student Performance - {p_cls} ({p_exam})"
+                    )
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning("No marks data found for this class & exam.")
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error analyzing performance: {e}")
