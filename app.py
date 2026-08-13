@@ -80,3 +80,23 @@ else:
     elif menu == "Admin Dashboard":
         st.title("⚙️ Admin Control Panel")
         st.info("यहाँ आप सिस्टम सेटिंग्स और यूज़र मैनेजमेंट संभाल सकते हैं।")
+        import streamlit as st
+from modules.students import render_students_module
+from modules.attendance import render_attendance_module
+from modules.exams import render_exams_module
+
+st.set_page_config(page_title="Campus ERP Pro", layout="wide")
+
+st.sidebar.title("🏫 Campus ERP Pro")
+menu = st.sidebar.radio("Navigation", [
+    "Student Directory", 
+    "Attendance Register", 
+    "Exam & Marks Management"
+])
+
+if menu == "Student Directory":
+    render_students_module()
+elif menu == "Attendance Register":
+    render_attendance_module()
+elif menu == "Exam & Marks Management":
+    render_exams_module()
