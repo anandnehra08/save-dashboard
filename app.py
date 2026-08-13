@@ -7,7 +7,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Imports (आपके सभी पुराने मॉड्यूल्स)
+# 2. Imports (आपके सभी वर्किंग मॉड्यूल्स)
 from modules.auth import render_login_page, logout_user
 from modules.students import render_students_module
 from modules.attendance import render_attendance_module
@@ -15,7 +15,7 @@ from modules.fees import render_fees_module
 from modules.exams import render_exams_module
 
 # -----------------------------------------------------------
-# NEW: MAIN DASHBOARD COMPONENT (आपका डिज़ाइनर डैशबोर्ड)
+# MAIN DASHBOARD COMPONENT (वर्किंग Quick Actions के साथ)
 # -----------------------------------------------------------
 def render_main_dashboard():
     # Header & Logo
@@ -40,16 +40,27 @@ def render_main_dashboard():
 
     st.markdown("---")
 
-    # Quick Actions Grid
+    # Quick Actions Grid (वर्किंग बटोन्स)
     st.subheader("🚀 Quick Actions")
     q1, q2, q3 = st.columns(3)
     
     with q1:
-        st.info("🎒 **New Student Admission**\n\nRegister new students and assign classes.")
+        st.info("🎒 **Student Directory & Admission**\n\nRegister new students and view directory.")
+        if st.button("Go to Student Directory ➡️", key="qa_btn_student", use_container_width=True):
+            st.session_state["campus_erp_nav_menu_unique"] = "👨‍🎓 Student Directory"
+            st.rerun()
+
     with q2:
         st.success("💳 **Collect School Fee**\n\nGenerate fee receipts and manage dues.")
+        if st.button("Go to Fees & Accounting ➡️", key="qa_btn_fee", use_container_width=True):
+            st.session_state["campus_erp_nav_menu_unique"] = "💳 Accounting & Fees"
+            st.rerun()
+
     with q3:
         st.warning("🎯 **Launch CBT Exam**\n\nAssign online test papers and view result.")
+        if st.button("Go to Exam & Marks ➡️", key="qa_btn_exam", use_container_width=True):
+            st.session_state["campus_erp_nav_menu_unique"] = "📝 Exam & Marks"
+            st.rerun()
 
     st.write("")
     st.write("")
@@ -80,6 +91,10 @@ def render_main_dashboard():
 # 3. Session State Init
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
+
+# Navigation Key Default Set
+if "campus_erp_nav_menu_unique" not in st.session_state:
+    st.session_state["campus_erp_nav_menu_unique"] = "📊 Dashboard"
 
 # 4. Auth Gatekeeper
 if not st.session_state['authenticated']:
@@ -123,7 +138,6 @@ else:
 
     # 5. Page Routing
     if menu == "📊 Dashboard":
-        # अब पुराना st.info हटाकर पूरा डिज़ाइनर डैशबोर्ड रेंडर होगा
         render_main_dashboard()
 
     elif menu == "👨‍🎓 Student Directory":
