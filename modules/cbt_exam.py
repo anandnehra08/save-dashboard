@@ -5,10 +5,14 @@ import time
 from datetime import datetime
 from supabase import create_client
 
+# -----------------------------------------------------------
+# SUPABASE CONNECTION
+# -----------------------------------------------------------
 def get_supabase_client():
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
+
 # -----------------------------------------------------------
 # HELPER FUNCTIONS (DB OPS)
 # -----------------------------------------------------------
@@ -157,7 +161,6 @@ def render_exam_portal():
             
             # Display Question Text (Bilingual support)
             q_text = curr_q['question_text']
-            # If bilingual text contains || delimiter (Eng || Hindi)
             if "||" in q_text:
                 q_eng, q_hin = q_text.split("||", 1)
             else:
@@ -173,18 +176,22 @@ def render_exam_portal():
                 st.markdown(f"<div class='hin-text'><b>[HIN]</b> {q_hin.strip()}</div>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-            # Options Selection
-            saved_ans = st.session_state['cbt_user_answers'].get(curr_q['id'], None)
-            
-          # पुराने रेडियो बटन वाले कोड को बदलकर यह लिखें:
-opts = {
-    "A": f"(a) {curr_q['option_a']}",
-    "B": f"(b) {curr_q['option_b']}",
-    "C": f"(c) {curr_q['option_c']}",
-    "D": f"(d) {curr_q['option_d']}"
-}
+            # Clean Options
+            raw_a = str(curr_q['option_a']).replace("(a)", "").strip()
+            raw_b = str(curr_q['option_b']).replace("(b)", "").strip()
+            raw_c = str(curr_q['option_c']).replace("(c)", "").strip()
+            raw_d = str(curr_q['option_d']).replace("(d)", "").strip()
 
-            opt_choices = ["None / Unattempted"] + [f"{k}) {v}" for k, v in opts.items()]
+            opts = {
+                "A": f"(a) {raw_a}",
+                "B": f"(b) {raw_b}",
+                "C": f"(c) {raw_c}",
+                "D": f"(d) {raw_d}"
+            }
+
+            saved_ans = st.session_state['cbt_user_answers'].get(curr_q['id'], None)
+            opt_choices = ["None / Unattempted"] + list(opts.values())
+
             default_index = 0
             if saved_ans in opts:
                 default_index = list(opts.keys()).index(saved_ans) + 1
@@ -196,12 +203,14 @@ opts = {
                 key=f"q_radio_{curr_q['id']}"
             )
 
-            # Update Session State Answer
+            # Update Session State Answer (Store A, B, C or D)
             if selected_opt != "None / Unattempted":
-                st.session_state['cbt_user_answers'][curr_q['id']] = selected_opt[0]
+                chosen_key = list(opts.keys())[list(opts.values()).index(selected_opt)]
+                st.session_state['cbt_user_answers'][curr_q['id']] = chosen_key
             else:
                 st.session_state['cbt_user_answers'].pop(curr_q['id'], None)
 
+            st.write("")
             # Bottom Action Controls
             b1, b2, b3, b4 = st.columns(4)
             with b1:
@@ -229,7 +238,7 @@ opts = {
             st.markdown("### 🟢 Question Palette")
             st.markdown("""
             <small>
-            🟢 Answered | 🔴 Not Answered | 🟣 Review | ⚪ Not Visited
+            🟢 Answered | 🔴 Current | 🟣 Review | ⚪ Left
             </small>
             """, unsafe_allow_html=True)
             st.write("")
@@ -241,20 +250,16 @@ opts = {
                 is_ans = q_id in st.session_state['cbt_user_answers']
                 is_rev = st.session_state['cbt_review_status'].get(q_id, False)
 
-                badge_color = "#e0e0e0" # Grey
-                txt_color = "black"
+                lbl = f"{idx+1}"
                 if is_rev:
-                    badge_color = "#8e44ad" # Purple
-                    txt_color = "white"
+                    lbl = f"🟣{idx+1}"
                 elif is_ans:
-                    badge_color = "#27ae60" # Green
-                    txt_color = "white"
+                    lbl = f"🟢{idx+1}"
                 elif idx == curr_idx:
-                    badge_color = "#e74c3c" # Red
-                    txt_color = "white"
+                    lbl = f"🔴{idx+1}"
 
                 with cols[idx % 4]:
-                    if st.button(f"{idx+1}", key=f"pal_{q_id}"):
+                    if st.button(lbl, key=f"pal_{q_id}"):
                         st.session_state['cbt_current_q_idx'] = idx
                         st.rerun()
 
@@ -354,7 +359,7 @@ def render_paper_importer():
         submitted_test = st.form_submit_button("Create New Test Container")
         if submitted_test and test_title:
             supabase = get_supabase_client()
-            res = supabase.table("cbt_tests").insert({
+            supabase.table("cbt_tests").insert({
                 "title": test_title,
                 "target_class": target_class,
                 "duration_minutes": duration,
@@ -380,10 +385,10 @@ def render_paper_importer():
         {
             "subject": "Physics",
             "question_text": "What is the unit of Force? || बल का मात्रक क्या है?",
-            "option_a": "Joule || जूल",
-            "option_b": "Newton || न्यूटन",
-            "option_c": "Watt || वाट",
-            "option_d": "Pascal || पास्कल",
+            "option_a": "(a) Joule || (a) जूल",
+            "option_b": "(b) Newton || (b) न्यूटन",
+            "option_c": "(c) Watt || (c) वाट",
+            "option_d": "(d) Pascal || (d) पास्कल",
             "correct_option": "B",
             "explanation": "Newton is the SI unit of Force. || बल का SI मात्रक न्यूटन है।"
         }
