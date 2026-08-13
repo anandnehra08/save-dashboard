@@ -3,8 +3,12 @@ import pandas as pd
 import json
 import time
 from datetime import datetime
-from modules.db import get_supabase_client
+from supabase import create_client
 
+def get_supabase_client():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 # -----------------------------------------------------------
 # HELPER FUNCTIONS (DB OPS)
 # -----------------------------------------------------------
