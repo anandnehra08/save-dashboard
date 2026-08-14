@@ -1,6 +1,6 @@
 import streamlit as st
 import datetime
-from supabase import create_client
+from supabase import create_client, ClientOptions
 
 # 1. Page Config
 st.set_page_config(
@@ -10,29 +10,41 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------
-# SUPABASE CONNECTION (डेटाबेस सेविंग के लिए)
+# SUPABASE CONNECTION (Fixed 401 Header Options)
 # -----------------------------------------------------------
-try:
-    SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
-    SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
-    st.error(f"⚠️ Supabase Secrets Not Configured: {e}")
-    supabase = None
+@st.cache_resource
+def get_supabase_client():
+    try:
+        url = st.secrets["supabase"]["SUPABASE_URL"]
+        key = st.secrets["supabase"]["SUPABASE_KEY"]
+        
+        # Strip spaces and quotes
+        clean_url = str(url).strip().rstrip("/").replace('"', '').replace("'", "")
+        clean_key = str(key).strip().replace('"', '').replace("'", "")
+        
+        custom_headers = {
+            "apiKey": clean_key,
+            "Authorization": f"Bearer {clean_key}"
+        }
+        return create_client(clean_url, clean_key, options=ClientOptions(headers=custom_headers))
+    except Exception as e:
+        st.error(f"⚠️ Supabase Configuration Error: {e}")
+        return None
 
-# 2. Imports (आपके ओरिजिनल मॉड्यूल्स)
+supabase = get_supabase_client()
+
+# 2. Imports
 from modules.auth import render_login_page, logout_user
 from modules.students import render_students_module
 from modules.attendance import render_attendance_module
 from modules.fees import render_fees_module
 from modules.exams import render_exams_module
-from modules.teacher_management import render_teacher_management_module  # Import Teacher Management
+from modules.teacher_management import render_teacher_management_module
 
 # -----------------------------------------------------------
-# DASHBOARD SUPABASE HELPER FUNCTIONS (Save / Load)
+# DASHBOARD SUPABASE HELPER FUNCTIONS
 # -----------------------------------------------------------
 def save_dashboard_to_supabase(username, metrics_data):
-    """डैशबोर्ड के लाइव स्टेट को Supabase में सुरक्षित सेव करता है"""
     if not supabase:
         return False, "Supabase client connected nahi hai!"
     try:
@@ -46,7 +58,6 @@ def save_dashboard_to_supabase(username, metrics_data):
         return False, f"❌ Save Error: {e}"
 
 def load_dashboard_from_supabase(username):
-    """Supabase से सेव डेटा लोड करता है"""
     if not supabase:
         return None
     try:
@@ -69,7 +80,6 @@ if 'authenticated' not in st.session_state:
 if "nav_page" not in st.session_state:
     st.session_state["nav_page"] = "📊 Dashboard"
 
-# Quick Navigation Function
 def navigate_to(page_name):
     st.session_state["nav_page"] = page_name
 
@@ -79,7 +89,6 @@ def navigate_to(page_name):
 def render_main_dashboard():
     current_user = st.session_state.get('user_email', 'anandnehra08')
 
-    # Header
     col_logo, col_title = st.columns([1, 4])
     with col_logo:
         st.markdown("## 🏫")
@@ -91,7 +100,6 @@ def render_main_dashboard():
 
     st.markdown("---")
 
-    # Supabase से डेटा लोड करें (अगर सेव्ड डेटा है तो वही दिखेगा)
     saved_data = load_dashboard_from_supabase(current_user)
     
     if saved_data:
@@ -104,7 +112,6 @@ def render_main_dashboard():
             "active_exams": "3 Live Tests"
         }
 
-    # Quick Stats
     st.subheader("📊 School Overview")
     m1, m2, m3, m4 = st.columns(4)
     m1.metric(label="👨‍🎓 Total Students", value=metrics.get("total_students", "1,250"), delta="+12 this month")
@@ -112,7 +119,6 @@ def render_main_dashboard():
     m3.metric(label="💰 Fee Collection", value=metrics.get("fee_collection", "₹ 4.2 Lakhs"), delta="85% Paid")
     m4.metric(label="📝 Active CBT Exams", value=metrics.get("active_exams", "3 Live Tests"))
 
-    # Save Button Section
     col_btn, _ = st.columns([2, 3])
     with col_btn:
         if st.button("💾 Save Dashboard State to Supabase", use_container_width=True, type="primary", key="btn_save_dashboard"):
@@ -124,7 +130,6 @@ def render_main_dashboard():
 
     st.markdown("---")
 
-    # Quick Actions Grid
     st.subheader("🚀 Quick Actions")
     q1, q2, q3 = st.columns(3)
     
@@ -162,7 +167,6 @@ def render_main_dashboard():
     st.write("")
     st.markdown("---")
 
-    # Footer
     st.markdown("""
         <style>
             .footer {
@@ -194,13 +198,11 @@ else:
     user_role = st.session_state.get('user_role', 'admin')
     user_email = st.session_state.get('user_email', '')
 
-    # Sidebar UI Controls
     with st.sidebar:
         st.title("🏫 Campus ERP Pro")
         st.write(f"👤 **{user_email}** ({user_role.capitalize()})")
         st.markdown("---")
 
-        # Admin vs Teacher Navigation Menu
         if user_role == "admin":
             menu_options = [
                 "📊 Dashboard", 
@@ -208,7 +210,7 @@ else:
                 "📅 Attendance Register", 
                 "💳 Accounting & Fees", 
                 "📝 Exam & Marks",
-                "👑 Staff & Access Control"  # Principal Special Option
+                "👑 Staff & Access Control"
             ]
         else:
             menu_options = [
@@ -216,11 +218,9 @@ else:
                 "📝 Exam & Marks"
             ]
 
-        # Sync active index
         current_active = st.session_state.get("nav_page", "📊 Dashboard")
         default_idx = menu_options.index(current_active) if current_active in menu_options else 0
 
-        # Callback function for sidebar radio
         def update_from_radio():
             st.session_state["nav_page"] = st.session_state["sidebar_menu_radio"]
 
@@ -236,23 +236,17 @@ else:
         if st.button("🚪 Logout", use_container_width=True, key="btn_logout_main"):
             logout_user()
 
-    # Routing based on session state
     target_page = st.session_state["nav_page"]
 
     if target_page == "📊 Dashboard":
         render_main_dashboard()
-
     elif target_page == "👨‍🎓 Student Directory":
         render_students_module()
-
     elif target_page == "📅 Attendance Register":
         render_attendance_module()
-
     elif target_page == "💳 Accounting & Fees":
         render_fees_module()
-
     elif target_page == "📝 Exam & Marks":
         render_exams_module()
-
     elif target_page == "👑 Staff & Access Control":
         render_teacher_management_module()
