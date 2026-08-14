@@ -187,6 +187,8 @@ else:
         render_exams_module()
     elif target_page == "👑 Staff & Access Control":
         render_teacher_management_module()
+        elif target_page == "🤖 ERP AI Assistant":
+    render_ai_assistant()
         import streamlit as st
 
 # 1. Chat memory initialize करें
