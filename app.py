@@ -145,15 +145,16 @@ else:
         st.write(f"👤 **{user_email}** ({user_role.capitalize()})")
         st.markdown("---")
 
-        if user_role == "admin":
-            menu_options = [
-                "📊 Dashboard", 
-                "👨‍🎓 Student Directory", 
-                "📅 Attendance Register", 
-                "💳 Accounting & Fees", 
-                "📝 Exam & Marks",
-                "👑 Staff & Access Control"
-            ]
+      if user_role == "admin":
+    menu_options = [
+        "📊 Dashboard",
+        "👨‍🎓 Student Directory",
+        "📅 Attendance Register",
+        "💳 Accounting & Fees",
+        "📝 Exam & Marks",
+        "👑 Staff & Access Control",
+        "🤖 ERP AI Assistant"
+    ]
         else:
             menu_options = [
                 "📅 Attendance Register", 
