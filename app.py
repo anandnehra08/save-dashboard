@@ -1,26 +1,25 @@
 import streamlit as st
 
-# 1. Page Config (यह पूरे ऐप में सबसे ऊपर केवल एक बार रहेगा)
+# 1. Page Config
 st.set_page_config(
     page_title="Campus ERP Pro", 
     page_icon="🏫", 
     layout="wide"
 )
 
-# 2. Imports (आपके सभी वर्किंग मॉड्यूल्स)
+# 2. Imports
 from modules.auth import render_login_page, logout_user
 from modules.students import render_students_module
 from modules.attendance import render_attendance_module
 from modules.fees import render_fees_module
 from modules.exams import render_exams_module
 
-# Navigation State Setup (फिक्स करने के लिए)
-if "nav_selection" not in st.session_state:
-    st.session_state["nav_selection"] = "📊 Dashboard"
+# Session State for Page Navigation
+if "active_page" not in st.session_state:
+    st.session_state["active_page"] = "📊 Dashboard"
 
-# Callback functions for quick action buttons
-def goto_page(page_name):
-    st.session_state["nav_selection"] = page_name
+def navigate_to(page_name):
+    st.session_state["active_page"] = page_name
 
 # -----------------------------------------------------------
 # MAIN DASHBOARD COMPONENT
@@ -48,21 +47,21 @@ def render_main_dashboard():
 
     st.markdown("---")
 
-    # Quick Actions Grid (Error-Free Navigation)
+    # Quick Actions Grid
     st.subheader("🚀 Quick Actions")
     q1, q2, q3 = st.columns(3)
     
     with q1:
         st.info("🎒 **Student Directory & Admission**\n\nRegister new students and view directory.")
-        st.button("Go to Student Directory ➡️", key="qa_btn_student", use_container_width=True, on_click=goto_page, args=("👨‍🎓 Student Directory",))
+        st.button("Go to Student Directory ➡️", key="qa_btn_student", use_container_width=True, on_click=navigate_to, args=("👨‍🎓 Student Directory",))
 
     with q2:
         st.success("💳 **Collect School Fee**\n\nGenerate fee receipts and manage dues.")
-        st.button("Go to Fees & Accounting ➡️", key="qa_btn_fee", use_container_width=True, on_click=goto_page, args=("💳 Accounting & Fees",))
+        st.button("Go to Fees & Accounting ➡️", key="qa_btn_fee", use_container_width=True, on_click=navigate_to, args=("💳 Accounting & Fees",))
 
     with q3:
         st.warning("🎯 **Launch CBT Exam**\n\nAssign online test papers and view result.")
-        st.button("Go to Exam & Marks ➡️", key="qa_btn_exam", use_container_width=True, on_click=goto_page, args=("📝 Exam & Marks",))
+        st.button("Go to Exam & Marks ➡️", key="qa_btn_exam", use_container_width=True, on_click=navigate_to, args=("📝 Exam & Marks",))
 
     st.write("")
     st.write("")
@@ -90,7 +89,7 @@ def render_main_dashboard():
     """, unsafe_allow_html=True)
 
 
-# 3. Session State Init
+# 3. Session State Init for Auth
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
@@ -123,21 +122,16 @@ else:
                 "📝 Exam & Marks"
             ]
 
-        # Check index to set correct option
-        default_index = 0
-        if st.session_state["nav_selection"] in menu_options:
-            default_index = menu_options.index(st.session_state["nav_selection"])
+        # Ensure active_page exists in menu_options
+        if st.session_state["active_page"] not in menu_options:
+            st.session_state["active_page"] = menu_options[0]
 
-        # SINGLE Radio Widget
+        # Radio button controlled directly by key='active_page'
         menu = st.radio(
             "Navigation Menu", 
             menu_options, 
-            index=default_index,
-            key="campus_erp_nav_menu_radio"
+            key="active_page"
         )
-        
-        # Keep nav_selection synced with radio selection
-        st.session_state["nav_selection"] = menu
 
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True, key="btn_logout_main"):
