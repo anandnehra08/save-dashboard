@@ -1,13 +1,13 @@
 import streamlit as st
 
-# 1. Page Config (यह पूरे ऐप में सबसे ऊपर केवल एक बार रहेगा)
+# 1. Page Config
 st.set_page_config(
     page_title="Campus ERP Pro", 
     page_icon="🏫", 
     layout="wide"
 )
 
-# 2. Imports (आपके सभी वर्किंग मॉड्यूल्स)
+# 2. Imports
 from modules.auth import render_login_page, logout_user
 from modules.students import render_students_module
 from modules.attendance import render_attendance_module
@@ -15,10 +15,26 @@ from modules.fees import render_fees_module
 from modules.exams import render_exams_module
 
 # -----------------------------------------------------------
-# MAIN DASHBOARD COMPONENT (वर्किंग Quick Actions के साथ)
+# SESSION STATE INITIALIZATION
+# -----------------------------------------------------------
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+if "nav_page" not in st.session_state:
+    st.session_state["nav_page"] = "📊 Dashboard"
+
+# Quick Navigation Function (बटन पर क्लिक करने पर यही चलेगा)
+def navigate_to(page_name):
+    st.session_state["nav_page"] = page_name
+
+# -----------------------------------------------------------
+# MAIN DASHBOARD COMPONENT
 # -----------------------------------------------------------
 def render_main_dashboard():
-    # Header & Logo
+    # Header
     col_logo, col_title = st.columns([1, 4])
     with col_logo:
         st.markdown("## 🏫")
@@ -40,33 +56,45 @@ def render_main_dashboard():
 
     st.markdown("---")
 
-    # Quick Actions Grid (सुरक्षित तरीके से नेविगेट करने वाले बटोन्स)
+    # Quick Actions Grid (वर्किंग on_click कॉल बैक के साथ)
     st.subheader("🚀 Quick Actions")
     q1, q2, q3 = st.columns(3)
     
     with q1:
         st.info("🎒 **Student Directory & Admission**\n\nRegister new students and view directory.")
-        if st.button("Go to Student Directory ➡️", key="qa_btn_student", use_container_width=True):
-            st.session_state["current_page"] = "👨‍🎓 Student Directory"
-            st.rerun()
+        st.button(
+            "Go to Student Directory ➡️", 
+            key="qa_btn_student", 
+            use_container_width=True,
+            on_click=navigate_to, 
+            args=("👨‍🎓 Student Directory",)
+        )
 
     with q2:
         st.success("💳 **Collect School Fee**\n\nGenerate fee receipts and manage dues.")
-        if st.button("Go to Fees & Accounting ➡️", key="qa_btn_fee", use_container_width=True):
-            st.session_state["current_page"] = "💳 Accounting & Fees"
-            st.rerun()
+        st.button(
+            "Go to Fees & Accounting ➡️", 
+            key="qa_btn_fee", 
+            use_container_width=True,
+            on_click=navigate_to, 
+            args=("💳 Accounting & Fees",)
+        )
 
     with q3:
         st.warning("🎯 **Launch CBT Exam**\n\nAssign online test papers and view result.")
-        if st.button("Go to Exam & Marks ➡️", key="qa_btn_exam", use_container_width=True):
-            st.session_state["current_page"] = "📝 Exam & Marks"
-            st.rerun()
+        st.button(
+            "Go to Exam & Marks ➡️", 
+            key="qa_btn_exam", 
+            use_container_width=True,
+            on_click=navigate_to, 
+            args=("📝 Exam & Marks",)
+        )
 
     st.write("")
     st.write("")
     st.markdown("---")
 
-    # Developer Footer
+    # Footer
     st.markdown("""
         <style>
             .footer {
@@ -87,19 +115,9 @@ def render_main_dashboard():
         </div>
     """, unsafe_allow_html=True)
 
-
-# 3. Session State Init
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-
-if 'authenticated' not in st.session_state:
-    st.session_state['authenticated'] = False
-
-# Navigation Key Safe Variable Init
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "📊 Dashboard"
-
-# 4. Auth Gatekeeper
+# -----------------------------------------------------------
+# MAIN AUTH & ROUTING GATEKEEPER
+# -----------------------------------------------------------
 if not st.session_state.get('logged_in', False) and not st.session_state.get('authenticated', False):
     render_login_page()
 else:
@@ -112,7 +130,6 @@ else:
         st.write(f"👤 **{user_email}** ({user_role.capitalize()})")
         st.markdown("---")
 
-        # रोल अनुसार नेविगेशन ऑप्शंस
         if user_role == "admin":
             menu_options = [
                 "📊 Dashboard", 
@@ -127,39 +144,40 @@ else:
                 "📝 Exam & Marks"
             ]
 
-        # Calculate current page index for sidebar sync
-        active_page = st.session_state.get("current_page", "📊 Dashboard")
-        default_idx = menu_options.index(active_page) if active_page in menu_options else 0
+        # Sync active index
+        current_active = st.session_state.get("nav_page", "📊 Dashboard")
+        default_idx = menu_options.index(current_active) if current_active in menu_options else 0
 
-        # Radio Selection Widget
-        selected_menu = st.radio(
+        # Callback function for sidebar radio
+        def update_from_radio():
+            st.session_state["nav_page"] = st.session_state["sidebar_menu_radio"]
+
+        st.radio(
             "Navigation Menu", 
             menu_options, 
             index=default_idx,
-            key="sidebar_navigation_radio"
+            key="sidebar_menu_radio",
+            on_change=update_from_radio
         )
-        
-        # Keep state updated when sidebar option changes
-        st.session_state["current_page"] = selected_menu
 
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True, key="btn_logout_main"):
             logout_user()
 
-    # 5. Page Routing
-    current_active = st.session_state["current_page"]
+    # Routing based on session state
+    target_page = st.session_state["nav_page"]
 
-    if current_active == "📊 Dashboard":
+    if target_page == "📊 Dashboard":
         render_main_dashboard()
 
-    elif current_active == "👨‍🎓 Student Directory":
+    elif target_page == "👨‍🎓 Student Directory":
         render_students_module()
 
-    elif current_active == "📅 Attendance Register":
+    elif target_page == "📅 Attendance Register":
         render_attendance_module()
 
-    elif current_active == "💳 Accounting & Fees":
+    elif target_page == "💳 Accounting & Fees":
         render_fees_module()
 
-    elif current_active == "📝 Exam & Marks":
+    elif target_page == "📝 Exam & Marks":
         render_exams_module()
