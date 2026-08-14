@@ -29,14 +29,20 @@ def render_exams_module():
     # 🔒 ROLE & PERMISSION CHECKING (Session State)
     # -------------------------------------------------------------
     user_role = st.session_state.get('user_role', 'admin')
-    assigned_class = st.session_state.get('assigned_class', 'Class 10')
+    
+    # 🎯 Multiple Classes & Subjects Handle करने के लिए
+    assigned_classes = st.session_state.get('assigned_classes')
+    if not assigned_classes:
+        single_cls = st.session_state.get('assigned_class', 'Class 10')
+        assigned_classes = [single_cls] if single_cls else CLASSES
+
     assigned_subjects = st.session_state.get('assigned_subjects', ["Maths", "Science"])
     
     # Restrict permissions for non-admin users
     is_teacher = user_role in ["class_teacher", "subject_teacher"]
     
     if is_teacher:
-        st.info(f"🔒 **Teacher Access:** आपके पास **{', '.join(assigned_subjects)}** सब्जेक्ट(स) के मार्क्स मैनेज करने की अनुमति है।")
+        st.info(f"🔒 **Teacher Access:** आपके पास **{', '.join(assigned_classes)}** क्लासेस और **{', '.join(assigned_subjects)}** सब्जेक्ट(स) के मार्क्स मैनेज करने की अनुमति है।")
 
     tab1, tab2 = st.tabs([
         "✏️ Enter / Edit Marks", 
@@ -51,10 +57,9 @@ def render_exams_module():
         
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            # Class Selectbox (Locked for Class Teacher if assigned)
-            if is_teacher and assigned_class != "ALL":
-                default_cls_idx = CLASSES.index(assigned_class) if assigned_class in CLASSES else 0
-                selected_class = st.selectbox("Select Class", CLASSES, index=default_cls_idx, disabled=True, key="ex_cls")
+            # 🎯 Multiple Allowed Classes Dropdown Filter
+            if is_teacher and "ALL" not in assigned_classes:
+                selected_class = st.selectbox("Select Class", assigned_classes, key="ex_cls")
             else:
                 selected_class = st.selectbox("Select Class", CLASSES, key="ex_cls")
                 
@@ -184,11 +189,14 @@ def render_exams_module():
         
         rc1, rc2, rc3 = st.columns(3)
         with rc1:
-            rep_class = st.selectbox("Select Class", CLASSES, key="rep_ex_cls")
+            # 🎯 Analytics tab filter based on assigned classes
+            rep_classes = assigned_classes if (is_teacher and "ALL" not in assigned_classes) else CLASSES
+            rep_class = st.selectbox("Select Class", rep_classes, key="rep_ex_cls")
         with rc2:
             rep_exam = st.selectbox("Select Exam", EXAM_TYPES, key="rep_ex_type")
         with rc3:
-            rep_subject = st.selectbox("Select Subject Filter", ["ALL"] + all_subjects, key="rep_ex_sub")
+            rep_sub_list = ["ALL"] + (assigned_subjects if (is_teacher and "ALL" not in assigned_subjects) else all_subjects)
+            rep_subject = st.selectbox("Select Subject Filter", rep_sub_list, key="rep_ex_sub")
 
         if supabase:
             try:
