@@ -5,17 +5,31 @@ from database.supabase import supabase
 
 CLASSES = [f"Class {i}" for i in range(1, 13)]
 SECTIONS = ["A", "B", "C", "D"]
-ALL_SUBJECTS = ["Maths", "Science", "English", "Hindi", "Physics", "Chemistry", "Social Studies"]
 EXAM_TYPES = ["Unit Test 1", "Mid Term", "Unit Test 2", "Final Exam"]
+
+def get_master_subjects():
+    """Supabase की subjects_master टेबल से subjects की dynamic list लाएगा"""
+    default_subjects = ["Maths", "Science", "English", "Hindi", "Physics", "Chemistry", "Social Studies"]
+    if supabase:
+        try:
+            res = supabase.table("subjects_master").select("subject_name").order("subject_name").execute()
+            if res.data:
+                return [item["subject_name"] for item in res.data]
+        except Exception as e:
+            st.warning(f"⚠️ Master Subjects fetch करने में दिक्कत: {e}")
+    return default_subjects
 
 def render_exams_module():
     st.markdown("## 📝 Exam Management & Marks Entry")
+    
+    # Supabase से Dynamic Subjects लिस्ट निकालें
+    all_subjects = get_master_subjects()
     
     # -------------------------------------------------------------
     # 🔒 ROLE & PERMISSION CHECKING (Session State)
     # -------------------------------------------------------------
     user_role = st.session_state.get('user_role', 'admin')
-    assigned_class = st.session_state.get('assigned_class', 'Class 10-A')
+    assigned_class = st.session_state.get('assigned_class', 'Class 10')
     assigned_subjects = st.session_state.get('assigned_subjects', ["Maths", "Science"])
     
     # Restrict permissions for non-admin users
@@ -48,13 +62,38 @@ def render_exams_module():
             selected_sec = st.selectbox("Select Section", SECTIONS, key="ex_sec")
             
         with c3:
-            # 🔒 Subject Selectbox (Filtered according to Teacher's assigned subjects)
-            available_subjects = assigned_subjects if (is_teacher and "ALL" not in assigned_subjects) else ALL_SUBJECTS
+            # 🔒 Subject Selectbox (Dynamic from DB + Teacher filter)
+            available_subjects = assigned_subjects if (is_teacher and "ALL" not in assigned_subjects) else all_subjects
             selected_subject = st.selectbox("Select Subject", available_subjects, key="ex_sub")
             
         with c4:
             selected_exam = st.selectbox("Select Exam Type", EXAM_TYPES, key="ex_type")
             
+        # -------------------------------------------------------------
+        # ➕ DYNAMIC SUBJECT MASTER MANAGER (Admin Only)
+        # -------------------------------------------------------------
+        if not is_teacher:
+            with st.expander("➕ Add New Subject to Master List"):
+                col_sub1, col_sub2 = st.columns([3, 1])
+                with col_sub1:
+                    new_sub_input = st.text_input("Enter New Subject Name", key="new_sub_txt", placeholder="e.g. Computer Science")
+                with col_sub2:
+                    st.write("") # Alignment spacing
+                    st.write("")
+                    add_sub_btn = st.button("Save Subject", use_container_width=True)
+                
+                if add_sub_btn:
+                    clean_sub = new_sub_input.strip()
+                    if clean_sub and supabase:
+                        try:
+                            supabase.table("subjects_master").insert({"subject_name": clean_sub}).execute()
+                            st.success(f"✅ Subject '{clean_sub}' मास्टर लिस्ट में सफलतापूर्वक जुड़ गया!")
+                            st.rerun()
+                        except Exception as sub_err:
+                            st.error(f"❌ Subject जोड़ने में त्रुटि: {sub_err}")
+                    elif not clean_sub:
+                        st.warning("कृपया विषय का नाम लिखें।")
+
         st.write("---")
 
         if supabase:
@@ -149,7 +188,7 @@ def render_exams_module():
         with rc2:
             rep_exam = st.selectbox("Select Exam", EXAM_TYPES, key="rep_ex_type")
         with rc3:
-            rep_subject = st.selectbox("Select Subject Filter", ["ALL"] + ALL_SUBJECTS, key="rep_ex_sub")
+            rep_subject = st.selectbox("Select Subject Filter", ["ALL"] + all_subjects, key="rep_ex_sub")
 
         if supabase:
             try:
