@@ -1,8 +1,15 @@
 import streamlit as st
+import bcrypt
 from database.supabase import supabase
 
 CLASSES = [f"Class {i}" for i in range(1, 13)]
 SECTIONS = ["A", "B", "C", "D"]
+
+def hash_password(password: str) -> str:
+    """Plain password को सुरक्षित Bcrypt Hash में बदलेगा"""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
 
 def get_master_subjects():
     default_subjects = ["Maths", "Science", "English", "Hindi", "Physics", "Chemistry", "Social Studies"]
@@ -59,20 +66,23 @@ def render_teacher_management_module():
                     "Select Classes (Multiple allowed)", 
                     CLASSES, 
                     default=["Class 9", "Class 10"],
-                    help="सब्जेक्ट टीचर जिन-जिन क्लासेस में पढ़ाते हैं उन सभी को चुनें।"
+                    help="सब्जेक्ट टीचर जिन-जिन क्लासेस में पढ़ाते हैं उन सभी को चुनें।"
                 )
                 assigned_sec = "ALL"  # All sections or controlled in marks entry
-                assigned_subs = st.multiselect("Assigned Subjects", master_subjects, default=[master_subjects[0]])
+                assigned_subs = st.multiselect("Assigned Subjects", master_subjects, default=[master_subjects[0]] if master_subjects else [])
 
         if st.button("➕ Create Teacher & Grant Access", type="primary", use_container_width=True):
             clean_email = t_email.strip().lower()
             if t_name.strip() and clean_email and t_pass and assigned_classes and supabase:
                 try:
+                    # 🔒 Password Hashing (Bcrypt) Applied Here
+                    hashed_pass = hash_password(t_pass.strip())
+
                     payload = {
                         "name": t_name.strip(),
                         "email": clean_email,
                         "phone": t_phone.strip(),
-                        "password": t_pass.strip(),
+                        "password": hashed_pass, # Hashed password inserted into Database
                         "role": t_role,
                         "assigned_class": assigned_classes[0], # Backward compatibility
                         "assigned_classes": assigned_classes,  # 🎯 Multiple classes array
@@ -80,7 +90,7 @@ def render_teacher_management_module():
                         "assigned_subjects": assigned_subs
                     }
                     supabase.table("users").insert(payload).execute()
-                    st.success(f"✅ **{t_name}** को **{', '.join(assigned_classes)}** का एक्सेस सफलतापूर्वक दे दिया गया है!")
+                    st.success(f"✅ **{t_name}** को **{', '.join(assigned_classes)}** का सुरक्षित एक्सेस दे दिया गया है!")
                     st.rerun()
                 except Exception as err:
                     st.error(f"❌ Teacher जोड़ने में एरर: {err}")
