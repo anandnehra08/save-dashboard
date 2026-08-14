@@ -1,4 +1,6 @@
 import streamlit as st
+import datetime
+from supabase import create_client
 
 # 1. Page Config
 st.set_page_config(
@@ -7,13 +9,53 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Imports
+# -----------------------------------------------------------
+# SUPABASE CONNECTION (डेटाबेस सेविंग के लिए)
+# -----------------------------------------------------------
+try:
+    SUPABASE_URL = st.secrets["supabase"]["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["supabase"]["SUPABASE_KEY"]
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    st.error(f"⚠️ Supabase Secrets Not Configured: {e}")
+    supabase = None
+
+# 2. Imports (आपके ओरिजिनल मॉड्यूल्स)
 from modules.auth import render_login_page, logout_user
 from modules.students import render_students_module
 from modules.attendance import render_attendance_module
 from modules.fees import render_fees_module
 from modules.exams import render_exams_module
 from modules.teacher_management import render_teacher_management_module  # Import Teacher Management
+
+# -----------------------------------------------------------
+# DASHBOARD SUPABASE HELPER FUNCTIONS (Save / Load)
+# -----------------------------------------------------------
+def save_dashboard_to_supabase(username, metrics_data):
+    """डैशबोर्ड के लाइव स्टेट को Supabase में सुरक्षित सेव करता है"""
+    if not supabase:
+        return False, "Supabase client connected nahi hai!"
+    try:
+        supabase.table("user_dashboards").upsert({
+            "username": username,
+            "dashboard_data": metrics_data,
+            "updated_at": datetime.datetime.now().isoformat()
+        }, on_conflict="username").execute()
+        return True, "✅ Dashboard data saved to Supabase!"
+    except Exception as e:
+        return False, f"❌ Save Error: {e}"
+
+def load_dashboard_from_supabase(username):
+    """Supabase से सेव डेटा लोड करता है"""
+    if not supabase:
+        return None
+    try:
+        response = supabase.table("user_dashboards").select("dashboard_data").eq("username", username).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]["dashboard_data"]
+        return None
+    except Exception as e:
+        return None
 
 # -----------------------------------------------------------
 # SESSION STATE INITIALIZATION
@@ -35,6 +77,8 @@ def navigate_to(page_name):
 # MAIN DASHBOARD COMPONENT
 # -----------------------------------------------------------
 def render_main_dashboard():
+    current_user = st.session_state.get('user_email', 'anandnehra08')
+
     # Header
     col_logo, col_title = st.columns([1, 4])
     with col_logo:
@@ -42,18 +86,41 @@ def render_main_dashboard():
         
     with col_title:
         st.title("Campus ERP Pro")
-        st.caption("📍 Address: Near Bus Stand, Main Road, City Center - 344032")
-        st.markdown("**Contact:** +91 98765 43210 | **Email:** support@campuserp.com")
+        st.caption("📍 Powered by Sakshi Solution | Dream Shiksha ERP")
+        st.markdown("**Contact:** +91 98285 95276 | **Email:** anandnehra8@gmail.com")
 
     st.markdown("---")
+
+    # Supabase से डेटा लोड करें (अगर सेव्ड डेटा है तो वही दिखेगा)
+    saved_data = load_dashboard_from_supabase(current_user)
+    
+    if saved_data:
+        metrics = saved_data
+    else:
+        metrics = {
+            "total_students": "1,250",
+            "teaching_staff": "48",
+            "fee_collection": "₹ 4.2 Lakhs",
+            "active_exams": "3 Live Tests"
+        }
 
     # Quick Stats
     st.subheader("📊 School Overview")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric(label="👨‍🎓 Total Students", value="1,250", delta="+12 this month")
-    m2.metric(label="👨‍🏫 Teaching Staff", value="48", delta="Active")
-    m3.metric(label="💰 Fee Collection", value="₹ 4.2 Lakhs", delta="85% Paid")
-    m4.metric(label="📝 Active CBT Exams", value="3 Live Tests")
+    m1.metric(label="👨‍🎓 Total Students", value=metrics.get("total_students", "1,250"), delta="+12 this month")
+    m2.metric(label="👨‍🏫 Teaching Staff", value=metrics.get("teaching_staff", "48"), delta="Active")
+    m3.metric(label="💰 Fee Collection", value=metrics.get("fee_collection", "₹ 4.2 Lakhs"), delta="85% Paid")
+    m4.metric(label="📝 Active CBT Exams", value=metrics.get("active_exams", "3 Live Tests"))
+
+    # Save Button Section
+    col_btn, _ = st.columns([2, 3])
+    with col_btn:
+        if st.button("💾 Save Dashboard State to Supabase", use_container_width=True, type="primary", key="btn_save_dashboard"):
+            success, msg = save_dashboard_to_supabase(current_user, metrics)
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
 
     st.markdown("---")
 
@@ -99,20 +166,22 @@ def render_main_dashboard():
     st.markdown("""
         <style>
             .footer {
-                background-color: #f1f5f9;
+                background-color: #1e1b4b;
                 padding: 15px;
                 border-radius: 8px;
                 text-align: center;
-                color: #475569;
+                color: #f8fafc;
                 font-size: 14px;
                 margin-top: 30px;
-                border-top: 2px solid #cbd5e1;
+                border: 1px solid rgba(255, 255, 255, 0.1);
             }
+            .footer p { margin: 2px 0; }
+            .footer a { color: #818cf8; text-decoration: none; font-weight: bold; }
         </style>
         <div class="footer">
-            <p>💻 <b>Designed & Developed by:</b> Campus ERP Team</p>
-            <p>📍 <b>Office:</b> IT Park, Tech City, India | 📞 <b>Dev Support:</b> +91 98765 43210</p>
-            <p>© 2026 Campus ERP Pro. All rights reserved.</p>
+            <p>💻 <b>Designed & Developed by:</b> Anand Nehra (Sakshi Solution)</p>
+            <p>📍 <b>Office:</b> IT Park, City Center | 📞 <b>Dev Support:</b> +91 98285 95276</p>
+            <p>© 2026 Campus ERP Pro / Dream Shiksha. All rights reserved.</p>
         </div>
     """, unsafe_allow_html=True)
 
