@@ -4,14 +4,14 @@ from database.supabase import supabase
 def verify_user_credentials(user_input, password):
     """
     यूजर क्रेडेंशियल्स की जांच करता है।
-    1. पहले हार्डकोडेड एडमिन/टीचर चेक करता है (ताकि लॉगिन कभी फेल न हो)।
+    1. पहले हार्डकोडेड एडमिन/टीचर चेक करता है।
     2. उसके बाद सुपाबेस (Supabase) डेटाबेस में चेक करता है।
     """
     clean_input = str(user_input).strip().lower()
     clean_pass = str(password).strip()
 
     # -------------------------------------------------------------
-    # ⚡ 1. DIRECT HARDCODED LOGINS (हमेशा काम करेगा)
+    # ⚡ 1. DIRECT HARDCODED LOGINS (हमेशा 100% काम करेगा)
     # -------------------------------------------------------------
     if clean_input in ["admin@school.com", "admin", "9876543210"] and clean_pass == "admin123":
         return {
@@ -56,8 +56,8 @@ def verify_user_credentials(user_input, password):
                     "assigned_class": user_data.get("assigned_class", "ALL"),
                     "assigned_subjects": user_data.get("assigned_subjects", ["ALL"])
                 }
-        except Exception as e:
-            st.error(f"DB Error: {e}")
+        except Exception:
+            pass
 
     return None
 
@@ -87,3 +87,13 @@ def render_login_page():
                     st.rerun()
                 else:
                     st.error("❌ गलत ID या पासवर्ड! पुनः प्रयास करें।")
+
+
+def logout_user():
+    """यूजर सेशन क्लियर करके लॉगआउट करता है।"""
+    st.session_state['logged_in'] = False
+    st.session_state['user_email'] = None
+    st.session_state['user_role'] = None
+    st.session_state['assigned_class'] = None
+    st.session_state['assigned_subjects'] = None
+    st.rerun()
