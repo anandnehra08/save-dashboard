@@ -11,6 +11,18 @@ STATUS_OPTIONS = ["Present", "Absent", "Late", "Leave"]
 def render_attendance_module():
     st.markdown("## 📅 Daily Class Attendance & Monthly Analytics")
     
+    # -------------------------------------------------------------
+    # 🔒 ROLE & PERMISSION CHECKING (Session State)
+    # -------------------------------------------------------------
+    user_role = st.session_state.get('user_role', 'admin')
+    assigned_class = st.session_state.get('assigned_class', 'Class 10-A')
+    
+    # Check if user is restricted to a single assigned class
+    is_teacher_restricted = (user_role in ["class_teacher", "subject_teacher"]) and (assigned_class != "ALL")
+    
+    if is_teacher_restricted:
+        st.info(f"🔒 **Teacher Access:** आपकी असाइन की गई क्लास **{assigned_class}** है।")
+
     tab1, tab2, tab3 = st.tabs([
         "📝 Daily Attendance Entry", 
         "📊 Monthly Analytics & Report", 
@@ -26,8 +38,16 @@ def render_attendance_module():
         c1, c2, c3 = st.columns(3)
         with c1:
             att_date = st.date_input("Attendance Date", value=datetime.today())
+            
         with c2:
-            selected_class = st.selectbox("Select Class", CLASSES, key="att_cls")
+            # 🔒 Role-based Class Selection
+            if is_teacher_restricted:
+                # Assign default class and disable selectbox
+                default_cls_index = CLASSES.index(assigned_class) if assigned_class in CLASSES else 0
+                selected_class = st.selectbox("Select Class", CLASSES, index=default_cls_index, disabled=True, key="att_cls")
+            else:
+                selected_class = st.selectbox("Select Class", CLASSES, key="att_cls")
+                
         with c3:
             selected_sec = st.selectbox("Select Section", SECTIONS, key="att_sec")
             
@@ -95,11 +115,11 @@ def render_attendance_module():
                             attendance_payload.append({
                                 "date": str(att_date),
                                 "sr_no": sr,
-                                "student_name": name,  # <-- Added student_name
+                                "student_name": name,
                                 "class": selected_class,
                                 "section": selected_sec,
                                 "status": status,
-                                "marked_by": "Teacher"
+                                "marked_by": st.session_state.get('user_email', 'Teacher')
                             })
                         
                         submit_att = st.form_submit_button("💾 Save / Update Attendance")
@@ -129,7 +149,12 @@ def render_attendance_module():
         with ac2:
             sel_year = st.number_input("Select Year", min_value=2024, max_value=2030, value=datetime.now().year)
         with ac3:
-            rep_class = st.selectbox("Select Class for Report", CLASSES, key="rep_cls")
+            # 🔒 Role-based Class Selection for Analytics
+            if is_teacher_restricted:
+                default_rep_index = CLASSES.index(assigned_class) if assigned_class in CLASSES else 0
+                rep_class = st.selectbox("Select Class for Report", CLASSES, index=default_rep_index, disabled=True, key="rep_cls")
+            else:
+                rep_class = st.selectbox("Select Class for Report", CLASSES, key="rep_cls")
             
         if supabase:
             start_date = f"{sel_year}-{sel_month:02d}-01"
@@ -146,7 +171,7 @@ def render_attendance_module():
                 att_records = res.data or []
                 
                 if not att_records:
-                    st.warning("No attendance data found for the selected month and class.")
+                    st.warning(f"No attendance data found for {rep_class} in the selected month.")
                 else:
                     df = pd.DataFrame(att_records)
                     
