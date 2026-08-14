@@ -21,6 +21,7 @@ from modules.attendance import render_attendance_module
 from modules.fees import render_fees_module
 from modules.exams import render_exams_module
 from modules.teacher_management import render_teacher_management_module
+from modules.ai_assistant import render_ai_assistant
 
 # 4. SESSION STATE INITIALIZATION
 if 'logged_in' not in st.session_state:
