@@ -21,10 +21,10 @@ def render_main_dashboard():
     # Header & Logo
     col_logo, col_title = st.columns([1, 4])
     with col_logo:
-        st.image("https://via.placeholder.com/150", width=120)
+        st.markdown("## 🏫")
         
     with col_title:
-        st.title("🏫 Campus ERP Pro")
+        st.title("Campus ERP Pro")
         st.caption("📍 Address: Near Bus Stand, Main Road, City Center - 344032")
         st.markdown("**Contact:** +91 98765 43210 | **Email:** support@campuserp.com")
 
@@ -40,26 +40,26 @@ def render_main_dashboard():
 
     st.markdown("---")
 
-    # Quick Actions Grid (वर्किंग बटोन्स)
+    # Quick Actions Grid (सुरक्षित तरीके से नेविगेट करने वाले बटोन्स)
     st.subheader("🚀 Quick Actions")
     q1, q2, q3 = st.columns(3)
     
     with q1:
         st.info("🎒 **Student Directory & Admission**\n\nRegister new students and view directory.")
         if st.button("Go to Student Directory ➡️", key="qa_btn_student", use_container_width=True):
-            st.session_state["campus_erp_nav_menu_unique"] = "👨‍🎓 Student Directory"
+            st.session_state["current_page"] = "👨‍🎓 Student Directory"
             st.rerun()
 
     with q2:
         st.success("💳 **Collect School Fee**\n\nGenerate fee receipts and manage dues.")
         if st.button("Go to Fees & Accounting ➡️", key="qa_btn_fee", use_container_width=True):
-            st.session_state["campus_erp_nav_menu_unique"] = "💳 Accounting & Fees"
+            st.session_state["current_page"] = "💳 Accounting & Fees"
             st.rerun()
 
     with q3:
         st.warning("🎯 **Launch CBT Exam**\n\nAssign online test papers and view result.")
         if st.button("Go to Exam & Marks ➡️", key="qa_btn_exam", use_container_width=True):
-            st.session_state["campus_erp_nav_menu_unique"] = "📝 Exam & Marks"
+            st.session_state["current_page"] = "📝 Exam & Marks"
             st.rerun()
 
     st.write("")
@@ -81,29 +81,28 @@ def render_main_dashboard():
             }
         </style>
         <div class="footer">
-            <p>💻 <b>Designed & Developed by:</b> Your Name / Company Name</p>
+            <p>💻 <b>Designed & Developed by:</b> Campus ERP Team</p>
             <p>📍 <b>Office:</b> IT Park, Tech City, India | 📞 <b>Dev Support:</b> +91 98765 43210</p>
             <p>© 2026 Campus ERP Pro. All rights reserved.</p>
         </div>
     """, unsafe_allow_html=True)
 
 
-# 3. Session State Init (Check both logged_in and authenticated)
+# 3. Session State Init
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if 'authenticated' not in st.session_state:
-    st.session_state['authenticated'] = st.session_state['logged_in']
+    st.session_state['authenticated'] = False
 
-# Navigation Key Default Set
-if "campus_erp_nav_menu_unique" not in st.session_state:
-    st.session_state["campus_erp_nav_menu_unique"] = "📊 Dashboard"
+# Navigation Key Safe Variable Init
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "📊 Dashboard"
 
 # 4. Auth Gatekeeper
 if not st.session_state.get('logged_in', False) and not st.session_state.get('authenticated', False):
     render_login_page()
 else:
-    # यूज़र डेटा निकालें
     user_role = st.session_state.get('user_role', 'admin')
     user_email = st.session_state.get('user_email', '')
 
@@ -128,29 +127,39 @@ else:
                 "📝 Exam & Marks"
             ]
 
-        # SINGLE Radio Widget
-        menu = st.radio(
+        # Calculate current page index for sidebar sync
+        active_page = st.session_state.get("current_page", "📊 Dashboard")
+        default_idx = menu_options.index(active_page) if active_page in menu_options else 0
+
+        # Radio Selection Widget
+        selected_menu = st.radio(
             "Navigation Menu", 
             menu_options, 
-            key="campus_erp_nav_menu_unique"
+            index=default_idx,
+            key="sidebar_navigation_radio"
         )
+        
+        # Keep state updated when sidebar option changes
+        st.session_state["current_page"] = selected_menu
 
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True, key="btn_logout_main"):
             logout_user()
 
     # 5. Page Routing
-    if menu == "📊 Dashboard":
+    current_active = st.session_state["current_page"]
+
+    if current_active == "📊 Dashboard":
         render_main_dashboard()
 
-    elif menu == "👨‍🎓 Student Directory":
+    elif current_active == "👨‍🎓 Student Directory":
         render_students_module()
 
-    elif menu == "📅 Attendance Register":
+    elif current_active == "📅 Attendance Register":
         render_attendance_module()
 
-    elif menu == "💳 Accounting & Fees":
+    elif current_active == "💳 Accounting & Fees":
         render_fees_module()
 
-    elif menu == "📝 Exam & Marks":
+    elif current_active == "📝 Exam & Marks":
         render_exams_module()
