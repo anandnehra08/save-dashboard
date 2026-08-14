@@ -202,3 +202,5 @@ with st.sidebar:
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        elif target_page == "🤖 ERP AI Assistant":
+    render_ai_assistant()
