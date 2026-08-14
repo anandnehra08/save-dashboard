@@ -5,7 +5,7 @@ def verify_user_credentials(user_input, password):
     clean_input = str(user_input).strip().lower()
     clean_pass = str(password).strip()
 
-    # Hardcoded Credentials
+    # Hardcoded Credentials Check
     if clean_input in ["admin@school.com", "admin", "9876543210"] and clean_pass == "admin123":
         return {
             "email": "admin@school.com",
@@ -25,9 +25,8 @@ def verify_user_credentials(user_input, password):
     return None
 
 def render_login_page():
-    st.markdown("## 🔑 School Portal Login")
+    st.markdown("## 🔑 Campus ERP Pro Login")
     
-    # Form layout without nested button issues
     user_input = st.text_input("User ID / Email / Mobile Number", value="admin@school.com", key="login_user_input")
     password = st.text_input("Password", type="password", value="admin123", key="login_pass_input")
     
@@ -35,7 +34,9 @@ def render_login_page():
     if st.button("🚀 Login", use_container_width=True, type="primary"):
         user_data = verify_user_credentials(user_input, password)
         if user_data:
+            # ทั้ง logged_in และ authenticated ถูกตั้งค่าเป็น True
             st.session_state['logged_in'] = True
+            st.session_state['authenticated'] = True
             st.session_state['user_email'] = user_data['email']
             st.session_state['user_role'] = user_data['role']
             st.session_state['assigned_class'] = user_data['assigned_class']
@@ -49,6 +50,7 @@ def render_login_page():
     st.write("---")
     if st.button("⚡ Emergency Admin Direct Entrance (डायरेक्ट खोलें)", use_container_width=True):
         st.session_state['logged_in'] = True
+        st.session_state['authenticated'] = True
         st.session_state['user_email'] = "admin@school.com"
         st.session_state['user_role'] = "admin"
         st.session_state['assigned_class'] = "ALL"
@@ -57,6 +59,7 @@ def render_login_page():
 
 def logout_user():
     st.session_state['logged_in'] = False
+    st.session_state['authenticated'] = False
     st.session_state['user_email'] = None
     st.session_state['user_role'] = None
     st.session_state['assigned_class'] = None
