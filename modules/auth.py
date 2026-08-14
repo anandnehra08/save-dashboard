@@ -46,7 +46,7 @@ def render_login_page():
             else:
                 st.error("❌ गलत ID या पासवर्ड! पुनः प्रयास करें।")
 
-    # 🆘 EMERGENCY BYPASS BUTTON (अगर ऊपर से न खुले तो इस बटन से डायरेक्ट खोलें)
+    # 🆘 EMERGENCY BYPASS BUTTON
     st.write("---")
     if st.button("⚡ Emergency Admin Direct Entrance (डायरेक्ट खोलें)", use_container_width=True):
         st.session_state['logged_in'] = True
