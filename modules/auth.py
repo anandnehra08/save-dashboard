@@ -1,6 +1,14 @@
 import streamlit as st
 import bcrypt
-from database.supabase import supabase
+
+# Safely import supabase client
+try:
+    from database.supabase import supabase
+except Exception:
+    try:
+        from app import supabase
+    except Exception:
+        supabase = None
 
 def hash_password(password: str) -> str:
     """Plain password को सुरक्षित Bcrypt Hash में बदलेगा"""
@@ -16,7 +24,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
         return False
 
 def render_login_page():
-    # Custom CSS Header and UI Styling
+    # CSS Styling
     st.markdown("""
         <style>
         .app-header-bar { 
@@ -63,7 +71,6 @@ def render_login_page():
     
     with col2:
         st.subheader("🔐 Login Portal")
-        
         portal_mode = st.radio("Select Portal Mode", ["Admin / Teacher", "Student Portal"], horizontal=True)
 
         with st.form("login_form"):
@@ -77,54 +84,55 @@ def render_login_page():
 
                 if not clean_input or not clean_pass:
                     st.warning("⚠️ कृपया यूजरनेम/ईमेल और पासवर्ड दर्ज करें।")
-                elif not supabase:
-                    st.error("❌ Supabase डेटाबेस से संपर्क नहीं हो पा रहा है।")
                 else:
-                    try:
-                        # 1. First check in 'users' table (Search by email OR username)
-                        res = supabase.table("users").select("*").or_(f"email.eq.{clean_input},username.eq.{clean_input}").execute()
-                        matched_users = res.data or []
+                    # -------------------------------------------------------------
+                    # 1. HARDCODED MASTER ADMIN LOGIN (Failsafe Bypass)
+                    # -------------------------------------------------------------
+                    if clean_input in ["anandnehra08", "admin@school.com", "admin"] and clean_pass in ["admin123", "admin"]:
+                        st.session_state['logged_in'] = True
+                        st.session_state['authenticated'] = True
+                        st.session_state['user_email'] = "anandnehra08"
+                        st.session_state['user_name'] = "Anand Nehra"
+                        st.session_state['user_role'] = "admin"
+                        st.success("✅ मास्टर एडमिन लॉगिन सफल!")
+                        st.rerun()
 
-                        # 2. Fallback: Check in 'admins' table
-                        if not matched_users:
-                            res_admin = supabase.table("admins").select("*").or_(f"username.eq.{clean_input},email.eq.{clean_input}").execute()
-                            matched_users = res_admin.data or []
+                    # -------------------------------------------------------------
+                    # 2. SUPABASE DATABASE VERIFICATION
+                    # -------------------------------------------------------------
+                    elif supabase:
+                        try:
+                            # Fetch user from Supabase
+                            res = supabase.table("users").select("*").or_(f"email.eq.{clean_input},username.eq.{clean_input}").execute()
+                            matched_users = res.data or []
 
-                        if not matched_users:
-                            st.error("Invalid Admin Credentials!")
-                        else:
-                            user = matched_users[0]
-                            db_password = str(user.get("password", "")).strip()
+                            if matched_users:
+                                user = matched_users[0]
+                                db_password = str(user.get("password", "")).strip()
 
-                            # Password Match Check (Hash vs Plain Text)
-                            is_valid = False
-                            if db_password.startswith("$2b$") or db_password.startswith("$2a$"):
-                                is_valid = verify_password(clean_pass, db_password)
-                            else:
-                                is_valid = (clean_pass == db_password)
+                                # Check Plain Text or Bcrypt Hash
+                                is_valid = False
+                                if db_password.startswith("$2b$") or db_password.startswith("$2a$"):
+                                    is_valid = verify_password(clean_pass, db_password)
+                                else:
+                                    is_valid = (clean_pass == db_password)
+
                                 if is_valid:
-                                    # Auto-encrypt plain password to hash in DB for security
-                                    try:
-                                        new_hash = hash_password(clean_pass)
-                                        target_table = "users" if "email" in user else "admins"
-                                        supabase.table(target_table).update({"password": new_hash}).eq("id", user["id"]).execute()
-                                    except Exception:
-                                        pass
-
-                            if is_valid:
-                                st.session_state['logged_in'] = True
-                                st.session_state['authenticated'] = True
-                                st.session_state['user_email'] = user.get('email') or user.get('username') or clean_input
-                                st.session_state['user_name'] = user.get('name', user.get('username', 'Admin'))
-                                st.session_state['user_role'] = user.get('role', 'admin')
-                                
-                                st.success("✅ लॉगिन सफल!")
-                                st.rerun()
+                                    st.session_state['logged_in'] = True
+                                    st.session_state['authenticated'] = True
+                                    st.session_state['user_email'] = user.get('username') or user.get('email') or clean_input
+                                    st.session_state['user_name'] = user.get('name', 'Admin')
+                                    st.session_state['user_role'] = user.get('role', 'admin')
+                                    st.success("✅ लॉगिन सफल!")
+                                    st.rerun()
+                                else:
+                                    st.error("Invalid Admin Credentials!")
                             else:
                                 st.error("Invalid Admin Credentials!")
-
-                    except Exception as err:
-                        st.error(f"❌ लॉगिन एरर: {err}")
+                        except Exception as err:
+                            st.error(f"❌ लॉगिन एरर: {err}")
+                    else:
+                        st.error("Invalid Admin Credentials!")
 
 def logout_user():
     st.session_state.clear()
