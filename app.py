@@ -185,3 +185,19 @@ else:
         render_exams_module()
     elif target_page == "👑 Staff & Access Control":
         render_teacher_management_module()
+        import streamlit as st
+
+# 1. Chat memory initialize करें
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# 2. Sidebar में Clear Chat का बटन जोड़ें
+with st.sidebar:
+    if st.button("🗑️ Clear Chat History", use_container_width=True):
+        st.session_state.messages = []  # Chat clear करें
+        st.rerun()  # Page refresh करें
+
+# 3. Chat display करें
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
