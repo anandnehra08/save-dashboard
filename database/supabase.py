@@ -8,12 +8,16 @@ def init_supabase() -> Client:
     raw_url = ""
     raw_key = ""
 
-    if "supabase" in st.secrets:
-        raw_url = st.secrets["supabase"].get("SUPABASE_URL", "")
-        raw_key = st.secrets["supabase"].get("SUPABASE_KEY", "")
-    else:
-        raw_url = st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
-        raw_key = st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY", "")
+    try:
+        if "supabase" in st.secrets:
+            raw_url = st.secrets["supabase"].get("SUPABASE_URL", "")
+            raw_key = st.secrets["supabase"].get("SUPABASE_KEY", "")
+        else:
+            raw_url = st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
+            raw_key = st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY", "")
+    except Exception:
+        raw_url = os.environ.get("SUPABASE_URL", "")
+        raw_key = os.environ.get("SUPABASE_KEY", "")
 
     # 2. URL और Key की सफ़ाई (Strip spaces and quotes)
     clean_url = str(raw_url).strip().rstrip("/").replace('"', '').replace("'", "")
@@ -36,7 +40,6 @@ def init_supabase() -> Client:
 
     # 6. Client Connection स्थापित करें
     try:
-        # Supabase client initialize with custom headers options
         client = create_client(
             clean_url, 
             clean_key, 
@@ -47,5 +50,5 @@ def init_supabase() -> Client:
         st.error(f"❌ Supabase कनेक्ट करने में विफलता: {e}")
         return None
 
-# Global Supabase Client
+# Global Supabase Client Instance
 supabase = init_supabase()
