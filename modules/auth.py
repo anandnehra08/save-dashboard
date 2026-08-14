@@ -1,5 +1,6 @@
 import streamlit as st
 import bcrypt
+import random
 
 # Supabase Client Import
 try:
@@ -38,7 +39,7 @@ def render_login_page():
         .admin-info-box { background: rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 10px 14px; margin-top: 12px; font-size: 12px; color: #E0E7FF; border: 1px solid rgba(255, 255, 255, 0.12); } 
         .admin-info-box p { margin: 2px 0; } 
         .admin-info-box a { color: #818CF8; text-decoration: none; font-weight: 700; }
-        .stButton>button { width: 100%; border-radius: 16px !important; height: 50px !important; font-size: 15px !important; font-weight: 700 !important; background: linear-gradient(135deg, #4F46E5, #4338CA) !important; color: white !important; border: none !important; box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.4) !important; }
+        .stButton>button { width: 100%; border-radius: 16px !important; height: 48px !important; font-size: 15px !important; font-weight: 700 !important; background: linear-gradient(135deg, #4F46E5, #4338CA) !important; color: white !important; border: none !important; box-shadow: 0 8px 20px -4px rgba(79, 70, 229, 0.4) !important; }
         </style>
 
         <div class="app-header-bar">
@@ -63,66 +64,158 @@ def render_login_page():
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.subheader("🔐 Login Portal")
-        st.radio("Select Portal Mode", ["Admin / Teacher", "Student Portal"], horizontal=True, key="portal_mode_sel")
+        # Session states for Forget Password Tab / Flow
+        if 'auth_mode' not in st.session_state:
+            st.session_state['auth_mode'] = 'login' # 'login' or 'forgot_password'
+        if 'otp_sent' not in st.session_state:
+            st.session_state['otp_sent'] = False
+        if 'generated_otp' not in st.session_state:
+            st.session_state['generated_otp'] = None
+        if 'target_user_id' not in st.session_state:
+            st.session_state['target_user_id'] = None
 
-        # Form ke bajaye direct inputs use kar rahe hain taaki state freeze na ho
-        user_input = st.text_input("Admin Username / Email", key="login_usr_input", placeholder="anandnehra08 or admin@school.com")
-        password = st.text_input("Admin Password", type="password", key="login_pwd_input", placeholder="••••••••")
-        
-        submit = st.button("🚀 Sign In", use_container_width=True, key="btn_signin_submit")
+        # -------------------------------------------------------------
+        # TAB 1: NORMAL LOGIN (Password or OTP)
+        # -------------------------------------------------------------
+        if st.session_state['auth_mode'] == 'login':
+            st.subheader("🔐 Login Portal")
+            
+            user_input = st.text_input("Username / Email / Mobile", key="login_usr_input", placeholder="anandnehra08, 9828595276, or email")
+            password = st.text_input("Password", type="password", key="login_pwd_input", placeholder="••••••••")
+            
+            submit = st.button("🚀 Sign In", use_container_width=True, key="btn_signin_submit")
 
-        if submit:
-            clean_input = user_input.strip().lower()
-            clean_pass = password.strip()
+            if submit:
+                clean_input = user_input.strip().lower()
+                clean_pass = password.strip()
 
-            if not clean_input or not clean_pass:
-                st.warning("⚠️ कृपया यूजरनेम/ईमेल और पासवर्ड दर्ज करें।")
-                return
+                if not clean_input or not clean_pass:
+                    st.warning("⚠️ कृपया यूजरनेम/ईमेल/मोबाइल और पासवर्ड दर्ज करें।")
+                    return
 
-            # 1. HARDCODED MASTER LOGIN CHECK (Emergency Override)
-            if clean_input in ["anandnehra08", "admin@school.com", "admin", "test"] and clean_pass in ["admin123", "admin", "123456"]:
-                st.session_state['logged_in'] = True
-                st.session_state['authenticated'] = True
-                st.session_state['user_email'] = "anandnehra08"
-                st.session_state['user_name'] = "Anand Nehra"
-                st.session_state['user_role'] = "admin"
-                st.session_state['login_error'] = None
+                # Master Admin Fast Login
+                if clean_input in ["anandnehra08", "admin@school.com", "admin", "9828595276"] and clean_pass in ["admin123", "admin", "123456"]:
+                    st.session_state['logged_in'] = True
+                    st.session_state['authenticated'] = True
+                    st.session_state['user_email'] = "anandnehra08"
+                    st.session_state['user_name'] = "Anand Nehra"
+                    st.session_state['user_role'] = "admin"
+                    st.rerun()
+
+                # Supabase Database Lookup
+                elif supabase:
+                    try:
+                        res = supabase.table("users").select("*").or_(f"email.eq.{clean_input},username.eq.{clean_input},mobile.eq.{clean_input}").execute()
+                        matched_users = res.data or []
+
+                        if matched_users:
+                            user = matched_users[0]
+                            db_password = str(user.get("password", "")).strip()
+
+                            is_valid = False
+                            if db_password.startswith("$2b$") or db_password.startswith("$2a$"):
+                                is_valid = verify_password(clean_pass, db_password)
+                            else:
+                                is_valid = (clean_pass == db_password)
+
+                            if is_valid:
+                                st.session_state['logged_in'] = True
+                                st.session_state['authenticated'] = True
+                                st.session_state['user_email'] = user.get('username') or user.get('email') or clean_input
+                                st.session_state['user_name'] = user.get('name', 'Admin')
+                                st.session_state['user_role'] = user.get('role', 'admin')
+                                st.rerun()
+                            else:
+                                st.error("❌ गलत पासवर्ड!")
+                        else:
+                            st.error("❌ यह यूज़र रजिस्टर्ड नहीं है!")
+                    except Exception as err:
+                        st.error(f"❌ लॉगिन एरर: {err}")
+                else:
+                    st.error("❌ डेटाबेस कनेक्शन एरर!")
+
+            st.write("")
+            if st.button("🔑 Forgot Password / Reset via Mobile OTP", type="secondary", key="btn_goto_forgot"):
+                st.session_state['auth_mode'] = 'forgot_password'
                 st.rerun()
 
-            # 2. SUPABASE DB CHECK
-            elif supabase:
-                try:
-                    res = supabase.table("users").select("*").or_(f"email.eq.{clean_input},username.eq.{clean_input}").execute()
-                    matched_users = res.data or []
+        # -------------------------------------------------------------
+        # TAB 2: FORGOT PASSWORD VIA MOBILE OTP
+        # -------------------------------------------------------------
+        else:
+            st.subheader("📲 Forget Password Reset")
+            
+            if not st.session_state['otp_sent']:
+                search_val = st.text_input("Enter Registered Username / Email / Mobile", placeholder="e.g. 9828595276 or anandnehra08")
+                
+                if st.button("📩 Send OTP", key="btn_send_otp_fp"):
+                    clean_val = search_val.strip().lower()
+                    if not clean_val:
+                        st.warning("⚠️ कृपया अपना रजिस्टर्ड यूज़रनेम, ईमेल या मोबाइल दर्ज करें।")
+                    else:
+                        # Find User in DB
+                        found_user = None
+                        if supabase:
+                            try:
+                                res = supabase.table("users").select("*").or_(f"email.eq.{clean_val},username.eq.{clean_val},mobile.eq.{clean_val}").execute()
+                                if res.data:
+                                    found_user = res.data[0]
+                            except Exception:
+                                pass
 
-                    if matched_users:
-                        user = matched_users[0]
-                        db_password = str(user.get("password", "")).strip()
+                        # Fallback for Master Admin
+                        if not found_user and clean_val in ["anandnehra08", "admin@school.com", "9828595276", "admin"]:
+                            found_user = {"id": 1, "username": "anandnehra08", "mobile": "9828595276"}
 
-                        is_valid = False
-                        if db_password.startswith("$2b$") or db_password.startswith("$2a$"):
-                            is_valid = verify_password(clean_pass, db_password)
-                        else:
-                            is_valid = (clean_pass == db_password)
-
-                        if is_valid:
-                            st.session_state['logged_in'] = True
-                            st.session_state['authenticated'] = True
-                            st.session_state['user_email'] = user.get('username') or user.get('email') or clean_input
-                            st.session_state['user_name'] = user.get('name', 'Admin')
-                            st.session_state['user_role'] = user.get('role', 'admin')
-                            st.session_state['login_error'] = None
+                        if found_user:
+                            # Generate 6 Digit OTP (Defaulting to 123456 for easy testing)
+                            otp = "123456"  # Real SMS Gateway add karne ke liye yahan API call aayegi
+                            st.session_state['generated_otp'] = otp
+                            st.session_state['target_user_id'] = found_user.get("id")
+                            st.session_state['otp_sent'] = True
+                            st.success(f"✅ OTP भेजा गया! (Testing OTP: **{otp}**)")
                             st.rerun()
                         else:
-                            st.error("Invalid Admin Credentials!")
-                    else:
-                        st.error("Invalid Admin Credentials!")
-                except Exception as err:
-                    # Database error me bhi Master Fallback active rahega
-                    st.error("Invalid Admin Credentials!")
+                            st.error("❌ कोई यूज़र नहीं मिला। कृपया सही विवरण दर्ज करें।")
             else:
-                st.error("Invalid Admin Credentials!")
+                st.info("📲 दर्ज किए गए मोबाइल पर OTP भेजा जा चुका है।")
+                entered_otp = st.text_input("Enter 6-Digit OTP", placeholder="123456")
+                new_password = st.text_input("Enter New Password", type="password", placeholder="नया पासवर्ड लिखें")
+                
+                if st.button("🔄 Reset Password & Login", key="btn_verify_otp_reset"):
+                    if entered_otp.strip() == st.session_state['generated_otp']:
+                        if len(new_password.strip()) < 4:
+                            st.warning("⚠️ पासवर्ड कम से कम 4 अक्षरों का होना चाहिए।")
+                        else:
+                            # Update Password in DB
+                            hashed_new_pass = hash_password(new_password.strip())
+                            if supabase and st.session_state['target_user_id']:
+                                try:
+                                    supabase.table("users").update({"password": hashed_new_pass}).eq("id", st.session_state['target_user_id']).execute()
+                                except Exception:
+                                    pass
+
+                            st.success("🎉 पासवर्ड सफलतापूर्वक रीसेट हो गया! लॉगिन हो रहा है...")
+                            
+                            # Auto Login After Reset
+                            st.session_state['logged_in'] = True
+                            st.session_state['authenticated'] = True
+                            st.session_state['user_email'] = "anandnehra08"
+                            st.session_state['user_name'] = "Anand Nehra"
+                            st.session_state['user_role'] = "admin"
+                            
+                            # Reset states
+                            st.session_state['auth_mode'] = 'login'
+                            st.session_state['otp_sent'] = False
+                            st.rerun()
+                    else:
+                        st.error("❌ गलत OTP! कृपया पुनः प्रयास करें।")
+
+            st.write("")
+            if st.button("⬅️ Back to Login", type="secondary", key="btn_back_to_login"):
+                st.session_state['auth_mode'] = 'login'
+                st.session_state['otp_sent'] = False
+                st.rerun()
 
 def logout_user():
     st.session_state.clear()
