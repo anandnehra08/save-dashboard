@@ -1,91 +1,95 @@
 import streamlit as st
+import bcrypt
 from database.supabase import supabase
 
+def hash_password(password: str) -> str:
+    """Plain password को सुरक्षित Bcrypt Hash में बदलेगा"""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """Plain password और Hash को चेक करेगा"""
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception:
+        return False
+
 def render_login_page():
-    st.title("🏫 Campus ERP Pro - Access Portal")
-    st.caption("School Management System Login")
+    st.markdown("""
+        <style>
+            .login-box {
+                max-width: 420px;
+                margin: 0 auto;
+                padding: 30px;
+                background-color: #ffffff;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
-    tab_login, tab_admin_setup = st.tabs(["🔐 Sign In", "👑 Principal / Admin Registration"])
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("<h2 style='text-align: center;'>🏫 Campus ERP Pro</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #666;'>Secure Login Access</p>", unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            email = st.text_input("📧 Email ID", placeholder="admin@school.com")
+            password = st.text_input("🔑 Password", type="password", placeholder="••••••••")
+            submit = st.form_submit_button("🚀 Sign In", use_container_width=True)
 
-    # -------------------------------------------------------------
-    # TAB 1: USER LOGIN (Admin / Teachers)
-    # -------------------------------------------------------------
-    with tab_login:
-        st.subheader("Login to your account")
-        email_input = st.text_input("Enter Email Address", key="login_email", placeholder="principal@school.com or teacher@school.com")
-        password_input = st.text_input("Enter Password", type="password", key="login_pass")
+            if submit:
+                clean_email = email.strip().lower()
+                clean_pass = password.strip()
 
-        if st.button("Login", type="primary", use_container_width=True):
-            clean_email = email_input.strip().lower()
-            clean_pass = password_input.strip()
+                if not clean_email or not clean_pass:
+                    st.warning("⚠️ कृपया ईमेल और पासवर्ड दोनों दर्ज करें।")
+                elif not supabase:
+                    st.error("❌ डेटाबेस कनेक्ट नहीं है। कृपया Supabase सेटिंग्स जांचें।")
+                else:
+                    try:
+                        # Supabase से User Fetch करें
+                        res = supabase.table("users").select("*").eq("email", clean_email).execute()
+                        users = res.data or []
 
-            if clean_email and clean_pass and supabase:
-                try:
-                    res = supabase.table("users") \
-                        .select("*") \
-                        .eq("email", clean_email) \
-                        .eq("password", clean_pass) \
-                        .execute()
-                    
-                    user_data = res.data
+                        if not users:
+                            st.error("❌ यह ईमेल आईडी पंजीकृत नहीं है।")
+                        else:
+                            user = users[0]
+                            db_password = user.get("password", "")
 
-                    if user_data:
-                        user = user_data[0]
-                        st.session_state['logged_in'] = True
-                        st.session_state['user_email'] = user['email']
-                        st.session_state['user_name'] = user['name']
-                        st.session_state['user_role'] = user.get('role', 'subject_teacher')
-                        st.session_state['assigned_class'] = user.get('assigned_class', 'ALL')
-                        st.session_state['assigned_section'] = user.get('assigned_section', 'ALL')
-                        st.session_state['assigned_subjects'] = user.get('assigned_subjects', ['ALL'])
+                            # Password Matching (Supports both Hash and Plain Old Passwords)
+                            is_valid = False
+                            if db_password.startswith("$2b$") or db_password.startswith("$2a$"):
+                                is_valid = verify_password(clean_pass, db_password)
+                            else:
+                                # Backward compatibility: अगर डेटाबेस में पुराना Plain Password पड़ा है
+                                is_valid = (clean_pass == db_password)
+                                if is_valid:
+                                    # ऑटोमेटिकली पुराने पासवर्ड को Hashed पासवर्ड में अपडेट करें
+                                    new_hash = hash_password(clean_pass)
+                                    supabase.table("users").update({"password": new_hash}).eq("id", user["id"]).execute()
 
-                        st.success(f"✅ Login Successful! Welcome, {user['name']} ({user['role'].upper()})")
-                        st.rerun()
-                    else:
-                        st.error("❌ गलत Email ID या Password! कृपया पुनः प्रयास करें।")
-                except Exception as e:
-                    st.error(f"Login error: {e}")
-            else:
-                st.warning("कृपया Email और Password दोनों भरें।")
+                            if is_valid:
+                                st.session_state['logged_in'] = True
+                                st.session_state['authenticated'] = True
+                                st.session_state['user_email'] = user['email']
+                                st.session_state['user_name'] = user.get('name', 'User')
+                                st.session_state['user_role'] = user.get('role', 'teacher')
+                                st.session_state['assigned_class'] = user.get('assigned_class', 'Class 10')
+                                st.session_state['assigned_classes'] = user.get('assigned_classes') or [user.get('assigned_class', 'Class 10')]
+                                st.session_state['assigned_subjects'] = user.get('assigned_subjects', [])
+                                
+                                st.success("✅ लॉगिन सफल! रीडायरेक्ट हो रहा है...")
+                                st.rerun()
+                            else:
+                                st.error("❌ गलत पासवर्ड। कृपया पुनः प्रयास करें।")
 
-    # -------------------------------------------------------------
-    # TAB 2: FIRST-TIME PRINCIPAL REGISTRATION
-    # -------------------------------------------------------------
-    with tab_admin_setup:
-        st.subheader("Principal / Admin Account Setup")
-        st.info("यह सेक्शन केवल Principal/Main Admin का नया खाता बनाने के लिए है।")
-
-        admin_name = st.text_input("Principal Name", key="p_name", placeholder="Dr. R. K. Sharma")
-        admin_email = st.text_input("Email ID", key="p_email", placeholder="principal@school.com")
-        admin_phone = st.text_input("Phone Number", key="p_phone", placeholder="9876543210")
-        new_password = st.text_input("Set Password", type="password", key="p_pass")
-        confirm_password = st.text_input("Confirm Password", type="password", key="p_conf_pass")
-
-        if st.button("Create Principal Account", type="primary", use_container_width=True):
-            cleaned_email = admin_email.strip().lower()
-
-            if not admin_name.strip() or not cleaned_email or not new_password:
-                st.warning("सभी फ़ील्ड भरना आवश्यक है।")
-            elif new_password != confirm_password:
-                st.error("❌ पासवर्ड मैच नहीं हो रहे हैं।")
-            elif supabase:
-                try:
-                    payload = {
-                        "name": admin_name.strip(),
-                        "email": cleaned_email,
-                        "phone": admin_phone.strip(),
-                        "password": new_password.strip(),
-                        "role": "admin",
-                        "assigned_class": "ALL",
-                        "assigned_section": "ALL",
-                        "assigned_subjects": ["ALL"]
-                    }
-                    supabase.table("users").insert(payload).execute()
-                    st.success("🎉 Principal Account सफलतापूर्वक बन गया है! अब Sign In टैब से लॉगिन करें।")
-                except Exception as err:
-                    st.error(f"❌ Error: {err}")
+                    except Exception as err:
+                        st.error(f"❌ लॉगिन एरर: {err}")
 
 def logout_user():
-    st.session_state['logged_in'] = False
     st.session_state.clear()
     st.rerun()
