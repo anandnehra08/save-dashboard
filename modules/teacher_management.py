@@ -16,20 +16,19 @@ def get_master_subjects():
     return default_subjects
 
 def render_teacher_management_module():
-    # केवल Admin ही इस पेज को एक्सेस कर सकता है
     if st.session_state.get('user_role') != 'admin':
         st.error("⛔ **Access Denied:** केवल Principal/Admin ही शिक्षकों के एक्सेस को मैनेज कर सकते हैं।")
         return
 
     st.title("👑 Staff & Access Control Management")
-    st.caption("Principal Control Panel: शिक्षकों को रोल और एक्सेस असाइन करें।")
+    st.caption("Principal Control Panel: शिक्षकों को multiple classes और subjects का एक्सेस दें।")
 
     master_subjects = get_master_subjects()
 
     tab_add, tab_view = st.tabs(["➕ Add/Assign New Teacher", "📋 Manage Active Teachers"])
 
     # -------------------------------------------------------------
-    # TAB 1: ADD NEW TEACHER & SET PERMISSIONS
+    # TAB 1: ADD NEW TEACHER & SET MULTIPLE CLASS PERMISSIONS
     # -------------------------------------------------------------
     with tab_add:
         st.subheader("Assign Access to Teacher")
@@ -42,21 +41,32 @@ def render_teacher_management_module():
             t_pass = st.text_input("Assign Password for Teacher", type="password", value="teacher123")
 
         with col2:
-            t_role = st.selectbox("Assign Role", ["class_teacher", "subject_teacher"], 
-                                  format_func=lambda x: "Class Teacher (Full Class Access)" if x == "class_teacher" else "Subject Teacher (Limited Subject Access)")
+            t_role = st.selectbox(
+                "Assign Role", 
+                ["class_teacher", "subject_teacher"], 
+                format_func=lambda x: "Class Teacher (Incharge of 1 Class)" if x == "class_teacher" else "Subject Teacher (Multiple Classes & Subjects)"
+            )
             
-            assigned_cls = st.selectbox("Assigned Class", CLASSES)
-            assigned_sec = st.selectbox("Assigned Section", SECTIONS)
-            
+            # 💡 Class Teacher के लिए Single Class और Subject Teacher के लिए MULTIPLE CLASSES
             if t_role == "class_teacher":
+                assigned_classes = [st.selectbox("Assigned Incharge Class", CLASSES)]
+                assigned_sec = st.selectbox("Assigned Section", SECTIONS)
                 assigned_subs = ["ALL"]
-                st.info("💡 **Class Teacher** के पास चुनी गई क्लास के सभी विषयों (All Subjects) का एक्सेस होगा।")
+                st.info("💡 **Class Teacher** उस क्लास की सभी गतिविधियों का इनचार्ज होगा।")
             else:
+                # 🎯 Multiple Class Access Option for Subject Teacher
+                assigned_classes = st.multiselect(
+                    "Select Classes (Multiple allowed)", 
+                    CLASSES, 
+                    default=["Class 9", "Class 10"],
+                    help="सब्जेक्ट टीचर जिन-जिन क्लासेस में पढ़ाते हैं उन सभी को चुनें।"
+                )
+                assigned_sec = "ALL"  # All sections or controlled in marks entry
                 assigned_subs = st.multiselect("Assigned Subjects", master_subjects, default=[master_subjects[0]])
 
         if st.button("➕ Create Teacher & Grant Access", type="primary", use_container_width=True):
             clean_email = t_email.strip().lower()
-            if t_name.strip() and clean_email and t_pass and supabase:
+            if t_name.strip() and clean_email and t_pass and assigned_classes and supabase:
                 try:
                     payload = {
                         "name": t_name.strip(),
@@ -64,17 +74,18 @@ def render_teacher_management_module():
                         "phone": t_phone.strip(),
                         "password": t_pass.strip(),
                         "role": t_role,
-                        "assigned_class": assigned_cls,
+                        "assigned_class": assigned_classes[0], # Backward compatibility
+                        "assigned_classes": assigned_classes,  # 🎯 Multiple classes array
                         "assigned_section": assigned_sec,
                         "assigned_subjects": assigned_subs
                     }
                     supabase.table("users").insert(payload).execute()
-                    st.success(f"✅ **{t_name}** को `{assigned_cls}-{assigned_sec}` का एक्सेस सफलतापूर्वक दे दिया गया है!")
+                    st.success(f"✅ **{t_name}** को **{', '.join(assigned_classes)}** का एक्सेस सफलतापूर्वक दे दिया गया है!")
                     st.rerun()
                 except Exception as err:
                     st.error(f"❌ Teacher जोड़ने में एरर: {err}")
             else:
-                st.warning("कृपया नाम और ईमेल सही से दर्ज करें।")
+                st.warning("कृपया नाम, ईमेल और कम से कम एक क्लास ज़रूर चुनें।")
 
     # -------------------------------------------------------------
     # TAB 2: VIEW & DELETE TEACHERS
@@ -83,14 +94,17 @@ def render_teacher_management_module():
         st.subheader("All Registered Staff & Permissions")
         if supabase:
             try:
-                res = supabase.table("users").select("id, name, email, phone, role, assigned_class, assigned_section, assigned_subjects").execute()
+                res = supabase.table("users").select("id, name, email, phone, role, assigned_class, assigned_classes, assigned_section, assigned_subjects").execute()
                 teachers = res.data or []
 
                 if teachers:
                     for t in teachers:
                         with st.expander(f"👤 {t['name']} ({t['role'].upper()}) - {t['email']}"):
                             c_a, c_b, c_c = st.columns([2, 2, 1])
-                            c_a.write(f"**Class:** {t.get('assigned_class')} ({t.get('assigned_section')})")
+                            
+                            # Show assigned classes list
+                            classes_list = t.get('assigned_classes') or [t.get('assigned_class', 'N/A')]
+                            c_a.write(f"**Classes Allowed:** {', '.join(classes_list)}")
                             c_b.write(f"**Subjects:** {', '.join(t.get('assigned_subjects', []))}")
                             
                             if t['role'] != 'admin':
