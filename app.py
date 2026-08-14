@@ -13,6 +13,7 @@ from modules.students import render_students_module
 from modules.attendance import render_attendance_module
 from modules.fees import render_fees_module
 from modules.exams import render_exams_module
+from modules.teacher_management import render_teacher_management_module  # Import Teacher Management
 
 # -----------------------------------------------------------
 # SESSION STATE INITIALIZATION
@@ -26,7 +27,7 @@ if 'authenticated' not in st.session_state:
 if "nav_page" not in st.session_state:
     st.session_state["nav_page"] = "📊 Dashboard"
 
-# Quick Navigation Function (बटन पर क्लिक करने पर यही चलेगा)
+# Quick Navigation Function
 def navigate_to(page_name):
     st.session_state["nav_page"] = page_name
 
@@ -56,7 +57,7 @@ def render_main_dashboard():
 
     st.markdown("---")
 
-    # Quick Actions Grid (वर्किंग on_click कॉल बैक के साथ)
+    # Quick Actions Grid
     st.subheader("🚀 Quick Actions")
     q1, q2, q3 = st.columns(3)
     
@@ -130,13 +131,15 @@ else:
         st.write(f"👤 **{user_email}** ({user_role.capitalize()})")
         st.markdown("---")
 
+        # Admin vs Teacher Navigation Menu
         if user_role == "admin":
             menu_options = [
                 "📊 Dashboard", 
                 "👨‍🎓 Student Directory", 
                 "📅 Attendance Register", 
                 "💳 Accounting & Fees", 
-                "📝 Exam & Marks"
+                "📝 Exam & Marks",
+                "👑 Staff & Access Control"  # Principal Special Option
             ]
         else:
             menu_options = [
@@ -181,13 +184,6 @@ else:
 
     elif target_page == "📝 Exam & Marks":
         render_exams_module()
-# app.py में import करें:
-from modules.teacher_management import render_teacher_management_module
 
-# Sidebar Menu Condition (अगर User Admin है):
-user_role = st.session_state.get('user_role', 'admin')
-
-if user_role == 'admin':
-    # Sidebar मेनू में "👑 Staff & Access Control" का ऑप्शन जोड़ें
-    if selected_page == "👑 Staff & Access Control":
+    elif target_page == "👑 Staff & Access Control":
         render_teacher_management_module()
