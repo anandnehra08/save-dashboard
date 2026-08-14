@@ -181,3 +181,13 @@ else:
 
     elif target_page == "📝 Exam & Marks":
         render_exams_module()
+# app.py में import करें:
+from modules.teacher_management import render_teacher_management_module
+
+# Sidebar Menu Condition (अगर User Admin है):
+user_role = st.session_state.get('user_role', 'admin')
+
+if user_role == 'admin':
+    # Sidebar मेनू में "👑 Staff & Access Control" का ऑप्शन जोड़ें
+    if selected_page == "👑 Staff & Access Control":
+        render_teacher_management_module()
