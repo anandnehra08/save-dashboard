@@ -134,6 +134,46 @@ def init_supabase() -> Client:
 
         return client
 
+    try:
+
+    client = create_client(
+        clean_url,
+        clean_key
+    )
+
+    # =====================================================
+    # SUPABASE CONNECTION TEST
+    # =====================================================
+
+    try:
+        test_response = (
+            client
+            .table("students")
+            .select("sr_no")
+            .limit(1)
+            .execute()
+        )
+
+        st.success(
+            f"✅ Supabase Data API Connected! "
+            f"Rows: {len(test_response.data or [])}"
+        )
+
+    except Exception as test_error:
+
+        st.error(
+            f"❌ Supabase Data API Test Failed: {test_error}"
+        )
+
+    return client
+
+except Exception as e:
+
+    st.error(
+        f"❌ Supabase connection failed: {e}"
+    )
+
+    return None
     except Exception as e:
 
         st.error(
