@@ -1,5 +1,10 @@
-from datetime import datetime
+# =========================================================
+# CAMPUS ERP PRO
+# EXAM MANAGEMENT & MARKS
+# =========================================================
+
 import io
+from datetime import datetime
 
 import pandas as pd
 import streamlit as st
@@ -39,125 +44,24 @@ DEFAULT_SUBJECTS = [
 
 
 # =========================================================
-# MASTER SUBJECTS
+# SAFE FLOAT
 # =========================================================
 
-def get_master_subjects():
-
-    if not supabase:
-        return DEFAULT_SUBJECTS
+def safe_float(value):
 
     try:
 
-        response = (
-            supabase
-            .table("subjects_master")
-            .select("subject_name")
-            .order("subject_name")
-            .execute()
-        )
-
-        if response.data:
-
-            subjects = [
-                str(item["subject_name"]).strip()
-                for item in response.data
-                if item.get("subject_name")
-            ]
-
-            return subjects or DEFAULT_SUBJECTS
-
-    except Exception as e:
-
-        st.warning(
-            f"⚠️ Master Subjects fetch करने में दिक्कत: {e}"
-        )
-
-    return DEFAULT_SUBJECTS
-
-
-# =========================================================
-# ROLE / PERMISSION
-# =========================================================
-
-def get_exam_permissions():
-
-    user_role = st.session_state.get(
-        "user_role",
-        "admin"
-    )
-
-    assigned_classes = st.session_state.get(
-        "assigned_classes"
-    )
-
-    if not assigned_classes:
-
-        single_class = st.session_state.get(
-            "assigned_class"
-        )
-
-        if single_class:
-
-            assigned_classes = [
-                single_class
-            ]
-
-        else:
-
-            assigned_classes = CLASSES
-
-    assigned_subjects = st.session_state.get(
-        "assigned_subjects"
-    )
-
-    if not assigned_subjects:
-
-        assigned_subjects = DEFAULT_SUBJECTS
-
-    is_teacher = user_role in [
-        "class_teacher",
-        "subject_teacher"
-    ]
-
-    return (
-        user_role,
-        assigned_classes,
-        assigned_subjects,
-        is_teacher
-    )
-
-
-# =========================================================
-# SAFE NUMBER
-# =========================================================
-
-def safe_int(value, default=0):
-
-    try:
+        if value is None:
+            return 0.0
 
         if pd.isna(value):
-            return default
-
-        return int(float(value))
-
-    except Exception:
-
-        return default
-
-
-def safe_float(value, default=0.0):
-
-    try:
-
-        if pd.isna(value):
-            return default
+            return 0.0
 
         return float(value)
 
     except Exception:
 
-        return default
+        return 0.0
 
 
 # =========================================================
@@ -188,19 +92,121 @@ def calculate_grade(percentage):
     if percentage >= 40:
         return "D"
 
-    return "F"
+    return "E"
 
 
 # =========================================================
-# PASS / FAIL
+# RESULT
 # =========================================================
 
 def calculate_result(percentage):
 
+    percentage = safe_float(
+        percentage
+    )
+
     return (
         "PASS"
-        if safe_float(percentage) >= 33
+        if percentage >= 33
         else "FAIL"
+    )
+
+
+# =========================================================
+# MASTER SUBJECTS
+# =========================================================
+
+def get_master_subjects():
+
+    if not supabase:
+
+        return DEFAULT_SUBJECTS
+
+    try:
+
+        response = (
+            supabase
+            .table("subjects_master")
+            .select("subject_name")
+            .order("subject_name")
+            .execute()
+        )
+
+        if response.data:
+
+            subjects = [
+                str(item.get("subject_name"))
+                for item in response.data
+                if item.get("subject_name")
+            ]
+
+            if subjects:
+                return subjects
+
+    except Exception as e:
+
+        st.warning(
+            f"⚠️ Master Subjects fetch करने में दिक्कत: {e}"
+        )
+
+    return DEFAULT_SUBJECTS
+
+
+# =========================================================
+# EXAM PERMISSIONS
+# =========================================================
+
+def get_exam_permissions():
+
+    user_role = st.session_state.get(
+        "user_role",
+        "admin"
+    )
+
+    assigned_classes = (
+        st.session_state.get(
+            "assigned_classes"
+        )
+    )
+
+    if not assigned_classes:
+
+        single_class = (
+            st.session_state.get(
+                "assigned_class",
+                "Class 10"
+            )
+        )
+
+        assigned_classes = (
+            [single_class]
+            if single_class
+            else CLASSES
+        )
+
+    assigned_subjects = (
+        st.session_state.get(
+            "assigned_subjects",
+            ["Maths", "Science"]
+        )
+    )
+
+    if not assigned_subjects:
+
+        assigned_subjects = [
+            "ALL"
+        ]
+
+    is_teacher = user_role in [
+        "class_teacher",
+        "subject_teacher"
+    ]
+
+    return (
+        user_role,
+        assigned_classes,
+        assigned_subjects,
+        is_teacher
     )
 
 
@@ -208,9 +214,9 @@ def calculate_result(percentage):
 # FETCH STUDENTS
 # =========================================================
 
-def get_students(
-    selected_class,
-    selected_section
+def fetch_students(
+    class_name,
+    section
 ):
 
     if not supabase:
@@ -226,13 +232,15 @@ def get_students(
             )
             .eq(
                 "class",
-                selected_class
+                class_name
             )
             .eq(
                 "section",
-                selected_section
+                section
             )
-            .order("roll_no")
+            .order(
+                "roll_no"
+            )
             .execute()
         )
 
@@ -251,11 +259,11 @@ def get_students(
 # FETCH EXISTING MARKS
 # =========================================================
 
-def get_existing_marks(
-    selected_class,
-    selected_section,
-    selected_subject,
-    selected_exam
+def fetch_existing_marks(
+    class_name,
+    section,
+    subject,
+    exam_type
 ):
 
     if not supabase:
@@ -267,88 +275,242 @@ def get_existing_marks(
             supabase
             .table("marks")
             .select(
-                "sr_no, student_name, class, section, "
-                "subject, exam_type, marks_obtained, "
-                "max_marks, entered_by"
+                "sr_no, student_name, "
+                "class, section, exam_type, "
+                "subject, marks_obtained, "
+                "max_marks, entered_by, "
+                "updated_by, updated_at"
             )
             .eq(
                 "class",
-                selected_class
+                class_name
             )
             .eq(
                 "section",
-                selected_section
+                section
             )
             .eq(
                 "subject",
-                selected_subject
+                subject
             )
             .eq(
                 "exam_type",
-                selected_exam
+                exam_type
             )
             .execute()
         )
 
+        data = response.data or []
+
         return {
-            row["sr_no"]: row
-            for row in (
-                response.data or []
-            )
+            int(row["sr_no"]): row
+            for row in data
+            if row.get("sr_no") is not None
         }
 
     except Exception as e:
 
-        # entered_by missing होने पर भी module crash न हो
+        # entered_by / updated_by missing होने पर
+        # पुराने compatible columns से दोबारा fetch करें
         try:
 
             response = (
                 supabase
                 .table("marks")
                 .select(
-                    "sr_no, student_name, class, "
-                    "section, subject, exam_type, "
-                    "marks_obtained, max_marks"
+                    "sr_no, student_name, "
+                    "class, section, exam_type, "
+                    "subject, marks_obtained, max_marks"
                 )
                 .eq(
                     "class",
-                    selected_class
+                    class_name
                 )
                 .eq(
                     "section",
-                    selected_section
+                    section
                 )
                 .eq(
                     "subject",
-                    selected_subject
+                    subject
                 )
                 .eq(
                     "exam_type",
-                    selected_exam
+                    exam_type
                 )
                 .execute()
             )
 
+            data = response.data or []
+
             return {
-                row["sr_no"]: row
-                for row in (
-                    response.data or []
-                )
+                int(row["sr_no"]): row
+                for row in data
+                if row.get("sr_no") is not None
             }
 
-        except Exception as second_error:
+        except Exception as retry_error:
 
             st.error(
                 "❌ Existing marks fetch error: "
-                f"{second_error}"
+                f"{retry_error}"
             )
 
             return {}
 
 
 # =========================================================
+# FETCH REPORT MARKS
+# =========================================================
+
+def fetch_report_marks(
+    class_name,
+    section,
+    exam_type,
+    subject=None
+):
+
+    if not supabase:
+        return []
+
+    try:
+
+        query = (
+            supabase
+            .table("marks")
+            .select(
+                "sr_no, student_name, "
+                "class, section, exam_type, "
+                "subject, marks_obtained, "
+                "max_marks"
+            )
+            .eq(
+                "class",
+                class_name
+            )
+            .eq(
+                "section",
+                section
+            )
+            .eq(
+                "exam_type",
+                exam_type
+            )
+        )
+
+        if subject:
+
+            query = query.eq(
+                "subject",
+                subject
+            )
+
+        response = query.execute()
+
+        return response.data or []
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Report data fetch error: {e}"
+        )
+
+        return []
+
+
+# =========================================================
+# CHECK DUPLICATE MARKS
+# =========================================================
+
+def check_existing_mark(
+    sr_no,
+    subject,
+    exam_type
+):
+
+    if not supabase:
+        return None
+
+    try:
+
+        response = (
+            supabase
+            .table("marks")
+            .select("id, sr_no")
+            .eq(
+                "sr_no",
+                int(sr_no)
+            )
+            .eq(
+                "subject",
+                subject
+            )
+            .eq(
+                "exam_type",
+                exam_type
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if response.data:
+            return response.data[0]
+
+    except Exception:
+
+        pass
+
+    return None
+
+
+# =========================================================
+# DELETE SINGLE MARK
+# =========================================================
+
+def delete_mark_record(
+    sr_no,
+    subject,
+    exam_type
+):
+
+    if not supabase:
+        return False
+
+    try:
+
+        (
+            supabase
+            .table("marks")
+            .delete()
+            .eq(
+                "sr_no",
+                int(sr_no)
+            )
+            .eq(
+                "subject",
+                subject
+            )
+            .eq(
+                "exam_type",
+                exam_type
+            )
+            .execute()
+        )
+
+        return True
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Delete failed: {e}"
+        )
+
+        return False
+
+
+# =========================================================
 # TAB 1
-# MARKS ENTRY
+# ENTER / EDIT MARKS
 # =========================================================
 
 def render_marks_entry():
@@ -367,15 +529,27 @@ def render_marks_entry():
     all_subjects = get_master_subjects()
 
     # =====================================================
-    # TEACHER INFO
+    # TEACHER INFORMATION
     # =====================================================
 
     if is_teacher:
 
+        class_text = (
+            ", ".join(
+                assigned_classes
+            )
+        )
+
+        subject_text = (
+            ", ".join(
+                assigned_subjects
+            )
+        )
+
         st.info(
-            "🔒 Teacher Access: "
-            f"{', '.join(assigned_classes)} | "
-            f"{', '.join(assigned_subjects)}"
+            f"🔒 **Teacher Access:** "
+            f"Classes: **{class_text}** | "
+            f"Subjects: **{subject_text}**"
         )
 
     # =====================================================
@@ -388,25 +562,26 @@ def render_marks_entry():
 
         if (
             is_teacher
-            and "ALL" not in assigned_classes
+            and "ALL"
+            not in assigned_classes
         ):
 
-            class_options = [
+            available_classes = [
                 c
                 for c in assigned_classes
                 if c in CLASSES
             ]
 
+            if not available_classes:
+                available_classes = CLASSES
+
         else:
 
-            class_options = CLASSES
-
-        if not class_options:
-            class_options = CLASSES
+            available_classes = CLASSES
 
         selected_class = st.selectbox(
             "Select Class",
-            class_options,
+            available_classes,
             key="ex_cls"
         )
 
@@ -422,17 +597,18 @@ def render_marks_entry():
 
         if (
             is_teacher
-            and "ALL" not in assigned_subjects
+            and "ALL"
+            not in assigned_subjects
         ):
 
             available_subjects = [
                 s
                 for s in assigned_subjects
-                if s in all_subjects
+                if s
             ]
 
             if not available_subjects:
-                available_subjects = assigned_subjects
+                available_subjects = all_subjects
 
         else:
 
@@ -470,13 +646,11 @@ def render_marks_entry():
 
                 new_subject = st.text_input(
                     "Enter New Subject Name",
-                    key="new_subject_input",
+                    key="new_subject_name",
                     placeholder="e.g. Computer Science"
                 )
 
             with sub_col2:
-
-                st.write("")
 
                 st.write("")
 
@@ -495,7 +669,7 @@ def render_marks_entry():
                 if not clean_subject:
 
                     st.warning(
-                        "कृपया विषय का नाम लिखें।"
+                        "कृपया subject name लिखें।"
                     )
 
                 elif not supabase:
@@ -504,36 +678,48 @@ def render_marks_entry():
                         "❌ Supabase connection नहीं है."
                     )
 
-                elif clean_subject.lower() in [
-                    s.lower()
-                    for s in all_subjects
-                ]:
-
-                    st.warning(
-                        "⚠️ यह subject पहले से मौजूद है।"
-                    )
-
                 else:
 
                     try:
 
-                        (
+                        existing = (
                             supabase
                             .table("subjects_master")
-                            .insert({
-                                "subject_name":
-                                    clean_subject
-                            })
+                            .select("subject_name")
+                            .eq(
+                                "subject_name",
+                                clean_subject
+                            )
                             .execute()
                         )
 
-                        st.success(
-                            f"✅ Subject "
-                            f"'{clean_subject}' "
-                            "successfully added."
-                        )
+                        if existing.data:
 
-                        st.rerun()
+                            st.warning(
+                                "⚠️ यह subject पहले से मौजूद है।"
+                            )
+
+                        else:
+
+                            (
+                                supabase
+                                .table("subjects_master")
+                                .insert(
+                                    {
+                                        "subject_name":
+                                            clean_subject
+                                    }
+                                )
+                                .execute()
+                            )
+
+                            st.success(
+                                f"✅ Subject "
+                                f"**{clean_subject}** "
+                                "successfully added."
+                            )
+
+                            st.rerun()
 
                     except Exception as e:
 
@@ -544,23 +730,10 @@ def render_marks_entry():
     st.markdown("---")
 
     # =====================================================
-    # MAX MARKS
-    # =====================================================
-
-    max_marks_input = st.number_input(
-        "Maximum Marks for this Test",
-        min_value=1,
-        max_value=1000,
-        value=100,
-        step=5,
-        key="maximum_marks"
-    )
-
-    # =====================================================
     # STUDENTS
     # =====================================================
 
-    students = get_students(
+    students = fetch_students(
         selected_class,
         selected_section
     )
@@ -568,9 +741,9 @@ def render_marks_entry():
     if not students:
 
         st.warning(
-            f"⚠️ No students found in "
-            f"{selected_class} - "
-            f"{selected_section}."
+            f"⚠️ {selected_class} - "
+            f"{selected_section} में "
+            "कोई student नहीं मिला."
         )
 
         return
@@ -579,15 +752,44 @@ def render_marks_entry():
     # EXISTING MARKS
     # =====================================================
 
-    existing_marks = get_existing_marks(
+    existing_marks = fetch_existing_marks(
         selected_class,
         selected_section,
         selected_subject,
         selected_exam
     )
 
+    # =====================================================
+    # MAX MARKS
+    # =====================================================
+
+    existing_max_values = [
+        safe_float(
+            row.get("max_marks")
+        )
+        for row in existing_marks.values()
+        if safe_float(
+            row.get("max_marks")
+        ) > 0
+    ]
+
+    default_max = (
+        existing_max_values[0]
+        if existing_max_values
+        else 100
+    )
+
+    max_marks = st.number_input(
+        "Maximum Marks for this Test",
+        min_value=1.0,
+        max_value=1000.0,
+        value=float(default_max),
+        step=1.0,
+        key="maximum_marks_input"
+    )
+
     st.markdown(
-        f"### Student Marks List "
+        f"### 👨‍🎓 Student Marks List "
         f"({selected_subject} - {selected_exam})"
     )
 
@@ -596,127 +798,130 @@ def render_marks_entry():
     # =====================================================
 
     with st.form(
-        "marks_entry_form"
+        key=(
+            f"marks_entry_"
+            f"{selected_class}_"
+            f"{selected_section}_"
+            f"{selected_subject}_"
+            f"{selected_exam}"
+        )
     ):
 
         marks_payload = []
 
         for student in students:
 
-            sr_no = safe_int(
-                student.get("sr_no")
+            sr_no = int(
+                student.get(
+                    "sr_no",
+                    0
+                )
             )
 
-            name = str(
+            student_name = str(
                 student.get(
                     "student_name",
                     "N/A"
                 )
             )
 
-            roll_no = safe_int(
-                student.get(
-                    "roll_no"
-                )
-            )
+            roll_no = student.get(
+                "roll_no",
+                0
+            ) or 0
 
-            old_data = existing_marks.get(
+            previous = existing_marks.get(
                 sr_no,
                 {}
             )
 
-            old_marks = safe_float(
-                old_data.get(
+            previous_marks = safe_float(
+                previous.get(
                     "marks_obtained",
                     0
                 )
             )
 
-            # Existing max marks को priority
-            old_max = safe_float(
-                old_data.get(
+            previous_max = safe_float(
+                previous.get(
                     "max_marks",
-                    max_marks_input
+                    max_marks
                 )
             )
 
-            if old_max > 0:
+            if previous_max <= 0:
+                previous_max = max_marks
 
-                current_max = old_max
-
-            else:
-
-                current_max = float(
-                    max_marks_input
-                )
-
-            # -------------------------------------------------
-            # Student row
-            # -------------------------------------------------
+            if previous_marks > max_marks:
+                previous_marks = max_marks
 
             mc1, mc2, mc3 = st.columns(
-                [1, 3, 2]
+                [1, 4, 2]
             )
 
             with mc1:
 
-                st.write(
+                st.markdown(
                     f"**Roll #{roll_no}**"
                 )
 
             with mc2:
 
-                st.write(
-                    f"**{name}** "
-                    f"(SR: {sr_no})"
+                st.markdown(
+                    f"**{student_name}**  \n"
+                    f"SR No: `{sr_no}`"
                 )
 
             with mc3:
 
-                obtained_marks = st.number_input(
-                    label=f"Marks for {sr_no}",
+                obtained = st.number_input(
+                    f"Marks for {sr_no}",
                     min_value=0.0,
                     max_value=float(
-                        max_marks_input
+                        max_marks
                     ),
-                    value=min(
-                        old_marks,
-                        float(max_marks_input)
+                    value=float(
+                        previous_marks
                     ),
                     step=0.5,
                     key=(
-                        f"marks_"
-                        f"{sr_no}_"
+                        f"mark_"
+                        f"{selected_class}_"
+                        f"{selected_section}_"
                         f"{selected_subject}_"
-                        f"{selected_exam}"
+                        f"{selected_exam}_"
+                        f"{sr_no}"
                     ),
                     label_visibility="collapsed"
                 )
 
-            marks_payload.append({
-                "sr_no": sr_no,
-                "student_name": name,
-                "class": selected_class,
-                "section": selected_section,
-                "subject": selected_subject,
-                "exam_type": selected_exam,
-                "marks_obtained": obtained_marks,
-                "max_marks": max_marks_input,
-                "entered_by": st.session_state.get(
-                    "user_email",
-                    user_role
-                )
-            })
+            marks_payload.append(
+                {
+                    "sr_no": sr_no,
+                    "student_name":
+                        student_name,
+                    "class":
+                        selected_class,
+                    "section":
+                        selected_section,
+                    "exam_type":
+                        selected_exam,
+                    "subject":
+                        selected_subject,
+                    "marks_obtained":
+                        float(obtained),
+                    "max_marks":
+                        float(max_marks)
+                }
+            )
 
-        st.markdown("---")
-
-        submit_marks = st.form_submit_button(
-            "💾 Save / Update Marks",
+        submitted = st.form_submit_button(
+            "💾 Save / Update All Marks",
             use_container_width=True,
             type="primary"
         )
 
-        if submit_marks:
+        if submitted:
 
             if not supabase:
 
@@ -726,439 +931,349 @@ def render_marks_entry():
 
                 return
 
-            try:
+            success_count = 0
+            error_count = 0
+            errors = []
 
-                (
-                    supabase
-                    .table("marks")
-                    .upsert(
-                        marks_payload,
-                        on_conflict=(
-                            "sr_no,subject,exam_type"
-                        )
-                    )
-                    .execute()
+            current_user = st.session_state.get(
+                "user_email",
+                st.session_state.get(
+                    "username",
+                    "Admin"
                 )
+            )
+
+            for record in marks_payload:
+
+                try:
+
+                    existing = check_existing_mark(
+                        record["sr_no"],
+                        record["subject"],
+                        record["exam_type"]
+                    )
+
+                    # =================================================
+                    # UPDATE
+                    # =================================================
+
+                    if existing:
+
+                        update_data = {
+                            "student_name":
+                                record["student_name"],
+                            "class":
+                                record["class"],
+                            "section":
+                                record["section"],
+                            "marks_obtained":
+                                record["marks_obtained"],
+                            "max_marks":
+                                record["max_marks"],
+                            "updated_by":
+                                current_user,
+                            "updated_at":
+                                datetime.utcnow().isoformat()
+                        }
+
+                        try:
+
+                            (
+                                supabase
+                                .table("marks")
+                                .update(update_data)
+                                .eq(
+                                    "id",
+                                    existing["id"]
+                                )
+                                .execute()
+                            )
+
+                        except Exception:
+
+                            # पुराने database में
+                            # updated_by / updated_at
+                            # न हों तो compatible update
+                            fallback_data = {
+                                "student_name":
+                                    record["student_name"],
+                                "class":
+                                    record["class"],
+                                "section":
+                                    record["section"],
+                                "marks_obtained":
+                                    record["marks_obtained"],
+                                "max_marks":
+                                    record["max_marks"]
+                            }
+
+                            (
+                                supabase
+                                .table("marks")
+                                .update(
+                                    fallback_data
+                                )
+                                .eq(
+                                    "id",
+                                    existing["id"]
+                                )
+                                .execute()
+                            )
+
+                    # =================================================
+                    # INSERT
+                    # =================================================
+
+                    else:
+
+                        insert_data = {
+                            "sr_no":
+                                record["sr_no"],
+                            "student_name":
+                                record["student_name"],
+                            "class":
+                                record["class"],
+                            "section":
+                                record["section"],
+                            "exam_type":
+                                record["exam_type"],
+                            "subject":
+                                record["subject"],
+                            "marks_obtained":
+                                record["marks_obtained"],
+                            "max_marks":
+                                record["max_marks"],
+                            "entered_by":
+                                current_user
+                        }
+
+                        try:
+
+                            (
+                                supabase
+                                .table("marks")
+                                .insert(
+                                    insert_data
+                                )
+                                .execute()
+                            )
+
+                        except Exception:
+
+                            # entered_by missing होने पर
+                            # fallback insert
+                            fallback_data = {
+                                "sr_no":
+                                    record["sr_no"],
+                                "student_name":
+                                    record["student_name"],
+                                "class":
+                                    record["class"],
+                                "section":
+                                    record["section"],
+                                "exam_type":
+                                    record["exam_type"],
+                                "subject":
+                                    record["subject"],
+                                "marks_obtained":
+                                    record["marks_obtained"],
+                                "max_marks":
+                                    record["max_marks"]
+                            }
+
+                            (
+                                supabase
+                                .table("marks")
+                                .insert(
+                                    fallback_data
+                                )
+                                .execute()
+                            )
+
+                    success_count += 1
+
+                except Exception as e:
+
+                    error_count += 1
+
+                    errors.append(
+                        f"SR {record['sr_no']}: {e}"
+                    )
+
+            # =====================================================
+            # RESULT
+            # =====================================================
+
+            if success_count:
 
                 st.success(
-                    f"✅ {len(marks_payload)} "
-                    "students के marks "
-                    "save/update हो गए."
+                    f"✅ {success_count} students "
+                    "के marks save/update हो गए."
                 )
 
+            if error_count:
+
+                st.error(
+                    f"❌ {error_count} records में error आया."
+                )
+
+                with st.expander(
+                    "Error Details"
+                ):
+
+                    for error in errors:
+
+                        st.write(
+                            f"- {error}"
+                        )
+
+            if success_count:
+
+                st.rerun()
+
+    # =====================================================
+    # SAVED MARKS MANAGEMENT
+    # =====================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "### 🗑️ Saved Marks Management"
+    )
+
+    saved_marks = fetch_report_marks(
+        selected_class,
+        selected_section,
+        selected_exam,
+        selected_subject
+    )
+
+    if saved_marks:
+
+        delete_options = {
+            (
+                f"SR {row.get('sr_no')} - "
+                f"{row.get('student_name', 'N/A')} "
+                f"— {safe_float(row.get('marks_obtained')):g}/"
+                f"{safe_float(row.get('max_marks')):g}"
+            ):
+            row.get("sr_no")
+            for row in saved_marks
+        }
+
+        selected_delete_label = st.selectbox(
+            "Select Student for Delete",
+            list(
+                delete_options.keys()
+            ),
+            key=(
+                f"delete_mark_student_"
+                f"{selected_class}_"
+                f"{selected_section}_"
+                f"{selected_subject}_"
+                f"{selected_exam}"
+            )
+        )
+
+        delete_sr = delete_options[
+            selected_delete_label
+        ]
+
+        confirm_delete_key = (
+            f"confirm_delete_"
+            f"{selected_class}_"
+            f"{selected_section}_"
+            f"{selected_subject}_"
+            f"{selected_exam}_"
+            f"{delete_sr}"
+        )
+
+        if not st.session_state.get(
+            confirm_delete_key,
+            False
+        ):
+
+            if st.button(
+                "🗑️ Delete Selected Marks",
+                type="secondary",
+                use_container_width=True,
+                key=(
+                    f"delete_btn_"
+                    f"{selected_class}_"
+                    f"{selected_section}_"
+                    f"{selected_subject}_"
+                    f"{selected_exam}_"
+                    f"{delete_sr}"
+                )
+            ):
+
                 st.session_state[
-                    "marks_saved_message"
+                    confirm_delete_key
                 ] = True
 
                 st.rerun()
 
-            except Exception as e:
+        else:
 
-                st.error(
-                    f"❌ Marks save करने में विफल: {e}"
-                )
-
-
-# =========================================================
-# SAVED MARKS MANAGEMENT
-# =========================================================
-
-def render_saved_marks_management():
-
-    st.markdown("---")
-
-    st.subheader(
-        "🗑️ Saved Marks Management"
-    )
-
-    if not supabase:
-        return
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-
-        delete_class = st.selectbox(
-            "Class",
-            CLASSES,
-            key="delete_marks_class"
-        )
-
-    with c2:
-
-        delete_section = st.selectbox(
-            "Section",
-            SECTIONS,
-            key="delete_marks_section"
-        )
-
-    with c3:
-
-        delete_exam = st.selectbox(
-            "Exam",
-            EXAM_TYPES,
-            key="delete_marks_exam"
-        )
-
-    with c4:
-
-        delete_subject = st.selectbox(
-            "Subject",
-            get_master_subjects(),
-            key="delete_marks_subject"
-        )
-
-    try:
-
-        response = (
-            supabase
-            .table("marks")
-            .select(
-                "id, sr_no, student_name, "
-                "marks_obtained, max_marks"
+            st.warning(
+                f"⚠️ क्या आप वास्तव में "
+                f"**{selected_delete_label}** "
+                "के marks delete करना चाहते हैं?"
             )
-            .eq(
-                "class",
-                delete_class
-            )
-            .eq(
-                "section",
-                delete_section
-            )
-            .eq(
-                "exam_type",
-                delete_exam
-            )
-            .eq(
-                "subject",
-                delete_subject
-            )
-            .order("sr_no")
-            .execute()
-        )
 
-        saved_marks = response.data or []
+            dc1, dc2 = st.columns(2)
 
-    except Exception as e:
+            with dc1:
 
-        st.error(
-            f"❌ Saved marks fetch error: {e}"
-        )
+                if st.button(
+                    "✅ Yes, Delete",
+                    type="primary",
+                    use_container_width=True,
+                    key=(
+                        f"confirm_yes_"
+                        f"{delete_sr}"
+                    )
+                ):
 
-        return
+                    if delete_mark_record(
+                        delete_sr,
+                        selected_subject,
+                        selected_exam
+                    ):
 
-    if not saved_marks:
-
-        st.info(
-            "📭 इस selection के लिए कोई saved marks नहीं हैं."
-        )
-
-        return
-
-    options = {
-        f"SR {row['sr_no']} - "
-        f"{row.get('student_name', 'N/A')} "
-        f"({row.get('marks_obtained', 0)}/"
-        f"{row.get('max_marks', 0)})":
-        row
-        for row in saved_marks
-    }
-
-    selected_label = st.selectbox(
-        "Select Student for Delete",
-        list(options.keys()),
-        key="delete_marks_student"
-    )
-
-    selected_record = options[
-        selected_label
-    ]
-
-    d1, d2 = st.columns(2)
-
-    with d1:
-
-        st.info(
-            f"Student: **{selected_record.get('student_name', 'N/A')}**\n\n"
-            f"SR No: **{selected_record.get('sr_no')}**\n\n"
-            f"Marks: **{selected_record.get('marks_obtained', 0)} / "
-            f"{selected_record.get('max_marks', 0)}**"
-        )
-
-    with d2:
-
-        delete_key = (
-            f"confirm_delete_marks_"
-            f"{selected_record.get('id')}"
-        )
-
-        confirm_delete = st.checkbox(
-            "I confirm delete",
-            key=delete_key
-        )
-
-        if st.button(
-            "🗑️ Delete Selected Marks",
-            type="secondary",
-            use_container_width=True,
-            key=f"delete_marks_btn_{selected_record.get('id')}"
-        ):
-
-            if not confirm_delete:
-
-                st.warning(
-                    "पहले 'I confirm delete' select करें."
-                )
-
-            else:
-
-                try:
-
-                    (
-                        supabase
-                        .table("marks")
-                        .delete()
-                        .eq(
-                            "id",
-                            selected_record["id"]
+                        st.success(
+                            "✅ Marks deleted successfully."
                         )
-                        .execute()
-                    )
 
-                    st.success(
-                        "✅ Selected marks deleted successfully."
+                        st.session_state[
+                            confirm_delete_key
+                        ] = False
+
+                        st.rerun()
+
+            with dc2:
+
+                if st.button(
+                    "❌ Cancel",
+                    use_container_width=True,
+                    key=(
+                        f"confirm_no_"
+                        f"{delete_sr}"
                     )
+                ):
+
+                    st.session_state[
+                        confirm_delete_key
+                    ] = False
 
                     st.rerun()
 
-                except Exception as e:
+    else:
 
-                    st.error(
-                        f"❌ Delete failed: {e}"
-                    )
-
-
-# =========================================================
-# EXCEL EXPORT
-# =========================================================
-
-def create_marks_excel(data):
-
-    if not data:
-        return None
-
-    df = pd.DataFrame(data)
-
-    preferred_columns = [
-        "sr_no",
-        "student_name",
-        "class",
-        "section",
-        "subject",
-        "exam_type",
-        "marks_obtained",
-        "max_marks"
-    ]
-
-    columns = [
-        c
-        for c in preferred_columns
-        if c in df.columns
-    ]
-
-    df = df[columns]
-
-    rename_map = {
-        "sr_no": "SR No",
-        "student_name": "Student Name",
-        "class": "Class",
-        "section": "Section",
-        "subject": "Subject",
-        "exam_type": "Exam Type",
-        "marks_obtained": "Marks Obtained",
-        "max_marks": "Maximum Marks"
-    }
-
-    df = df.rename(
-        columns=rename_map
-    )
-
-    output = io.BytesIO()
-
-    with pd.ExcelWriter(
-        output,
-        engine="openpyxl"
-    ):
-
-        df.to_excel(
-            index=False,
-            sheet_name="Marks"
+        st.info(
+            "इस Subject और Exam के लिए अभी "
+            "कोई saved marks नहीं हैं."
         )
-
-    return output.getvalue()
-
-
-# =========================================================
-# EXCEL TOOLS
-# =========================================================
-
-def render_marks_excel_tools():
-
-    st.markdown("---")
-
-    st.subheader(
-        "📥📤 Excel Tools"
-    )
-
-    if not supabase:
-        return
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-
-        export_class = st.selectbox(
-            "Export Class",
-            CLASSES,
-            key="marks_export_class"
-        )
-
-    with c2:
-
-        export_section = st.selectbox(
-            "Export Section",
-            SECTIONS,
-            key="marks_export_section"
-        )
-
-    if st.button(
-        "📤 Load Marks for Excel Export",
-        use_container_width=True,
-        key="load_marks_excel"
-    ):
-
-        try:
-
-            response = (
-                supabase
-                .table("marks")
-                .select(
-                    "sr_no, student_name, class, "
-                    "section, subject, exam_type, "
-                    "marks_obtained, max_marks"
-                )
-                .eq(
-                    "class",
-                    export_class
-                )
-                .eq(
-                    "section",
-                    export_section
-                )
-                .order("sr_no")
-                .execute()
-            )
-
-            export_data = response.data or []
-
-            if not export_data:
-
-                st.warning(
-                    "इस class/section के लिए marks नहीं मिले."
-                )
-
-            else:
-
-                excel_bytes = create_marks_excel(
-                    export_data
-                )
-
-                st.download_button(
-                    "📥 Download Marks Excel",
-                    data=excel_bytes,
-                    file_name=(
-                        f"marks_"
-                        f"{export_class.replace(' ', '_')}_"
-                        f"{export_section}.xlsx"
-                    ),
-                    mime=(
-                        "application/vnd.openxmlformats-officedocument."
-                        "spreadsheetml.sheet"
-                    ),
-                    use_container_width=True,
-                    key="download_marks_excel"
-                )
-
-                st.dataframe(
-                    pd.DataFrame(
-                        export_data
-                    ),
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-        except Exception as e:
-
-            st.error(
-                f"❌ Excel export error: {e}"
-            )
-
-
-# =========================================================
-# FETCH REPORT MARKS
-# =========================================================
-
-def fetch_report_marks(
-    selected_class,
-    selected_section,
-    selected_exam,
-    selected_subject=None
-):
-
-    if not supabase:
-        return []
-
-    try:
-
-        query = (
-            supabase
-            .table("marks")
-            .select(
-                "sr_no, student_name, class, "
-                "section, subject, exam_type, "
-                "marks_obtained, max_marks"
-            )
-            .eq(
-                "class",
-                selected_class
-            )
-            .eq(
-                "section",
-                selected_section
-            )
-            .eq(
-                "exam_type",
-                selected_exam
-            )
-        )
-
-        if selected_subject:
-            query = query.eq(
-                "subject",
-                selected_subject
-            )
-
-        response = query.execute()
-
-        return response.data or []
-
-    except Exception as e:
-
-        st.error(
-            f"❌ Report data fetch error: {e}"
-        )
-
-        return []
 
 
 # =========================================================
@@ -1192,7 +1307,10 @@ def render_report_card(
     )
 
     percentage = (
-        (total_obtained / total_max) * 100
+        (
+            total_obtained /
+            total_max
+        ) * 100
         if total_max > 0
         else 0
     )
@@ -1207,69 +1325,99 @@ def render_report_card(
 
     st.markdown("---")
 
+    # =====================================================
+    # REPORT CARD HEADER
+    # =====================================================
+
     st.markdown(
         f"""
         <div style="
             border:2px solid #1e3a8a;
             border-radius:12px;
-            padding:20px;
+            padding:24px;
             background:white;
         ">
 
-        <div style="
-            text-align:center;
-            border-bottom:2px solid #1e3a8a;
-            padding-bottom:12px;
-        ">
+            <div style="
+                text-align:center;
+                border-bottom:2px solid #1e3a8a;
+                padding-bottom:15px;
+            ">
 
-            <h1 style="margin:0;color:#1e3a8a;">
-                🏫 CAMPUS ERP PRO
-            </h1>
+                <h1 style="
+                    margin:0;
+                    color:#1e3a8a;
+                ">
+                    🏫 CAMPUS ERP PRO
+                </h1>
 
-            <h3 style="margin:8px 0;">
-                STUDENT REPORT CARD
-            </h3>
+                <h3 style="
+                    margin:8px 0;
+                ">
+                    STUDENT REPORT CARD
+                </h3>
 
-            <p style="margin:0;">
-                {exam_type}
-            </p>
+                <p style="
+                    margin:0;
+                    font-weight:bold;
+                ">
+                    {exam_type}
+                </p>
 
-        </div>
+            </div>
 
-        <br>
+            <table style="
+                width:100%;
+                margin-top:20px;
+                border-collapse:collapse;
+            ">
 
-        <table style="width:100%;border-collapse:collapse;">
+                <tr>
 
-            <tr>
-                <td style="padding:8px;">
-                    <b>Student Name:</b>
-                    {student_name}
-                </td>
+                    <td style="
+                        padding:9px;
+                    ">
+                        <b>Student Name:</b>
+                        {student_name}
+                    </td>
 
-                <td style="padding:8px;">
-                    <b>SR No:</b>
-                    {sr_no}
-                </td>
-            </tr>
+                    <td style="
+                        padding:9px;
+                    ">
+                        <b>SR No:</b>
+                        {sr_no}
+                    </td>
 
-            <tr>
-                <td style="padding:8px;">
-                    <b>Class:</b>
-                    {class_name}
-                </td>
+                </tr>
 
-                <td style="padding:8px;">
-                    <b>Section:</b>
-                    {section}
-                </td>
-            </tr>
+                <tr>
 
-        </table>
+                    <td style="
+                        padding:9px;
+                    ">
+                        <b>Class:</b>
+                        {class_name}
+                    </td>
+
+                    <td style="
+                        padding:9px;
+                    ">
+                        <b>Section:</b>
+                        {section}
+                    </td>
+
+                </tr>
+
+            </table>
 
         </div>
         """,
         unsafe_allow_html=True
     )
+
+    # =====================================================
+    # SUBJECT TABLE
+    # =====================================================
 
     report_rows = []
 
@@ -1284,31 +1432,42 @@ def render_report_card(
         )
 
         subject_percentage = (
-            obtained / maximum * 100
+            obtained /
+            maximum *
+            100
             if maximum > 0
             else 0
         )
 
-        report_rows.append({
-            "Subject":
-                row.get("subject", ""),
-            "Marks Obtained":
-                obtained,
-            "Maximum Marks":
-                maximum,
-            "Percentage":
-                round(
-                    subject_percentage,
-                    2
-                ),
-            "Grade":
-                calculate_grade(
-                    subject_percentage
-                )
-        })
+        report_rows.append(
+            {
+                "Subject":
+                    row.get(
+                        "subject",
+                        ""
+                    ),
+                "Marks Obtained":
+                    obtained,
+                "Maximum Marks":
+                    maximum,
+                "Percentage":
+                    round(
+                        subject_percentage,
+                        2
+                    ),
+                "Grade":
+                    calculate_grade(
+                        subject_percentage
+                    )
+            }
+        )
 
     report_df = pd.DataFrame(
         report_rows
+    )
+
+    st.markdown(
+        "### 📚 Subject-wise Marks"
     )
 
     st.dataframe(
@@ -1316,6 +1475,10 @@ def render_report_card(
         use_container_width=True,
         hide_index=True
     )
+
+    # =====================================================
+    # SUMMARY
+    # =====================================================
 
     m1, m2, m3, m4 = st.columns(4)
 
@@ -1347,10 +1510,277 @@ def render_report_card(
             result
         )
 
+    # =====================================================
+    # PRINTABLE REPORT
+    # =====================================================
+
+    report_rows_html = ""
+
+    for row in report_rows:
+
+        report_rows_html += f"""
+        <tr>
+            <td>{row['Subject']}</td>
+            <td>{row['Marks Obtained']:g}</td>
+            <td>{row['Maximum Marks']:g}</td>
+            <td>{row['Percentage']:.2f}%</td>
+            <td>{row['Grade']}</td>
+        </tr>
+        """
+
+    printable_html = f"""
+    <!DOCTYPE html>
+
+    <html>
+
+    <head>
+
+    <meta charset="UTF-8">
+
+    <style>
+
+    body {{
+        font-family: Arial, sans-serif;
+        background:#f3f4f6;
+        padding:20px;
+    }}
+
+    .card {{
+        max-width:850px;
+        margin:auto;
+        background:white;
+        border:2px solid #1e3a8a;
+        padding:30px;
+    }}
+
+    .header {{
+        text-align:center;
+        border-bottom:2px solid #1e3a8a;
+        padding-bottom:15px;
+    }}
+
+    .header h1 {{
+        color:#1e3a8a;
+        margin:0;
+    }}
+
+    table {{
+        width:100%;
+        border-collapse:collapse;
+        margin-top:20px;
+    }}
+
+    th, td {{
+        border:1px solid #999;
+        padding:10px;
+        text-align:center;
+    }}
+
+    th {{
+        background:#eef2ff;
+    }}
+
+    .summary {{
+        margin-top:20px;
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:10px;
+    }}
+
+    .box {{
+        border:1px solid #aaa;
+        padding:12px;
+        text-align:center;
+    }}
+
+    .print-btn {{
+        margin-top:20px;
+        width:100%;
+        padding:12px;
+        background:#1e3a8a;
+        color:white;
+        border:none;
+        border-radius:7px;
+        font-size:16px;
+        font-weight:bold;
+        cursor:pointer;
+    }}
+
+    @media print {{
+
+        body {{
+            background:white;
+            padding:0;
+        }}
+
+        .print-btn {{
+            display:none;
+        }}
+
+        @page {{
+            size:A4;
+            margin:12mm;
+        }}
+
+    }}
+
+    </style>
+
+    </head>
+
+    <body>
+
+    <div class="card">
+
+        <div class="header">
+
+            <h1>
+                🏫 CAMPUS ERP PRO
+            </h1>
+
+            <h3>
+                STUDENT REPORT CARD
+            </h3>
+
+            <p>
+                {exam_type}
+            </p>
+
+        </div>
+
+        <table>
+
+            <tr>
+                <td>
+                    <b>Student Name</b>
+                </td>
+
+                <td>
+                    {student_name}
+                </td>
+
+                <td>
+                    <b>SR No</b>
+                </td>
+
+                <td>
+                    {sr_no}
+                </td>
+            </tr>
+
+            <tr>
+
+                <td>
+                    <b>Class</b>
+                </td>
+
+                <td>
+                    {class_name}
+                </td>
+
+                <td>
+                    <b>Section</b>
+                </td>
+
+                <td>
+                    {section}
+                </td>
+
+            </tr>
+
+        </table>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>Subject</th>
+                    <th>Obtained</th>
+                    <th>Maximum</th>
+                    <th>Percentage</th>
+                    <th>Grade</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {report_rows_html}
+
+            </tbody>
+
+        </table>
+
+        <div class="summary">
+
+            <div class="box">
+                <b>Total</b><br>
+                {total_obtained:g} / {total_max:g}
+            </div>
+
+            <div class="box">
+                <b>Percentage</b><br>
+                {percentage:.2f}%
+            </div>
+
+            <div class="box">
+                <b>Grade</b><br>
+                {grade}
+            </div>
+
+            <div class="box">
+                <b>Result</b><br>
+                {result}
+            </div>
+
+        </div>
+
+        <br><br><br>
+
+        <table style="border:none;">
+
+            <tr>
+
+                <td style="border:none;">
+                    Parent / Guardian Signature
+                </td>
+
+                <td style="border:none;">
+                    Class Teacher Signature
+                </td>
+
+                <td style="border:none;">
+                    Principal Signature
+                </td>
+
+            </tr>
+
+        </table>
+
+        <button
+            class="print-btn"
+            onclick="window.print()"
+        >
+            🖨️ Print A4 Report Card
+        </button>
+
+    </div>
+
+    </body>
+
+    </html>
+    """
+
+    st.components.v1.html(
+        printable_html,
+        height=850,
+        scrolling=True
+    )
+
 
 # =========================================================
-# TAB 2
-# CLASS PERFORMANCE & REPORT CARD
+# PERFORMANCE REPORT
 # =========================================================
 
 def render_performance_report():
@@ -1368,9 +1798,14 @@ def render_performance_report():
 
     all_subjects = get_master_subjects()
 
+    # =====================================================
+    # CLASSES
+    # =====================================================
+
     if (
         is_teacher
-        and "ALL" not in assigned_classes
+        and "ALL"
+        not in assigned_classes
     ):
 
         report_classes = [
@@ -1384,21 +1819,32 @@ def render_performance_report():
         report_classes = CLASSES
 
     if not report_classes:
+
         report_classes = CLASSES
+
+    # =====================================================
+    # SUBJECTS
+    # =====================================================
 
     if (
         is_teacher
-        and "ALL" not in assigned_subjects
+        and "ALL"
+        not in assigned_subjects
     ):
 
         report_subjects = [
             s
             for s in assigned_subjects
+            if s
         ]
 
     else:
 
         report_subjects = all_subjects
+
+    # =====================================================
+    # FILTERS
+    # =====================================================
 
     rc1, rc2, rc3, rc4 = st.columns(4)
 
@@ -1428,9 +1874,10 @@ def render_performance_report():
 
     with rc4:
 
-        subject_options = [
-            "ALL"
-        ] + report_subjects
+        subject_options = (
+            ["ALL"] +
+            report_subjects
+        )
 
         report_subject = st.selectbox(
             "Select Subject Filter",
@@ -1461,6 +1908,32 @@ def render_performance_report():
     )
 
     # =====================================================
+    # NUMERIC CONVERSION
+    # =====================================================
+
+    df["marks_obtained"] = (
+        df["marks_obtained"]
+        .apply(safe_float)
+    )
+
+    df["max_marks"] = (
+        df["max_marks"]
+        .apply(safe_float)
+    )
+
+    df["percentage"] = df.apply(
+        lambda row:
+            (
+                row["marks_obtained"] /
+                row["max_marks"] *
+                100
+            )
+            if row["max_marks"] > 0
+            else 0,
+        axis=1
+    )
+
+    # =====================================================
     # CLASS SUMMARY
     # =====================================================
 
@@ -1470,17 +1943,13 @@ def render_performance_report():
         "### 📈 Class Performance"
     )
 
-    total_obtained = df[
-        "marks_obtained"
-    ].apply(
-        safe_float
-    ).sum()
+    total_obtained = (
+        df["marks_obtained"].sum()
+    )
 
-    total_max = df[
-        "max_marks"
-    ].apply(
-        safe_float
-    ).sum()
+    total_max = (
+        df["max_marks"].sum()
+    )
 
     class_percentage = (
         total_obtained /
@@ -1490,36 +1959,18 @@ def render_performance_report():
         else 0
     )
 
-    student_count = df[
-        "sr_no"
-    ].nunique()
+    student_count = (
+        df["sr_no"].nunique()
+    )
 
-    subject_count = df[
-        "subject"
-    ].nunique()
+    subject_count = (
+        df["subject"].nunique()
+    )
 
     avg_percentage = (
-        df.assign(
-            pct=df.apply(
-                lambda x:
-                (
-                    safe_float(
-                        x["marks_obtained"]
-                    )
-                    /
-                    safe_float(
-                        x["max_marks"]
-                    )
-                    *
-                    100
-                )
-                if safe_float(
-                    x["max_marks"]
-                ) > 0
-                else 0,
-                axis=1
-            )
-        )["pct"].mean()
+        df["percentage"].mean()
+        if not df.empty
+        else 0
     )
 
     p1, p2, p3, p4 = st.columns(4)
@@ -1553,7 +2004,7 @@ def render_performance_report():
         )
 
     # =====================================================
-    # SUBJECT-WISE SUMMARY
+    # SUBJECT SUMMARY
     # =====================================================
 
     st.markdown(
@@ -1566,17 +2017,13 @@ def render_performance_report():
         "subject"
     ):
 
-        obtained = group[
-            "marks_obtained"
-        ].apply(
-            safe_float
-        ).sum()
+        obtained = (
+            group["marks_obtained"].sum()
+        )
 
-        maximum = group[
-            "max_marks"
-        ].apply(
-            safe_float
-        ).sum()
+        maximum = (
+            group["max_marks"].sum()
+        )
 
         percentage = (
             obtained /
@@ -1586,22 +2033,31 @@ def render_performance_report():
             else 0
         )
 
-        subject_summary.append({
-            "Subject": subject,
-            "Marks Obtained":
-                round(obtained, 2),
-            "Maximum Marks":
-                round(maximum, 2),
-            "Percentage":
-                round(
-                    percentage,
-                    2
-                ),
-            "Grade":
-                calculate_grade(
-                    percentage
-                )
-        })
+        subject_summary.append(
+            {
+                "Subject":
+                    subject,
+                "Marks Obtained":
+                    round(
+                        obtained,
+                        2
+                    ),
+                "Maximum Marks":
+                    round(
+                        maximum,
+                        2
+                    ),
+                "Percentage":
+                    round(
+                        percentage,
+                        2
+                    ),
+                "Grade":
+                    calculate_grade(
+                        percentage
+                    )
+            }
+        )
 
     subject_df = pd.DataFrame(
         subject_summary
@@ -1634,17 +2090,13 @@ def render_performance_report():
             )
         )
 
-        obtained = group[
-            "marks_obtained"
-        ].apply(
-            safe_float
-        ).sum()
+        obtained = (
+            group["marks_obtained"].sum()
+        )
 
-        maximum = group[
-            "max_marks"
-        ].apply(
-            safe_float
-        ).sum()
+        maximum = (
+            group["max_marks"].sum()
+        )
 
         percentage = (
             obtained /
@@ -1654,45 +2106,51 @@ def render_performance_report():
             else 0
         )
 
-        student_summary.append({
-            "SR No":
-                sr_no,
-            "Student Name":
-                name,
-            "Total Marks":
-                round(
-                    obtained,
-                    2
-                ),
-            "Maximum Marks":
-                round(
-                    maximum,
-                    2
-                ),
-            "Percentage":
-                round(
-                    percentage,
-                    2
-                ),
-            "Grade":
-                calculate_grade(
-                    percentage
-                ),
-            "Result":
-                calculate_result(
-                    percentage
-                )
-        })
+        student_summary.append(
+            {
+                "SR No":
+                    sr_no,
+                "Student Name":
+                    name,
+                "Total Marks":
+                    round(
+                        obtained,
+                        2
+                    ),
+                "Maximum Marks":
+                    round(
+                        maximum,
+                        2
+                    ),
+                "Percentage":
+                    round(
+                        percentage,
+                        2
+                    ),
+                "Grade":
+                    calculate_grade(
+                        percentage
+                    ),
+                "Result":
+                    calculate_result(
+                        percentage
+                    )
+            }
+        )
 
     summary_df = pd.DataFrame(
         student_summary
     )
 
-    summary_df = summary_df.sort_values(
-        by="Percentage",
-        ascending=False
-    ).reset_index(
-        drop=True
+    summary_df = (
+        summary_df
+        .sort_values(
+            by="Percentage",
+            ascending=False
+        )
+        .reset_index(
+            drop=True
+        )
     )
 
     summary_df.insert(
@@ -1711,7 +2169,7 @@ def render_performance_report():
     )
 
     # =====================================================
-    # EXCEL DOWNLOAD
+    # EXCEL
     # =====================================================
 
     output = io.BytesIO()
@@ -1731,6 +2189,12 @@ def render_performance_report():
             writer,
             index=False,
             sheet_name="Subject Summary"
+        )
+
+        df.to_excel(
+            writer,
+            index=False,
+            sheet_name="Marks Data"
         )
 
     st.download_button(
@@ -1760,53 +2224,58 @@ def render_performance_report():
     )
 
     student_options = {
-        f"SR {row['SR No']} - "
-        f"{row['Student Name']}":
+        (
+            f"Rank {row['Rank']} | "
+            f"SR {row['SR No']} - "
+            f"{row['Student Name']}"
+        ):
         row["SR No"]
         for _, row in summary_df.iterrows()
     }
 
-    if student_options:
+    if not student_options:
+        return
 
-        selected_student_label = st.selectbox(
-            "Select Student",
-            list(
-                student_options.keys()
-            ),
-            key="report_student_select"
+    selected_student_label = st.selectbox(
+        "Select Student",
+        list(
+            student_options.keys()
+        ),
+        key="report_student_select"
+    )
+
+    selected_sr = student_options[
+        selected_student_label
+    ]
+
+    student_data = df[
+        df["sr_no"] == selected_sr
+    ]
+
+    if student_data.empty:
+        return
+
+    student_name = str(
+        student_data.iloc[0].get(
+            "student_name",
+            "N/A"
         )
+    )
 
-        selected_sr = student_options[
-            selected_student_label
-        ]
-
-        student_data = df[
-            df["sr_no"] == selected_sr
-        ]
-
-        if not student_data.empty:
-
-            student_name = str(
-                student_data.iloc[0].get(
-                    "student_name",
-                    "N/A"
-                )
-            )
-
-            render_report_card(
-                student_name,
-                selected_sr,
-                report_class,
-                report_section,
-                report_exam,
-                student_data.to_dict(
-                    "records"
-                )
-            )
+    render_report_card(
+        student_name,
+        selected_sr,
+        report_class,
+        report_section,
+        report_exam,
+        student_data.to_dict(
+            "records"
+        )
+    )
 
 
 # =========================================================
-# MAIN EXAMS MODULE
+# MAIN EXAM MODULE
 # =========================================================
 
 def render_exams_module():
@@ -1815,26 +2284,16 @@ def render_exams_module():
         "## 📝 Exam Management & Marks Entry"
     )
 
-    tab1, tab2 = st.tabs([
-        "✏️ Enter / Edit Marks",
-        "📊 Class Performance & Report Card"
-    ])
-
-    # =====================================================
-    # TAB 1
-    # =====================================================
+    tab1, tab2 = st.tabs(
+        [
+            "✏️ Enter / Edit Marks",
+            "📊 Class Performance & Report Card"
+        ]
+    )
 
     with tab1:
 
         render_marks_entry()
-
-        render_saved_marks_management()
-
-        render_marks_excel_tools()
-
-    # =====================================================
-    # TAB 2
-    # =====================================================
 
     with tab2:
 
