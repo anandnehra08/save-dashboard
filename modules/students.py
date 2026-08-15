@@ -820,14 +820,29 @@ def render_print_student_profile(student):
     st.markdown(
         """
         <style>
+
         @media print {
-            @page { size: A4; margin: 12mm; }
-            header, [data-testid="stSidebar"], [data-testid="stHeader"],
-            [data-testid="stToolbar"], .no-print {
+
+            @page {
+                size: A4;
+                margin: 12mm;
+            }
+
+            header,
+            [data-testid="stSidebar"],
+            [data-testid="stHeader"],
+            [data-testid="stToolbar"],
+            .no-print {
                 display: none !important;
             }
-            .print-profile { display: block !important; }
+
+            .print-profile {
+                display: block !important;
+                width: 100%;
+            }
+
         }
+
         .print-profile {
             background: white;
             border: 2px solid #1e3a8a;
@@ -836,99 +851,374 @@ def render_print_student_profile(student):
             margin-top: 20px;
             color: #111827;
         }
+
         .print-title {
             text-align: center;
             border-bottom: 2px solid #1e3a8a;
             padding-bottom: 12px;
             margin-bottom: 20px;
         }
-        .print-title h1 { margin: 0; color: #1e3a8a; }
-        .print-title p { margin: 5px 0; color: #374151; }
-        .profile-section { margin-top: 18px; }
+
+        .print-title h1 {
+            margin: 0;
+            color: #1e3a8a;
+        }
+
+        .print-title p {
+            margin: 5px 0;
+            color: #374151;
+        }
+
+        .profile-section {
+            margin-top: 18px;
+        }
+
         .profile-section h3 {
             background: #eef2ff;
             padding: 8px 12px;
             border-left: 5px solid #1e3a8a;
             color: #1e3a8a;
         }
+
         .profile-table {
-            width: 100%; border-collapse: collapse; margin-top: 8px;
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
         }
-        .profile-table td { border: 1px solid #d1d5db; padding: 9px; }
-        .profile-label { font-weight: bold; width: 30%; background: #f9fafb; }
+
+        .profile-table td {
+            border: 1px solid #d1d5db;
+            padding: 9px;
+        }
+
+        .profile-label {
+            font-weight: bold;
+            width: 30%;
+            background: #f9fafb;
+        }
+
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    student_name = student.get("student_name", "N/A")
-    sr_no = student.get("sr_no", "N/A")
+    student_name = str(
+        student.get("student_name") or "N/A"
+    )
 
-    profile_html = f"""
-    <div class="print-profile">
-        <div class="print-title">
-            <h1>🏫 CAMPUS ERP PRO</h1>
-            <p><b>STUDENT PROFILE</b></p>
-            <p>Student Academic Record</p>
-        </div>
+    sr_no = str(
+        student.get("sr_no") or "N/A"
+    )
 
-        <div class="profile-section">
-            <h3>👤 Personal Details</h3>
-            <table class="profile-table">
-                <tr><td class="profile-label">Student Name</td><td>{student_name}</td></tr>
-                <tr><td class="profile-label">Father's Name</td><td>{student.get("father_name", "N/A")}</td></tr>
-                <tr><td class="profile-label">Mother's Name</td><td>{student.get("mother_name", "N/A")}</td></tr>
-                <tr><td class="profile-label">Gender</td><td>{student.get("gender", "N/A")}</td></tr>
-            </table>
-        </div>
+    father_name = str(
+        student.get("father_name") or "N/A"
+    )
 
-        <div class="profile-section">
-            <h3>📚 Academic Details</h3>
-            <table class="profile-table">
-                <tr><td class="profile-label">SR Number</td><td>{sr_no}</td></tr>
-                <tr><td class="profile-label">Roll Number</td><td>{student.get("roll_no", "N/A")}</td></tr>
-                <tr><td class="profile-label">Class</td><td>{student.get("class", "N/A")}</td></tr>
-                <tr><td class="profile-label">Section</td><td>{student.get("section", "N/A")}</td></tr>
-            </table>
-        </div>
+    mother_name = str(
+        student.get("mother_name") or "N/A"
+    )
 
-        <div class="profile-section">
-            <h3>🚌 Contact & Transport</h3>
-            <table class="profile-table">
-                <tr><td class="profile-label">Mobile</td><td>{student.get("mobile") or "N/A"}</td></tr>
-                <tr><td class="profile-label">Bus Route</td><td>{student.get("bus_route") or "N/A"}</td></tr>
-                <tr><td class="profile-label">Drop Point</td><td>{student.get("drop_point") or "N/A"}</td></tr>
-                <tr><td class="profile-label">Aadhaar / ID</td><td>{"Available" if student.get("aadhaar") else "Not Available"}</td></tr>
-            </table>
-        </div>
+    gender = str(
+        student.get("gender") or "N/A"
+    )
 
-        <div style="margin-top:55px;">
-            <table class="profile-table">
-                <tr>
-                    <td style="text-align:center; border:none;">Parent / Guardian Signature</td>
-                    <td style="text-align:center; border:none;">Authorized Signature</td>
-                </tr>
-                <tr><td style="height:55px; border:none;"></td><td style="height:55px; border:none;"></td></tr>
-            </table>
-        </div>
-        <div style="text-align:center; margin-top:20px; font-size:12px;">Generated by Campus ERP Pro</div>
-    </div>
-    """
+    roll_no = str(
+        student.get("roll_no") or "N/A"
+    )
 
-    st.markdown(profile_html, unsafe_allow_html=True)
+    class_name = str(
+        student.get("class") or "N/A"
+    )
+
+    section = str(
+        student.get("section") or "N/A"
+    )
+
+    mobile = str(
+        student.get("mobile") or "N/A"
+    )
+
+    bus_route = str(
+        student.get("bus_route") or "N/A"
+    )
+
+    drop_point = str(
+        student.get("drop_point") or "N/A"
+    )
+
+    aadhaar_status = (
+        "Available"
+        if student.get("aadhaar")
+        else "Not Available"
+    )
+
+    # =====================================================
+    # PRINT PROFILE
+    # =====================================================
 
     st.markdown(
-        """
-        <div class="no-print">
-            <button onclick="window.print()" style="width:100%; padding:12px; border:none; border-radius:8px; background:#1e3a8a; color:white; font-size:16px; font-weight:bold; cursor:pointer;">
-                🖨️ Print A4 Student Profile
-            </button>
+        f"""
+        <div class="print-profile">
+
+            <div class="print-title">
+
+                <h1>🏫 CAMPUS ERP PRO</h1>
+
+                <p>
+                    <b>STUDENT PROFILE</b>
+                </p>
+
+                <p>
+                    Student Academic Record
+                </p>
+
+            </div>
+
+
+            <div class="profile-section">
+
+                <h3>👤 Personal Details</h3>
+
+                <table class="profile-table">
+
+                    <tr>
+                        <td class="profile-label">
+                            Student Name
+                        </td>
+                        <td>
+                            {student_name}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Father's Name
+                        </td>
+                        <td>
+                            {father_name}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Mother's Name
+                        </td>
+                        <td>
+                            {mother_name}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Gender
+                        </td>
+                        <td>
+                            {gender}
+                        </td>
+                    </tr>
+
+                </table>
+
+            </div>
+
+
+            <div class="profile-section">
+
+                <h3>📚 Academic Details</h3>
+
+                <table class="profile-table">
+
+                    <tr>
+                        <td class="profile-label">
+                            SR Number
+                        </td>
+                        <td>
+                            {sr_no}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Roll Number
+                        </td>
+                        <td>
+                            {roll_no}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Class
+                        </td>
+                        <td>
+                            {class_name}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Section
+                        </td>
+                        <td>
+                            {section}
+                        </td>
+                    </tr>
+
+                </table>
+
+            </div>
+
+
+            <div class="profile-section">
+
+                <h3>🚌 Contact & Transport</h3>
+
+                <table class="profile-table">
+
+                    <tr>
+                        <td class="profile-label">
+                            Mobile
+                        </td>
+                        <td>
+                            {mobile}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Bus Route
+                        </td>
+                        <td>
+                            {bus_route}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Drop Point
+                        </td>
+                        <td>
+                            {drop_point}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="profile-label">
+                            Aadhaar / ID
+                        </td>
+                        <td>
+                            {aadhaar_status}
+                        </td>
+                    </tr>
+
+                </table>
+
+            </div>
+
+
+            <div style="margin-top:55px;">
+
+                <table
+                    style="
+                        width:100%;
+                        border-collapse:collapse;
+                    "
+                >
+
+                    <tr>
+
+                        <td
+                            style="
+                                text-align:center;
+                                border:none;
+                                padding:10px;
+                            "
+                        >
+                            Parent / Guardian Signature
+                        </td>
+
+                        <td
+                            style="
+                                text-align:center;
+                                border:none;
+                                padding:10px;
+                            "
+                        >
+                            Authorized Signature
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td
+                            style="
+                                height:55px;
+                                border:none;
+                            "
+                        >
+                        </td>
+
+                        <td
+                            style="
+                                height:55px;
+                                border:none;
+                            "
+                        >
+                        </td>
+
+                    </tr>
+
+                </table>
+
+            </div>
+
+
+            <div
+                style="
+                    text-align:center;
+                    margin-top:20px;
+                    font-size:12px;
+                "
+            >
+                Generated by Campus ERP Pro
+            </div>
+
         </div>
         """,
         unsafe_allow_html=True
     )
 
 
+    # =====================================================
+    # PRINT BUTTON
+    # =====================================================
+
+    st.markdown(
+        """
+        <div class="no-print">
+
+            <button
+                onclick="window.print()"
+                style="
+                    width:100%;
+                    padding:12px;
+                    border:none;
+                    border-radius:8px;
+                    background:#1e3a8a;
+                    color:white;
+                    font-size:16px;
+                    font-weight:bold;
+                    cursor:pointer;
+                "
+            >
+                🖨️ Print A4 Student Profile
+            </button>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 # =========================================================
 # TAB 3 — SEARCH & EDIT
 # =========================================================
