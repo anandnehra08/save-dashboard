@@ -1139,16 +1139,136 @@ def render_print_student_profile(student):
         height=900,
         scrolling=True
     )
+    components.html(
+        html,
+        height=900,
+        scrolling=True
+    )
+
 
 # =========================================================
-# TAB 3 — SEARCH & EDIT
+# DUPLICATE CHECK HELPERS
+# =========================================================
+
+def check_duplicate_sr(sr_no, exclude_sr=None):
+
+    if not supabase:
+        return False
+
+    try:
+
+        response = (
+            supabase
+            .table("students")
+            .select("sr_no")
+            .eq("sr_no", int(sr_no))
+            .execute()
+        )
+
+        if not response.data:
+            return False
+
+        for row in response.data:
+
+            existing_sr = int(
+                row.get("sr_no")
+            )
+
+            if (
+                exclude_sr is not None
+                and existing_sr == int(exclude_sr)
+            ):
+                continue
+
+            return True
+
+        return False
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Duplicate SR check failed: {e}"
+        )
+
+        return False
+
+
+def check_duplicate_roll(
+    roll_no,
+    class_name,
+    section,
+    exclude_sr=None
+):
+
+    if not supabase:
+        return False
+
+    if not roll_no or int(roll_no) <= 0:
+        return False
+
+    try:
+
+        response = (
+            supabase
+            .table("students")
+            .select(
+                "sr_no, roll_no, class, section"
+            )
+            .eq(
+                "roll_no",
+                int(roll_no)
+            )
+            .eq(
+                "class",
+                class_name
+            )
+            .eq(
+                "section",
+                section
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return False
+
+        for row in response.data:
+
+            existing_sr = int(
+                row.get("sr_no")
+            )
+
+            if (
+                exclude_sr is not None
+                and existing_sr == int(exclude_sr)
+            ):
+                continue
+
+            return True
+
+        return False
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Duplicate Roll check failed: {e}"
+        )
+
+        return False
+
+# =========================================================
+# TAB 3 — SEARCH & MANAGE
 # =========================================================
 
 def render_search_manage():
 
     st.subheader(
-        "🔍 Search & Edit Student"
+        "🔍 Search & Manage Student"
     )
+
+    # =====================================================
+    # SEARCH STUDENT
+    # =====================================================
 
     search_sr = st.number_input(
         "Enter SR No",
@@ -1162,39 +1282,58 @@ def render_search_manage():
         key="btn_search_student"
     ):
 
-        if supabase:
+        if not supabase:
 
-            try:
+            st.error(
+                "❌ Supabase connection नहीं है."
+            )
 
-                response = (
-                    supabase
-                    .table("students")
-                    .select("*")
-                    .eq("sr_no", search_sr)
-                    .execute()
+            return
+
+        try:
+
+            response = (
+                supabase
+                .table("students")
+                .select("*")
+                .eq(
+                    "sr_no",
+                    int(search_sr)
+                )
+                .limit(1)
+                .execute()
+            )
+
+            if response.data:
+
+                st.session_state[
+                    "searched_student"
+                ] = response.data[0]
+
+                st.session_state[
+                    "delete_confirm"
+                ] = False
+
+                st.success(
+                    "✅ Student found successfully."
                 )
 
-                if response.data:
+            else:
 
-                    st.session_state[
-                        "searched_student"
-                    ] = response.data[0]
-
-                else:
-
-                    st.warning(
-                        "Student not found."
-                    )
-
-                    st.session_state.pop(
-                        "searched_student",
-                        None
-                    )
-            except Exception as e:
-
-                st.error(
-                    f"❌ Search error: {e}"
+                st.warning(
+                    f"⚠️ SR No {search_sr} का student नहीं मिला."
                 )
+
+                st.session_state.pop(
+                    "searched_student",
+                    None
+                )
+
+        except Exception as e:
+
+            st.error(
+                f"❌ Search error: {e}"
+            )
 
     student = st.session_state.get(
         "searched_student"
@@ -1203,17 +1342,27 @@ def render_search_manage():
     if not student:
         return
 
-    # =========================================================
+    # =====================================================
     # STUDENT PROFILE
-    # =========================================================
-    render_student_profile(student)
+    # =====================================================
 
-    # =========================================================
+    render_student_profile(
+        student
+    )
+
+    # =====================================================
     # PROFESSIONAL A4 PRINT PROFILE
-    # =========================================================
-    render_print_student_profile(student)
+    # =====================================================
+
+    render_print_student_profile(
+        student
+    )
 
     st.markdown("---")
+
+    # =====================================================
+    # EDIT STUDENT
+    # =====================================================
 
     st.markdown(
         f"### ✏️ Edit Student: "
@@ -1226,14 +1375,24 @@ def render_search_manage():
 
         c1, c2 = st.columns(2)
 
+        # =================================================
+        # LEFT COLUMN
+        # =================================================
+
         with c1:
+
+            original_sr = int(
+                student.get(
+                    "sr_no",
+                    1
+                )
+            )
 
             edit_sr = st.number_input(
                 "SR Number",
-                value=int(
-                    student.get("sr_no", 1)
-                ),
-                min_value=1
+                min_value=1,
+                step=1,
+                value=original_sr
             )
 
             edit_name = st.text_input(
@@ -1242,7 +1401,7 @@ def render_search_manage():
                     student.get(
                         "student_name",
                         ""
-                    )
+                    ) or ""
                 )
             )
 
@@ -1293,17 +1452,22 @@ def render_search_manage():
                 )
             )
 
+        # =================================================
+        # RIGHT COLUMN
+        # =================================================
+
         with c2:
 
             edit_roll = st.number_input(
                 "Roll Number",
+                min_value=0,
+                step=1,
                 value=int(
                     student.get(
                         "roll_no",
-                        1
-                    ) or 1
-                ),
-                min_value=1
+                        0
+                    ) or 0
+                )
             )
 
             gender_options = [
@@ -1385,85 +1549,282 @@ def render_search_manage():
                 )
             )
 
+        # =================================================
+        # UPDATE BUTTON
+        # =================================================
+
         update_student = st.form_submit_button(
             "💾 Update Student Record",
-            use_container_width=True
+            use_container_width=True,
+            type="primary"
         )
 
         if update_student:
 
+            # ---------------------------------------------
+            # NAME VALIDATION
+            # ---------------------------------------------
+
             if not edit_name.strip():
 
                 st.error(
-                    "Student name is required."
+                    "❌ Student name is required."
                 )
 
-            elif supabase:
+                return
 
-                try:
+            if not supabase:
 
-                    original_sr = int(
-                        student["sr_no"]
+                st.error(
+                    "❌ Supabase connection नहीं है."
+                )
+
+                return
+
+            # ---------------------------------------------
+            # DUPLICATE SR CHECK
+            # ---------------------------------------------
+
+            if check_duplicate_sr(
+                edit_sr,
+                exclude_sr=original_sr
+            ):
+
+                st.error(
+                    f"❌ SR No {edit_sr} already exists."
+                )
+
+                return
+
+            # ---------------------------------------------
+            # DUPLICATE ROLL CHECK
+            # ---------------------------------------------
+
+            if (
+                int(edit_roll) > 0
+                and check_duplicate_roll(
+                    edit_roll,
+                    edit_class,
+                    edit_section,
+                    exclude_sr=original_sr
+                )
+            ):
+
+                st.error(
+                    f"❌ Roll No {edit_roll} already exists "
+                    f"in {edit_class} - Section {edit_section}."
+                )
+
+                return
+
+            # ---------------------------------------------
+            # UPDATE DATA
+            # ---------------------------------------------
+
+            update_data = {
+
+                "sr_no":
+                    int(edit_sr),
+
+                "student_name":
+                    edit_name.strip(),
+
+                "father_name":
+                    edit_father.strip(),
+
+                "mother_name":
+                    edit_mother.strip(),
+
+                "class":
+                    edit_class,
+
+                "section":
+                    edit_section,
+
+                "roll_no":
+                    int(edit_roll),
+
+                "gender":
+                    edit_gender,
+
+                "mobile":
+                    edit_mobile.strip(),
+
+                "bus_route":
+                    edit_bus.strip(),
+
+                "drop_point":
+                    edit_drop.strip(),
+
+                "aadhaar":
+                    edit_aadhaar.strip()
+            }
+
+            try:
+
+                # -----------------------------------------
+                # UPDATE SUPABASE
+                # -----------------------------------------
+
+                (
+                    supabase
+                    .table("students")
+                    .update(update_data)
+                    .eq(
+                        "sr_no",
+                        original_sr
                     )
+                    .execute()
+                )
 
-                    update_data = {
-                        "sr_no": int(edit_sr),
-                        "student_name":
-                            edit_name.strip(),
-                        "father_name":
-                            edit_father.strip(),
-                        "mother_name":
-                            edit_mother.strip(),
-                        "class":
-                            edit_class,
-                        "section":
-                            edit_section,
-                        "roll_no":
-                            int(edit_roll),
-                        "gender":
-                            edit_gender,
-                        "mobile":
-                            edit_mobile.strip(),
-                        "bus_route":
-                            edit_bus.strip(),
-                        "drop_point":
-                            edit_drop.strip(),
-                        "aadhaar":
-                            edit_aadhaar.strip()
-                    }
+                # -----------------------------------------
+                # FRESH DATA FROM DATABASE
+                # -----------------------------------------
 
-                    (
-                        supabase
-                        .table("students")
-                        .update(update_data)
-                        .eq(
-                            "sr_no",
-                            original_sr
-                        )
-                        .execute()
+                fresh_response = (
+                    supabase
+                    .table("students")
+                    .select("*")
+                    .eq(
+                        "sr_no",
+                        int(edit_sr)
                     )
+                    .limit(1)
+                    .execute()
+                )
 
-                    st.success(
-                        "✅ Student updated successfully!"
-                    )
+                if fresh_response.data:
+
+                    st.session_state[
+                        "searched_student"
+                    ] = fresh_response.data[0]
+
+                else:
 
                     st.session_state[
                         "searched_student"
                     ] = update_data
 
+                st.success(
+                    "✅ Student updated successfully!"
+                )
+
+                st.rerun()
+
+            except Exception as e:
+
+                st.error(
+                    f"❌ Update failed: {e}"
+                )
+
+    # =====================================================
+    # DELETE STUDENT
+    # =====================================================
+
+    st.markdown("---")
+
+    st.markdown(
+        "### 🗑️ Delete Student"
+    )
+
+    st.warning(
+        f"Student: **{student.get('student_name', 'N/A')}** "
+        f"| SR No: **{student.get('sr_no', 'N/A')}**"
+    )
+
+    if not st.session_state.get(
+        "delete_confirm",
+        False
+    ):
+
+        if st.button(
+            "🗑️ Delete Student",
+            key="delete_student_button",
+            use_container_width=True
+        ):
+
+            st.session_state[
+                "delete_confirm"
+            ] = True
+
+            st.rerun()
+
+    else:
+
+        st.error(
+            "⚠️ यह student record permanently delete होगा।"
+        )
+
+        d1, d2 = st.columns(2)
+
+        with d1:
+
+            if st.button(
+                "❌ Yes, Delete Permanently",
+                key="confirm_delete_student",
+                use_container_width=True,
+                type="primary"
+            ):
+
+                try:
+
+                    delete_sr = int(
+                        student.get(
+                            "sr_no"
+                        )
+                    )
+
+                    (
+                        supabase
+                        .table("students")
+                        .delete()
+                        .eq(
+                            "sr_no",
+                            delete_sr
+                        )
+                        .execute()
+                    )
+
+                    st.session_state.pop(
+                        "searched_student",
+                        None
+                    )
+
+                    st.session_state[
+                        "delete_confirm"
+                    ] = False
+
+                    st.success(
+                        f"✅ Student SR No {delete_sr} deleted successfully."
+                    )
+
+                    st.rerun()
+
                 except Exception as e:
 
                     st.error(
-                        f"❌ Update failed: {e}"
+                        f"❌ Delete failed: {e}"
                     )
 
+        with d2:
+
+            if st.button(
+                "↩️ Cancel",
+                key="cancel_delete_student",
+                use_container_width=True
+            ):
+
+                st.session_state[
+                    "delete_confirm"
+                ] = False
+
+                st.rerun()
 
 # =========================================================
 # MAIN STUDENT MODULE
 # =========================================================
 
 def render_students_module():
-
     st.markdown(
         "## 👨‍🎓 Student Admission & Master Directory"
     )
