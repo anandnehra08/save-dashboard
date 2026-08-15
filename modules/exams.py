@@ -2205,9 +2205,8 @@ body {{
 </html>
 """
 
-
 # =========================================================
-# REPORT CARD
+# PROFESSIONAL REPORT CARD
 # =========================================================
 
 def render_report_card(
@@ -2222,25 +2221,26 @@ def render_report_card(
     if not student_marks:
         return
 
+    # =====================================================
+    # CALCULATE RESULT
+    # =====================================================
+
     total_obtained = sum(
         safe_float(
-            x.get("marks_obtained")
+            row.get("marks_obtained")
         )
-        for x in student_marks
+        for row in student_marks
     )
 
     total_max = sum(
         safe_float(
-            x.get("max_marks")
+            row.get("max_marks")
         )
-        for x in student_marks
+        for row in student_marks
     )
 
     percentage = (
-        (
-            total_obtained /
-            total_max
-        ) * 100
+        (total_obtained / total_max) * 100
         if total_max > 0
         else 0
     )
@@ -2253,423 +2253,944 @@ def render_report_card(
         percentage
     )
 
-    report_rows = build_report_data(
-        student_marks
+    # =====================================================
+    # SUBJECT DATA
+    # =====================================================
+
+    report_rows = []
+
+    for row in student_marks:
+
+        obtained = safe_float(
+            row.get("marks_obtained")
+        )
+
+        maximum = safe_float(
+            row.get("max_marks")
+        )
+
+        subject_percentage = (
+            (obtained / maximum) * 100
+            if maximum > 0
+            else 0
+        )
+
+        report_rows.append(
+            {
+                "Subject": str(
+                    row.get(
+                        "subject",
+                        ""
+                    )
+                ),
+                "Marks Obtained": obtained,
+                "Maximum Marks": maximum,
+                "Percentage": subject_percentage,
+                "Grade": calculate_grade(
+                    subject_percentage
+                )
+            }
+        )
+
+    # =====================================================
+    # REPORT CARD DATAFRAME
+    # =====================================================
+
+    report_df = pd.DataFrame(
+        report_rows
     )
+
+    # =====================================================
+    # STREAMLIT PREVIEW
+    # =====================================================
 
     st.markdown("---")
 
-    # =====================================================
-    # PROFESSIONAL STREAMLIT REPORT CARD
-    # =====================================================
-
     st.markdown(
         """
-        <style>
-
-        .erp-report-wrapper {
-            border: 2px solid #1e3a8a;
-            border-radius: 16px;
-            padding: 24px;
-            background: #ffffff;
-            margin-top: 10px;
-            margin-bottom: 15px;
-        }
-
-        .erp-report-header {
-            text-align: center;
-            border-bottom: 2px solid #1e3a8a;
-            padding-bottom: 15px;
-        }
-
-        .erp-school-title {
-            color: #1e3a8a;
-            font-size: 27px;
-            font-weight: 800;
-            margin: 0;
-        }
-
-        .erp-report-title {
-            font-size: 19px;
-            font-weight: 700;
-            margin-top: 7px;
-        }
-
-        .erp-exam-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-top: 4px;
-        }
-
-        .erp-info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .erp-info-box {
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 11px;
-            background: #f8fafc;
-        }
-
-        .erp-info-label {
-            color: #64748b;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .erp-info-value {
-            margin-top: 4px;
-            font-size: 15px;
-            font-weight: 700;
-        }
-
-        @media(max-width:650px) {
-            .erp-report-wrapper {
-                padding: 14px;
-            }
-
-            .erp-school-title {
-                font-size: 21px;
-            }
-
-            .erp-info-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Header and student info are HTML-rendered deliberately,
-    # while printable HTML is never directly displayed as text.
-
-    st.markdown(
-        f"""
-        <div class="erp-report-wrapper">
-
-            <div class="erp-report-header">
-
-                <div class="erp-school-title">
-                    🏫 CAMPUS ERP PRO
-                </div>
-
-                <div class="erp-report-title">
-                    STUDENT REPORT CARD
-                </div>
-
-                <div class="erp-exam-title">
-                    {safe_html(exam_type)}
-                </div>
-
+        <div style="
+            text-align:center;
+            margin:10px 0 20px 0;
+        ">
+            <div style="
+                font-size:26px;
+                font-weight:800;
+                letter-spacing:1px;
+            ">
+                🎓 Student Report Card
             </div>
 
-            <div class="erp-info-grid">
-
-                <div class="erp-info-box">
-
-                    <div class="erp-info-label">
-                        Student Name
-                    </div>
-
-                    <div class="erp-info-value">
-                        {safe_html(student_name)}
-                    </div>
-
-                </div>
-
-                <div class="erp-info-box">
-
-                    <div class="erp-info-label">
-                        SR No
-                    </div>
-
-                    <div class="erp-info-value">
-                        {safe_html(sr_no)}
-                    </div>
-
-                </div>
-
-                <div class="erp-info-box">
-
-                    <div class="erp-info-label">
-                        Class
-                    </div>
-
-                    <div class="erp-info-value">
-                        {safe_html(class_name)}
-                    </div>
-
-                </div>
-
-                <div class="erp-info-box">
-
-                    <div class="erp-info-label">
-                        Section
-                    </div>
-
-                    <div class="erp-info-value">
-                        {safe_html(section)}
-                    </div>
-
-                </div>
-
+            <div style="
+                color:#64748b;
+                font-size:14px;
+                margin-top:4px;
+            ">
+                Professional Academic Performance Report
             </div>
-
         </div>
         """,
         unsafe_allow_html=True
     )
 
     # =====================================================
-    # SUBJECT TABLE
+    # REPORT CARD HTML
+    # IMPORTANT:
+    # HTML IS RENDERED INSIDE COMPONENTS.HTML
+    # SO RAW HTML WILL NOT APPEAR IN STREAMLIT.
     # =====================================================
 
-    st.markdown(
-        "### 📚 Subject-wise Marks"
-    )
+    subject_rows_html = ""
 
-    report_df = pd.DataFrame(
+    for index, row in enumerate(
         report_rows,
-        columns=[
-            "Subject",
-            "Marks Obtained",
-            "Maximum Marks",
-            "Percentage",
-            "Grade"
-        ]
-    )
+        start=1
+    ):
 
-    if not report_df.empty:
+        subject_rows_html += f"""
+        <tr>
 
-        st.dataframe(
-            report_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Subject": st.column_config.TextColumn(
-                    "Subject"
-                ),
-                "Marks Obtained": st.column_config.NumberColumn(
-                    "Marks Obtained",
-                    format="%.1f"
-                ),
-                "Maximum Marks": st.column_config.NumberColumn(
-                    "Maximum Marks",
-                    format="%.1f"
-                ),
-                "Percentage": st.column_config.NumberColumn(
-                    "Percentage",
-                    format="%.2f%%"
-                ),
-                "Grade": st.column_config.TextColumn(
-                    "Grade"
-                )
-            }
-        )
+            <td class="center">
+                {index}
+            </td>
+
+            <td class="subject">
+                {row["Subject"]}
+            </td>
+
+            <td class="center">
+                {row["Marks Obtained"]:g}
+            </td>
+
+            <td class="center">
+                {row["Maximum Marks"]:g}
+            </td>
+
+            <td class="center">
+                {row["Percentage"]:.2f}%
+            </td>
+
+            <td class="center grade">
+                {row["Grade"]}
+            </td>
+
+        </tr>
+        """
 
     # =====================================================
-    # SUMMARY
+    # RESULT CLASS
     # =====================================================
 
-    st.markdown(
-        "### 📊 Result Summary"
+    result_class = (
+        "pass-result"
+        if result == "PASS"
+        else "fail-result"
     )
-
-    m1, m2, m3, m4 = st.columns(4)
-
-    with m1:
-
-        st.metric(
-            "Total Marks",
-            f"{total_obtained:g} / {total_max:g}"
-        )
-
-    with m2:
-
-        st.metric(
-            "Percentage",
-            f"{percentage:.2f}%"
-        )
-
-    with m3:
-
-        st.metric(
-            "Grade",
-            grade
-        )
-
-    with m4:
-
-        st.metric(
-            "Result",
-            result
-        )
 
     # =====================================================
-    # ACTION BUTTONS
+    # PRINTABLE A4 REPORT
     # =====================================================
 
-    st.markdown(
-        "### 🖨️ Report Card Actions"
-    )
+    printable_html = f"""
+<!DOCTYPE html>
 
-    ac1, ac2 = st.columns(2)
+<html>
 
-    # -----------------------------------------------------
-    # PRINT
-    # -----------------------------------------------------
+<head>
 
-    print_html = build_print_html(
-        student_name,
-        sr_no,
-        class_name,
-        section,
-        exam_type,
-        report_rows,
-        total_obtained,
-        total_max,
-        percentage,
-        grade,
-        result
-    )
+<meta charset="UTF-8">
 
-    with ac1:
+<meta name="viewport"
+      content="width=device-width,
+               initial-scale=1.0">
 
-        print_button = st.button(
-            "🖨️ Print A4 Report Card",
-            use_container_width=True,
-            type="primary",
-            key=(
-                f"print_report_"
-                f"{sr_no}_"
-                f"{class_name}_"
-                f"{section}_"
-                f"{exam_type}"
-            )
-        )
+<title>
+    Student Report Card
+</title>
 
-        if print_button:
+<style>
 
-            # HTML is sent only to the browser iframe.
-            # It is NOT displayed as Streamlit markdown text.
-            components.html(
-                f"""
-                <script>
+* {{
+    box-sizing:border-box;
+}}
 
-                const reportWindow =
-                    window.open(
-                        "",
-                        "_blank",
-                        "width=950,height=900"
-                    );
+body {{
 
-                if (reportWindow) {{
+    margin:0;
 
-                    reportWindow.document.open();
+    padding:20px;
 
-                    reportWindow.document.write(
-                        {print_html!r}
-                    );
+    background:#f1f5f9;
 
-                    reportWindow.document.close();
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
 
-                    reportWindow.focus();
+    color:#172033;
 
-                    setTimeout(
-                        function() {{
-                            reportWindow.print();
-                        }},
-                        700
-                    );
+}}
 
-                }} else {{
+.report-card {{
 
-                    document.body.innerHTML +=
-                        "<p style='color:red;'>"
-                        "Please allow pop-ups for printing."
-                        "</p>";
+    width:100%;
 
-                }}
+    max-width:900px;
 
-                </script>
-                """,
-                height=0
-            )
+    margin:0 auto;
 
-    # -----------------------------------------------------
-    # PDF
-    # -----------------------------------------------------
+    background:#ffffff;
 
-    pdf_data = generate_report_card_pdf(
-        student_name,
-        sr_no,
-        class_name,
-        section,
-        exam_type,
-        report_rows,
-        total_obtained,
-        total_max,
-        percentage,
-        grade,
-        result
-    )
+    border:2px solid #1e3a8a;
 
-    with ac2:
+    border-radius:16px;
 
-        if pdf_data:
+    overflow:hidden;
 
-            st.download_button(
-                "📥 Download PDF Report Card",
-                data=pdf_data,
-                file_name=(
-                    f"Report_Card_"
-                    f"{str(student_name).replace(' ', '_')}_"
-                    f"{exam_type.replace(' ', '_')}.pdf"
-                ),
-                mime="application/pdf",
-                use_container_width=True,
-                type="secondary",
-                key=(
-                    f"download_report_pdf_"
-                    f"{sr_no}_"
-                    f"{class_name}_"
-                    f"{section}_"
-                    f"{exam_type}"
-                )
-            )
+    box-shadow:
+        0 8px 25px
+        rgba(15,23,42,0.12);
 
-        else:
+}}
 
-            st.warning(
-                "PDF सुविधा के लिए reportlab install करें."
-            )
+.top-line {{
+
+    height:7px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #1e3a8a,
+            #2563eb,
+            #60a5fa
+        );
+
+}}
+
+.header {{
+
+    text-align:center;
+
+    padding:25px 25px 20px 25px;
+
+    border-bottom:
+        1px solid #dbe3ef;
+
+}}
+
+.school-title {{
+
+    font-size:30px;
+
+    font-weight:800;
+
+    color:#1e3a8a;
+
+    letter-spacing:1px;
+
+}}
+
+.report-title {{
+
+    font-size:22px;
+
+    font-weight:700;
+
+    margin-top:7px;
+
+    color:#111827;
+
+}}
+
+.exam-title {{
+
+    display:inline-block;
+
+    margin-top:10px;
+
+    padding:7px 18px;
+
+    border-radius:20px;
+
+    background:#eff6ff;
+
+    color:#1d4ed8;
+
+    font-size:14px;
+
+    font-weight:700;
+
+}}
+
+.student-info {{
+
+    padding:20px;
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(2, 1fr);
+
+    gap:12px;
+
+}}
+
+.info-box {{
+
+    border:1px solid #dbe3ef;
+
+    border-radius:9px;
+
+    padding:12px 15px;
+
+    background:#f8fafc;
+
+}}
+
+.info-label {{
+
+    font-size:11px;
+
+    text-transform:uppercase;
+
+    letter-spacing:.6px;
+
+    color:#64748b;
+
+    font-weight:700;
+
+}}
+
+.info-value {{
+
+    margin-top:4px;
+
+    font-size:15px;
+
+    font-weight:700;
+
+    color:#111827;
+
+}}
+
+.section-title {{
+
+    margin:
+        0 20px 12px 20px;
+
+    font-size:17px;
+
+    font-weight:800;
+
+    color:#1e3a8a;
+
+}}
+
+.marks-table-wrapper {{
+
+    padding:0 20px;
+
+}}
+
+.marks-table {{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+    border:1px solid #cbd5e1;
+
+    border-radius:8px;
+
+    overflow:hidden;
+
+}}
+
+.marks-table th {{
+
+    background:#1e3a8a;
+
+    color:#ffffff;
+
+    padding:11px 8px;
+
+    font-size:12px;
+
+    border:1px solid #1e3a8a;
+
+}}
+
+.marks-table td {{
+
+    padding:10px 8px;
+
+    border:1px solid #dbe3ef;
+
+    font-size:13px;
+
+}}
+
+.marks-table tr:nth-child(even) {{
+
+    background:#f8fafc;
+
+}}
+
+.center {{
+
+    text-align:center;
+
+}}
+
+.subject {{
+
+    font-weight:700;
+
+}}
+
+.grade {{
+
+    font-weight:800;
+
+}}
+
+.summary-title {{
+
+    margin:
+        25px 20px 12px 20px;
+
+    font-size:17px;
+
+    font-weight:800;
+
+    color:#1e3a8a;
+
+}}
+
+.summary {{
+
+    padding:
+        0 20px;
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap:10px;
+
+}}
+
+.summary-box {{
+
+    border:1px solid #dbe3ef;
+
+    border-radius:10px;
+
+    padding:14px 8px;
+
+    text-align:center;
+
+    background:#f8fafc;
+
+}}
+
+.summary-label {{
+
+    font-size:11px;
+
+    color:#64748b;
+
+    text-transform:uppercase;
+
+    font-weight:700;
+
+}}
+
+.summary-value {{
+
+    margin-top:5px;
+
+    font-size:17px;
+
+    font-weight:800;
+
+    color:#111827;
+
+}}
+
+.pass-result {{
+
+    color:#15803d;
+
+}}
+
+.fail-result {{
+
+    color:#dc2626;
+
+}}
+
+.footer-note {{
+
+    margin:25px 20px 0 20px;
+
+    padding:12px;
+
+    text-align:center;
+
+    border-radius:8px;
+
+    background:#f8fafc;
+
+    color:#64748b;
+
+    font-size:11px;
+
+}}
+
+.signatures {{
+
+    padding:
+        45px 20px 25px 20px;
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap:25px;
+
+}}
+
+.signature-box {{
+
+    text-align:center;
+
+    padding-top:30px;
+
+    border-top:1px solid #475569;
+
+    font-size:12px;
+
+    font-weight:700;
+
+    color:#334155;
+
+}}
+
+.actions {{
+
+    padding:
+        0 20px 25px 20px;
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(2, 1fr);
+
+    gap:12px;
+
+}}
+
+.print-button {{
+
+    width:100%;
+
+    padding:13px;
+
+    border:none;
+
+    border-radius:8px;
+
+    background:#1e3a8a;
+
+    color:#ffffff;
+
+    font-size:14px;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+}}
+
+.print-button:hover {{
+
+    background:#172554;
+
+}}
+
+@media(max-width:650px) {{
+
+    .student-info {{
+
+        grid-template-columns:
+            1fr;
+
+    }}
+
+    .summary {{
+
+        grid-template-columns:
+            repeat(2, 1fr);
+
+    }}
+
+    .signatures {{
+
+        grid-template-columns:
+            1fr;
+
+        gap:40px;
+
+    }}
+
+    .marks-table th,
+    .marks-table td {{
+
+        font-size:10px;
+
+        padding:7px 4px;
+
+    }}
+
+    .school-title {{
+
+        font-size:22px;
+
+    }}
+
+    .report-title {{
+
+        font-size:18px;
+
+    }}
+
+}}
+
+@media print {{
+
+    body {{
+
+        background:#ffffff;
+
+        padding:0;
+
+    }}
+
+    .report-card {{
+
+        max-width:none;
+
+        width:100%;
+
+        border:2px solid #1e3a8a;
+
+        border-radius:0;
+
+        box-shadow:none;
+
+    }}
+
+    .actions {{
+
+        display:none;
+
+    }}
+
+    @page {{
+
+        size:A4;
+
+        margin:10mm;
+
+    }}
+
+}}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="report-card">
+
+    <div class="top-line"></div>
+
+    <!-- HEADER -->
+
+    <div class="header">
+
+        <div class="school-title">
+            🏫 CAMPUS ERP PRO
+        </div>
+
+        <div class="report-title">
+            STUDENT REPORT CARD
+        </div>
+
+        <div class="exam-title">
+            {exam_type}
+        </div>
+
+    </div>
+
+    <!-- STUDENT INFORMATION -->
+
+    <div class="student-info">
+
+        <div class="info-box">
+
+            <div class="info-label">
+                Student Name
+            </div>
+
+            <div class="info-value">
+                {student_name}
+            </div>
+
+        </div>
+
+        <div class="info-box">
+
+            <div class="info-label">
+                SR No
+            </div>
+
+            <div class="info-value">
+                {sr_no}
+            </div>
+
+        </div>
+
+        <div class="info-box">
+
+            <div class="info-label">
+                Class
+            </div>
+
+            <div class="info-value">
+                {class_name}
+            </div>
+
+        </div>
+
+        <div class="info-box">
+
+            <div class="info-label">
+                Section
+            </div>
+
+            <div class="info-value">
+                {section}
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- SUBJECT MARKS -->
+
+    <div class="section-title">
+        📚 Subject-wise Marks
+    </div>
+
+    <div class="marks-table-wrapper">
+
+        <table class="marks-table">
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        #
+                    </th>
+
+                    <th>
+                        Subject
+                    </th>
+
+                    <th>
+                        Obtained
+                    </th>
+
+                    <th>
+                        Maximum
+                    </th>
+
+                    <th>
+                        Percentage
+                    </th>
+
+                    <th>
+                        Grade
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                {subject_rows_html}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- RESULT SUMMARY -->
+
+    <div class="summary-title">
+        📊 Result Summary
+    </div>
+
+    <div class="summary">
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                Total Marks
+            </div>
+
+            <div class="summary-value">
+                {total_obtained:g}
+                /
+                {total_max:g}
+            </div>
+
+        </div>
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                Percentage
+            </div>
+
+            <div class="summary-value">
+                {percentage:.2f}%
+            </div>
+
+        </div>
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                Grade
+            </div>
+
+            <div class="summary-value">
+                {grade}
+            </div>
+
+        </div>
+
+        <div class="summary-box">
+
+            <div class="summary-label">
+                Result
+            </div>
+
+            <div class="summary-value {result_class}">
+                {result}
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- FOOTER NOTE -->
+
+    <div class="footer-note">
+
+        This report card is generated by
+        <b>Campus ERP Pro</b>.
+
+    </div>
+
+    <!-- SIGNATURES -->
+
+    <div class="signatures">
+
+        <div class="signature-box">
+            Parent / Guardian
+        </div>
+
+        <div class="signature-box">
+            Class Teacher
+        </div>
+
+        <div class="signature-box">
+            Principal
+        </div>
+
+    </div>
+
+    <!-- ACTION -->
+
+    <div class="actions">
+
+        <button
+            class="print-button"
+            onclick="window.print()"
+        >
+            🖨️ Print A4 Report Card
+        </button>
+
+        <button
+            class="print-button"
+            onclick="window.print()"
+        >
+            📥 Save / Download PDF
+        </button>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
+"""
 
     # =====================================================
-    # PRINT PREVIEW
+    # RENDER HTML
+    # =====================================================
+
+    st.components.v1.html(
+        printable_html,
+        height=1050,
+        scrolling=False
+    )
+
+    # =====================================================
+    # STREAMLIT DATA PREVIEW
     # =====================================================
 
     with st.expander(
-        "👁️ A4 Print Preview",
+        "📋 View Marks Data",
         expanded=False
     ):
 
-        components.html(
-            print_html,
-            height=850,
-            scrolling=True
+        display_df = report_df.copy()
+
+        display_df[
+            "Percentage"
+        ] = display_df[
+            "Percentage"
+        ].map(
+            lambda x:
+                f"{x:.2f}%"
         )
 
-
-# =========================================================
-# PERFORMANCE REPORT
-# =========================================================
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True
+        )
 
 def render_performance_report():
 
