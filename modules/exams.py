@@ -2301,42 +2301,36 @@ def render_report_card(
     )
 
     # =====================================================
-    # STREAMLIT PREVIEW
+    # STREAMLIT REPORT CARD TITLE
     # =====================================================
 
     st.markdown("---")
 
     st.markdown(
-        """
-        <div style="
-            text-align:center;
-            margin:10px 0 20px 0;
-        ">
-            <div style="
-                font-size:26px;
-                font-weight:800;
-                letter-spacing:1px;
-            ">
-                🎓 Student Report Card
-            </div>
+        "### 🎓 Student Report Card"
+    )
 
-            <div style="
-                color:#64748b;
-                font-size:14px;
-                margin-top:4px;
-            ">
-                Professional Academic Performance Report
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.caption(
+        "Professional Academic Performance Report"
     )
 
     # =====================================================
-    # REPORT CARD HTML
-    # IMPORTANT:
-    # HTML IS RENDERED INSIDE COMPONENTS.HTML
-    # SO RAW HTML WILL NOT APPEAR IN STREAMLIT.
+    # ESCAPE HTML VALUES
+    # =====================================================
+
+    def report_safe(value):
+
+        return (
+            str(value)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&#39;")
+        )
+
+    # =====================================================
+    # SUBJECT ROWS
     # =====================================================
 
     subject_rows_html = ""
@@ -2354,7 +2348,7 @@ def render_report_card(
             </td>
 
             <td class="subject">
-                {row["Subject"]}
+                {report_safe(row["Subject"])}
             </td>
 
             <td class="center">
@@ -2370,7 +2364,7 @@ def render_report_card(
             </td>
 
             <td class="center grade">
-                {row["Grade"]}
+                {report_safe(row["Grade"])}
             </td>
 
         </tr>
@@ -2382,7 +2376,7 @@ def render_report_card(
 
     result_class = (
         "pass-result"
-        if result == "PASS"
+        if str(result).upper() == "PASS"
         else "fail-result"
     )
 
@@ -2393,69 +2387,53 @@ def render_report_card(
     printable_html = f"""
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
 
 <head>
 
 <meta charset="UTF-8">
 
 <meta name="viewport"
-      content="width=device-width,
-               initial-scale=1.0">
+      content="width=device-width, initial-scale=1.0">
 
-<title>
-    Student Report Card
-</title>
+<title>Student Report Card</title>
 
 <style>
 
 * {{
-    box-sizing:border-box;
+    box-sizing: border-box;
+}}
+
+html,
+body {{
+    margin: 0;
+    padding: 0;
 }}
 
 body {{
-
-    margin:0;
-
-    padding:20px;
-
-    background:#f1f5f9;
-
+    background: #f1f5f9;
     font-family:
         Arial,
         Helvetica,
         sans-serif;
-
-    color:#172033;
-
+    color: #172033;
 }}
 
 .report-card {{
-
-    width:100%;
-
-    max-width:900px;
-
-    margin:0 auto;
-
-    background:#ffffff;
-
-    border:2px solid #1e3a8a;
-
-    border-radius:16px;
-
-    overflow:hidden;
-
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    background: #ffffff;
+    border: 2px solid #1e3a8a;
+    border-radius: 16px;
+    overflow: hidden;
     box-shadow:
         0 8px 25px
         rgba(15,23,42,0.12);
-
 }}
 
 .top-line {{
-
-    height:7px;
-
+    height: 7px;
     background:
         linear-gradient(
             90deg,
@@ -2463,449 +2441,262 @@ body {{
             #2563eb,
             #60a5fa
         );
-
 }}
 
 .header {{
-
-    text-align:center;
-
-    padding:25px 25px 20px 25px;
-
-    border-bottom:
-        1px solid #dbe3ef;
-
+    text-align: center;
+    padding: 25px 25px 20px 25px;
+    border-bottom: 1px solid #dbe3ef;
 }}
 
 .school-title {{
-
-    font-size:30px;
-
-    font-weight:800;
-
-    color:#1e3a8a;
-
-    letter-spacing:1px;
-
+    font-size: 30px;
+    font-weight: 800;
+    color: #1e3a8a;
+    letter-spacing: 1px;
 }}
 
 .report-title {{
-
-    font-size:22px;
-
-    font-weight:700;
-
-    margin-top:7px;
-
-    color:#111827;
-
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 7px;
+    color: #111827;
 }}
 
 .exam-title {{
-
-    display:inline-block;
-
-    margin-top:10px;
-
-    padding:7px 18px;
-
-    border-radius:20px;
-
-    background:#eff6ff;
-
-    color:#1d4ed8;
-
-    font-size:14px;
-
-    font-weight:700;
-
+    display: inline-block;
+    margin-top: 10px;
+    padding: 7px 18px;
+    border-radius: 20px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 14px;
+    font-weight: 700;
 }}
 
 .student-info {{
-
-    padding:20px;
-
-    display:grid;
-
-    grid-template-columns:
-        repeat(2, 1fr);
-
-    gap:12px;
-
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }}
 
 .info-box {{
-
-    border:1px solid #dbe3ef;
-
-    border-radius:9px;
-
-    padding:12px 15px;
-
-    background:#f8fafc;
-
+    border: 1px solid #dbe3ef;
+    border-radius: 9px;
+    padding: 12px 15px;
+    background: #f8fafc;
 }}
 
 .info-label {{
-
-    font-size:11px;
-
-    text-transform:uppercase;
-
-    letter-spacing:.6px;
-
-    color:#64748b;
-
-    font-weight:700;
-
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #64748b;
+    font-weight: 700;
 }}
 
 .info-value {{
-
-    margin-top:4px;
-
-    font-size:15px;
-
-    font-weight:700;
-
-    color:#111827;
-
+    margin-top: 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
 }}
 
 .section-title {{
-
-    margin:
-        0 20px 12px 20px;
-
-    font-size:17px;
-
-    font-weight:800;
-
-    color:#1e3a8a;
-
+    margin: 0 20px 12px 20px;
+    font-size: 17px;
+    font-weight: 800;
+    color: #1e3a8a;
 }}
 
 .marks-table-wrapper {{
-
-    padding:0 20px;
-
+    padding: 0 20px;
+    overflow-x: auto;
 }}
 
 .marks-table {{
-
-    width:100%;
-
-    border-collapse:collapse;
-
-    border:1px solid #cbd5e1;
-
-    border-radius:8px;
-
-    overflow:hidden;
-
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #cbd5e1;
 }}
 
 .marks-table th {{
-
-    background:#1e3a8a;
-
-    color:#ffffff;
-
-    padding:11px 8px;
-
-    font-size:12px;
-
-    border:1px solid #1e3a8a;
-
+    background: #1e3a8a;
+    color: #ffffff;
+    padding: 11px 8px;
+    font-size: 12px;
+    border: 1px solid #1e3a8a;
 }}
 
 .marks-table td {{
-
-    padding:10px 8px;
-
-    border:1px solid #dbe3ef;
-
-    font-size:13px;
-
+    padding: 10px 8px;
+    border: 1px solid #dbe3ef;
+    font-size: 13px;
 }}
 
 .marks-table tr:nth-child(even) {{
-
-    background:#f8fafc;
-
+    background: #f8fafc;
 }}
 
 .center {{
-
-    text-align:center;
-
+    text-align: center;
 }}
 
 .subject {{
-
-    font-weight:700;
-
+    font-weight: 700;
 }}
 
 .grade {{
-
-    font-weight:800;
-
+    font-weight: 800;
 }}
 
 .summary-title {{
-
-    margin:
-        25px 20px 12px 20px;
-
-    font-size:17px;
-
-    font-weight:800;
-
-    color:#1e3a8a;
-
+    margin: 25px 20px 12px 20px;
+    font-size: 17px;
+    font-weight: 800;
+    color: #1e3a8a;
 }}
 
 .summary {{
-
-    padding:
-        0 20px;
-
-    display:grid;
-
-    grid-template-columns:
-        repeat(4, 1fr);
-
-    gap:10px;
-
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
 }}
 
 .summary-box {{
-
-    border:1px solid #dbe3ef;
-
-    border-radius:10px;
-
-    padding:14px 8px;
-
-    text-align:center;
-
-    background:#f8fafc;
-
+    border: 1px solid #dbe3ef;
+    border-radius: 10px;
+    padding: 14px 8px;
+    text-align: center;
+    background: #f8fafc;
 }}
 
 .summary-label {{
-
-    font-size:11px;
-
-    color:#64748b;
-
-    text-transform:uppercase;
-
-    font-weight:700;
-
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
 }}
 
 .summary-value {{
-
-    margin-top:5px;
-
-    font-size:17px;
-
-    font-weight:800;
-
-    color:#111827;
-
+    margin-top: 5px;
+    font-size: 17px;
+    font-weight: 800;
+    color: #111827;
 }}
 
 .pass-result {{
-
-    color:#15803d;
-
+    color: #15803d;
 }}
 
 .fail-result {{
-
-    color:#dc2626;
-
+    color: #dc2626;
 }}
 
 .footer-note {{
-
-    margin:25px 20px 0 20px;
-
-    padding:12px;
-
-    text-align:center;
-
-    border-radius:8px;
-
-    background:#f8fafc;
-
-    color:#64748b;
-
-    font-size:11px;
-
+    margin: 25px 20px 0 20px;
+    padding: 12px;
+    text-align: center;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 11px;
 }}
 
 .signatures {{
-
-    padding:
-        45px 20px 25px 20px;
-
-    display:grid;
-
-    grid-template-columns:
-        repeat(3, 1fr);
-
-    gap:25px;
-
+    padding: 45px 20px 25px 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 25px;
 }}
 
 .signature-box {{
-
-    text-align:center;
-
-    padding-top:30px;
-
-    border-top:1px solid #475569;
-
-    font-size:12px;
-
-    font-weight:700;
-
-    color:#334155;
-
+    text-align: center;
+    padding-top: 30px;
+    border-top: 1px solid #475569;
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
 }}
 
 .actions {{
-
-    padding:
-        0 20px 25px 20px;
-
-    display:grid;
-
-    grid-template-columns:
-        repeat(2, 1fr);
-
-    gap:12px;
-
+    padding: 0 20px 25px 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }}
 
 .print-button {{
-
-    width:100%;
-
-    padding:13px;
-
-    border:none;
-
-    border-radius:8px;
-
-    background:#1e3a8a;
-
-    color:#ffffff;
-
-    font-size:14px;
-
-    font-weight:700;
-
-    cursor:pointer;
-
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 8px;
+    background: #1e3a8a;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
 }}
 
 .print-button:hover {{
-
-    background:#172554;
-
+    background: #172554;
 }}
 
 @media(max-width:650px) {{
 
     .student-info {{
-
-        grid-template-columns:
-            1fr;
-
+        grid-template-columns: 1fr;
     }}
 
     .summary {{
-
-        grid-template-columns:
-            repeat(2, 1fr);
-
+        grid-template-columns: repeat(2, 1fr);
     }}
 
     .signatures {{
-
-        grid-template-columns:
-            1fr;
-
-        gap:40px;
-
+        grid-template-columns: 1fr;
+        gap: 40px;
     }}
 
     .marks-table th,
     .marks-table td {{
-
-        font-size:10px;
-
-        padding:7px 4px;
-
+        font-size: 10px;
+        padding: 7px 4px;
     }}
 
     .school-title {{
-
-        font-size:22px;
-
+        font-size: 22px;
     }}
 
     .report-title {{
-
-        font-size:18px;
-
+        font-size: 18px;
     }}
-
 }}
 
 @media print {{
 
     body {{
-
-        background:#ffffff;
-
-        padding:0;
-
+        background: #ffffff;
+        padding: 0;
     }}
 
     .report-card {{
-
-        max-width:none;
-
-        width:100%;
-
-        border:2px solid #1e3a8a;
-
-        border-radius:0;
-
-        box-shadow:none;
-
+        max-width: none;
+        width: 100%;
+        border: 2px solid #1e3a8a;
+        border-radius: 0;
+        box-shadow: none;
     }}
 
     .actions {{
-
-        display:none;
-
+        display: none;
     }}
 
     @page {{
-
-        size:A4;
-
-        margin:10mm;
-
+        size: A4;
+        margin: 10mm;
     }}
-
 }}
 
 </style>
@@ -2931,7 +2722,7 @@ body {{
         </div>
 
         <div class="exam-title">
-            {exam_type}
+            {report_safe(exam_type)}
         </div>
 
     </div>
@@ -2947,7 +2738,7 @@ body {{
             </div>
 
             <div class="info-value">
-                {student_name}
+                {report_safe(student_name)}
             </div>
 
         </div>
@@ -2959,7 +2750,7 @@ body {{
             </div>
 
             <div class="info-value">
-                {sr_no}
+                {report_safe(sr_no)}
             </div>
 
         </div>
@@ -2971,7 +2762,7 @@ body {{
             </div>
 
             <div class="info-value">
-                {class_name}
+                {report_safe(class_name)}
             </div>
 
         </div>
@@ -2983,7 +2774,7 @@ body {{
             </div>
 
             <div class="info-value">
-                {section}
+                {report_safe(section)}
             </div>
 
         </div>
@@ -3004,29 +2795,17 @@ body {{
 
                 <tr>
 
-                    <th>
-                        #
-                    </th>
+                    <th>#</th>
 
-                    <th>
-                        Subject
-                    </th>
+                    <th>Subject</th>
 
-                    <th>
-                        Obtained
-                    </th>
+                    <th>Obtained</th>
 
-                    <th>
-                        Maximum
-                    </th>
+                    <th>Maximum</th>
 
-                    <th>
-                        Percentage
-                    </th>
+                    <th>Percentage</th>
 
-                    <th>
-                        Grade
-                    </th>
+                    <th>Grade</th>
 
                 </tr>
 
@@ -3057,9 +2836,7 @@ body {{
             </div>
 
             <div class="summary-value">
-                {total_obtained:g}
-                /
-                {total_max:g}
+                {total_obtained:g} / {total_max:g}
             </div>
 
         </div>
@@ -3083,7 +2860,7 @@ body {{
             </div>
 
             <div class="summary-value">
-                {grade}
+                {report_safe(grade)}
             </div>
 
         </div>
@@ -3095,7 +2872,7 @@ body {{
             </div>
 
             <div class="summary-value {result_class}">
-                {result}
+                {report_safe(result)}
             </div>
 
         </div>
@@ -3157,7 +2934,7 @@ body {{
 """
 
     # =====================================================
-    # RENDER HTML
+    # RENDER HTML INSIDE COMPONENT
     # =====================================================
 
     st.components.v1.html(
@@ -3177,13 +2954,12 @@ body {{
 
         display_df = report_df.copy()
 
-        display_df[
-            "Percentage"
-        ] = display_df[
-            "Percentage"
-        ].map(
-            lambda x:
-                f"{x:.2f}%"
+        display_df["Percentage"] = (
+            display_df["Percentage"]
+            .map(
+                lambda x:
+                    f"{x:.2f}%"
+            )
         )
 
         st.dataframe(
@@ -3191,6 +2967,11 @@ body {{
             use_container_width=True,
             hide_index=True
         )
+
+
+# =========================================================
+# CLASS PERFORMANCE & REPORT CARD
+# =========================================================
 
 def render_performance_report():
 
@@ -3293,6 +3074,10 @@ def render_performance_report():
             subject_options,
             key="rep_ex_sub"
         )
+
+    # =====================================================
+    # FETCH MARKS
+    # =====================================================
 
     marks_data = fetch_report_marks(
         report_class,
@@ -3446,21 +3231,25 @@ def render_performance_report():
             {
                 "Subject":
                     subject,
+
                 "Marks Obtained":
                     round(
                         obtained,
                         2
                     ),
+
                 "Maximum Marks":
                     round(
                         maximum,
                         2
                     ),
+
                 "Percentage":
                     round(
                         percentage,
                         2
                     ),
+
                 "Grade":
                     calculate_grade(
                         percentage
@@ -3519,27 +3308,33 @@ def render_performance_report():
             {
                 "SR No":
                     sr_no,
+
                 "Student Name":
                     name,
+
                 "Total Marks":
                     round(
                         obtained,
                         2
                     ),
+
                 "Maximum Marks":
                     round(
                         maximum,
                         2
                     ),
+
                 "Percentage":
                     round(
                         percentage,
                         2
                     ),
+
                 "Grade":
                     calculate_grade(
                         percentage
                     ),
+
                 "Result":
                     calculate_result(
                         percentage
@@ -3550,6 +3345,9 @@ def render_performance_report():
     summary_df = pd.DataFrame(
         student_summary
     )
+
+    if summary_df.empty:
+        return
 
     summary_df = (
         summary_df
@@ -3578,7 +3376,7 @@ def render_performance_report():
     )
 
     # =====================================================
-    # EXCEL
+    # EXCEL EXPORT
     # =====================================================
 
     output = io.BytesIO()
@@ -3608,17 +3406,22 @@ def render_performance_report():
 
     st.download_button(
         "📥 Download Class Result Excel",
+
         data=output.getvalue(),
+
         file_name=(
             f"{report_class}_"
             f"{report_section}_"
             f"{report_exam}_Result.xlsx"
         ),
+
         mime=(
             "application/vnd.openxmlformats-officedocument."
             "spreadsheetml.sheet"
         ),
+
         use_container_width=True,
+
         key="download_class_result_excel"
     )
 
@@ -3639,6 +3442,7 @@ def render_performance_report():
             f"{row['Student Name']}"
         ):
         row["SR No"]
+
         for _, row in summary_df.iterrows()
     }
 
@@ -3671,6 +3475,10 @@ def render_performance_report():
         )
     )
 
+    # =====================================================
+    # RENDER REPORT CARD
+    # =====================================================
+
     render_report_card(
         student_name,
         selected_sr,
@@ -3700,9 +3508,17 @@ def render_exams_module():
         ]
     )
 
+    # =====================================================
+    # TAB 1 - MARKS ENTRY
+    # =====================================================
+
     with tab1:
 
         render_marks_entry()
+
+    # =====================================================
+    # TAB 2 - PERFORMANCE & REPORT CARD
+    # =====================================================
 
     with tab2:
 
