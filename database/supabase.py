@@ -1,67 +1,94 @@
+# ============================================================
+# CAMPUS ERP PRO
+# SUPABASE CONNECTION
+# ============================================================
+
 import os
 import streamlit as st
 from supabase import create_client, Client
 
 
-@st.cache_resource
-def init_supabase() -> Client:
+# ============================================================
+# SUPABASE CLIENT INITIALIZATION
+# ============================================================
 
-    raw_url = ""
-    raw_key = ""
+@st.cache_resource(show_spinner=False)
+def init_supabase() -> Client | None:
 
-    # =========================================================
-    # 1. Read Supabase credentials
-    # =========================================================
+    supabase_url = ""
+    supabase_key = ""
+
+    # --------------------------------------------------------
+    # 1. Read credentials from Streamlit Secrets
+    # --------------------------------------------------------
+
     try:
+
+        # Preferred format:
+        #
+        # [supabase]
+        # SUPABASE_URL = "https://xxxxx.supabase.co"
+        # SUPABASE_KEY = "xxxxx"
 
         if "supabase" in st.secrets:
 
-            raw_url = st.secrets["supabase"].get(
+            supabase_config = st.secrets["supabase"]
+
+            supabase_url = supabase_config.get(
                 "SUPABASE_URL",
                 ""
             )
 
-            raw_key = st.secrets["supabase"].get(
+            supabase_key = supabase_config.get(
                 "SUPABASE_KEY",
                 ""
             )
+
+        # ----------------------------------------------------
+        # 2. Fallback: root level secrets
+        # ----------------------------------------------------
 
         else:
 
-            raw_url = st.secrets.get(
+            supabase_url = st.secrets.get(
                 "SUPABASE_URL",
-                os.environ.get(
-                    "SUPABASE_URL",
-                    ""
-                )
+                ""
             )
 
-            raw_key = st.secrets.get(
+            supabase_key = st.secrets.get(
                 "SUPABASE_KEY",
-                os.environ.get(
-                    "SUPABASE_KEY",
-                    ""
-                )
+                ""
             )
 
     except Exception:
+        pass
 
-        raw_url = os.environ.get(
+
+    # --------------------------------------------------------
+    # 3. Environment Variable Fallback
+    # --------------------------------------------------------
+
+    if not supabase_url:
+
+        supabase_url = os.environ.get(
             "SUPABASE_URL",
             ""
         )
 
-        raw_key = os.environ.get(
+    if not supabase_key:
+
+        supabase_key = os.environ.get(
             "SUPABASE_KEY",
             ""
         )
 
-    # =========================================================
-    # 2. Clean credentials
-    # =========================================================
+
+    # --------------------------------------------------------
+    # 4. Clean Credentials
+    # --------------------------------------------------------
 
     clean_url = (
-        str(raw_url)
+        str(supabase_url)
         .strip()
         .strip('"')
         .strip("'")
@@ -69,27 +96,25 @@ def init_supabase() -> Client:
     )
 
     clean_key = (
-        str(raw_key)
+        str(supabase_key)
         .strip()
         .strip('"')
         .strip("'")
     )
 
-    # =========================================================
-    # 3. Validate
-    # =========================================================
+
+    # --------------------------------------------------------
+    # 5. Validate URL
+    # --------------------------------------------------------
 
     if not clean_url:
 
-        st.error("❌ Supabase URL missing है।")
+        st.error(
+            "❌ Supabase URL missing है।"
+        )
 
         return None
 
-    if not clean_key:
-
-        st.error("❌ Supabase API Key missing है।")
-
-        return None
 
     if not clean_url.startswith("https://"):
 
@@ -100,9 +125,30 @@ def init_supabase() -> Client:
 
         return None
 
-    # =========================================================
-    # 4. Create Supabase Client
-    # =========================================================
+
+    if "supabase.co" not in clean_url:
+
+        st.warning(
+            "⚠️ Supabase URL verify करें।"
+        )
+
+
+    # --------------------------------------------------------
+    # 6. Validate API Key
+    # --------------------------------------------------------
+
+    if not clean_key:
+
+        st.error(
+            "❌ Supabase API Key missing है।"
+        )
+
+        return None
+
+
+    # --------------------------------------------------------
+    # 7. Create Client
+    # --------------------------------------------------------
 
     try:
 
@@ -122,8 +168,48 @@ def init_supabase() -> Client:
         return None
 
 
-# =============================================================
-# Global Supabase Client
-# =============================================================
+# ============================================================
+# GLOBAL SUPABASE CLIENT
+# ============================================================
 
 supabase = init_supabase()
+
+
+# ============================================================
+# CONNECTION STATUS HELPER
+# ============================================================
+
+def is_supabase_connected() -> bool:
+
+    return supabase is not None
+
+
+# ============================================================
+# SAFE DATABASE TEST
+# ============================================================
+
+def test_supabase_connection():
+
+    if supabase is None:
+
+        return False, "Supabase client available नहीं है।"
+
+    try:
+
+        # Lightweight request.
+        # Existing users table is used because Campus ERP
+        # already depends on this table.
+
+        response = (
+            supabase
+            .table("users")
+            .select("id")
+            .limit(1)
+            .execute()
+        )
+
+        return True, "Supabase connected successfully."
+
+    except Exception as e:
+
+        return False, str(e)
