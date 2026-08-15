@@ -743,7 +743,74 @@ def render_live_directory():
             "📭 No students found in database."
         )
 
+def render_student_profile(student):
+    st.markdown("---")
+    st.markdown(
+        f"""
+        <div class="student-profile">
+            <h2>🎓 Student Profile</h2>
+            <h3>{student.get("student_name", "N/A")}</h3>
+            <p><b>SR No:</b> {student.get("sr_no", "N/A")}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        st.markdown("### 👤 Personal Details")
+        st.write(f"**Student Name:** {student.get('student_name', 'N/A')}")
+        st.write(f"**Father Name:** {student.get('father_name', 'N/A')}")
+        st.write(f"**Mother Name:** {student.get('mother_name', 'N/A')}")
+        st.write(f"**Gender:** {student.get('gender', 'N/A')}")
+
+    with c2:
+        st.markdown("### 📚 Academic Details")
+        st.write(f"**SR No:** {student.get('sr_no', 'N/A')}")
+        st.write(f"**Roll No:** {student.get('roll_no', 'N/A')}")
+        st.write(f"**Class:** {student.get('class', 'N/A')}")
+        st.write(f"**Section:** {student.get('section', 'N/A')}")
+
+    with c3:
+        st.markdown("### 🚌 Contact & Transport")
+        st.write(f"**Mobile:** {student.get('mobile') or 'N/A'}")
+        st.write(f"**Bus Route:** {student.get('bus_route') or 'N/A'}")
+        st.write(f"**Drop Point:** {student.get('drop_point') or 'N/A'}")
+        st.write(
+            f"**Aadhaar / ID:** "
+            f"{'Available' if student.get('aadhaar') else 'Not Available'}"
+        )
+
+    st.markdown("---")
+
+    profile_text = f"""
+CAMPUS ERP PRO
+STUDENT PROFILE
+
+Student Name : {student.get('student_name', 'N/A')}
+SR No        : {student.get('sr_no', 'N/A')}
+Roll No      : {student.get('roll_no', 'N/A')}
+Class        : {student.get('class', 'N/A')}
+Section      : {student.get('section', 'N/A')}
+Gender       : {student.get('gender', 'N/A')}
+
+Father Name  : {student.get('father_name', 'N/A')}
+Mother Name  : {student.get('mother_name', 'N/A')}
+Mobile       : {student.get('mobile') or 'N/A'}
+Bus Route    : {student.get('bus_route') or 'N/A'}
+Drop Point   : {student.get('drop_point') or 'N/A'}
+Aadhaar/ID   : {student.get('aadhaar') or 'N/A'}
+"""
+
+    st.download_button(
+        "📄 Download Student Profile",
+        data=profile_text,
+        file_name=f"student_{student.get('sr_no', 'record')}.txt",
+        mime="text/plain",
+        use_container_width=True,
+        key=f"download_profile_{student.get('sr_no')}"
+    )
 # =========================================================
 # TAB 3 — SEARCH & EDIT
 # =========================================================
@@ -794,7 +861,6 @@ def render_search_manage():
                         "searched_student",
                         None
                     )
-
             except Exception as e:
 
                 st.error(
@@ -807,6 +873,11 @@ def render_search_manage():
 
     if not student:
         return
+
+    # =========================================================
+    # STUDENT PROFILE
+    # =========================================================
+    render_student_profile(student)
 
     st.markdown("---")
 
