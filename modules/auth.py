@@ -1,335 +1,1303 @@
-import streamlit as st
-import bcrypt
-import random
-import os
-import requests
+# ============================================================
+# CAMPUS ERP PRO
+# AUTHENTICATION MODULE
+# REAL SUPABASE AUTH + EMAIL / PHONE VERIFICATION
+# ============================================================
 
-# Supabase Client Import
+import re
+import streamlit as st
+
 try:
     from database.supabase import supabase
 except Exception:
     supabase = None
 
-# Fast2SMS Key Fetch from Environment / Secrets
-FAST2SMS_KEY = os.getenv("FAST2SMS_API_KEY") or st.secrets.get("FAST2SMS_API_KEY", None)
 
-def mask_text(text: str, mask_type: str = "general") -> str:
-    """Utility function to hide/mask sensitive user information."""
-    if not text:
-        return "N/A"
-    text = str(text).strip()
-    
-    if mask_type == "mobile":
-        # Example: 9828595276 -> 98******76
-        clean = "".join(filter(str.isdigit, text))
-        if len(clean) >= 10:
-            return f"{clean[:2]}******{clean[-2:]}"
-        return "******"
-        
-    elif mask_type == "email":
-        # Example: anandnehra@gmail.com -> an***@g***.com
-        if "@" in text:
-            parts = text.split("@")
-            name_part = parts[0]
-            domain_part = parts[1]
-            masked_name = name_part[:2] + "***" if len(name_part) > 2 else "***"
-            masked_domain = domain_part[:1] + "***" + domain_part[domain_part.rfind('.'):] if "." in domain_part else "***"
-            return f"{masked_name}@{masked_domain}"
-        return "***@***.com"
-        
-    elif mask_type == "name":
-        # Example: Anand Nehra -> An*** Ne***
-        words = text.split()
-        masked_words = [w[:2] + "***" if len(w) > 2 else "***" for w in words]
-        return " ".join(masked_words)
-        
-    return "***"
+# ============================================================
+# OPTIONAL ADMIN CLIENT
+# ============================================================
 
-def hash_password(password: str) -> str:
-    """Hashes password securely using bcrypt."""
-    salt = bcrypt.gensalt(12)
-    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+try:
+    from database.supabase_admin import supabase_admin
+except Exception:
+    supabase_admin = None
 
-def verify_password(password: str, hashed_password: str) -> bool:
-    """Verifies password hash against plain text input."""
-    try:
-        return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
-    except Exception:
+
+# ============================================================
+# CONSTANTS
+# ============================================================
+
+APP_NAME = "Campus ERP Pro"
+
+ROLES = {
+    "admin": "Admin",
+    "class_teacher": "Class Teacher",
+    "subject_teacher": "Subject Teacher",
+    "staff": "Staff",
+    "teacher": "Teacher",
+}
+
+
+# ============================================================
+# VALIDATION HELPERS
+# ============================================================
+
+def valid_email(email: str) -> bool:
+    if not email:
         return False
 
-def send_real_sms_otp(mobile_number: str, otp: str):
-    """Sends 6-Digit OTP via Fast2SMS Production Gateway."""
-    if not FAST2SMS_KEY:
-        return False, "SMS Gateway Key configured नहीं है। कृपया एडमिन से संपर्क करें।"
-    
-    clean_mobile = "".join(filter(str.isdigit, str(mobile_number)))[-10:]
-    if len(clean_mobile) != 10 or not clean_mobile.startswith(('6', '7', '8', '9')):
-        return False, "अवैध 10-अंकीय मोबाइल नंबर।"
+    pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
-    url = "https://www.fast2sms.com/dev/bulkV2"
-    payload = {
-        "variables_values": otp,
-        "route": "otp",
-        "numbers": clean_mobile
-    }
-    headers = {
-        'authorization': FAST2SMS_KEY,
-        'Content-Type': "application/x-www-form-urlencoded",
-        'Cache-Control': "no-cache"
-    }
+    return bool(
+        re.match(
+            pattern,
+            email.strip().lower()
+        )
+    )
+
+
+def valid_mobile(mobile: str) -> bool:
+    if not mobile:
+        return False
+
+    clean = re.sub(
+        r"\D",
+        "",
+        str(mobile)
+    )
+
+    return (
+        len(clean) == 10
+        and clean[0] in "6789"
+    )
+
+
+# ============================================================
+# SESSION HELPERS
+# ============================================================
+
+def clear_auth_session():
+
+    auth_keys = [
+        "logged_in",
+        "authenticated",
+        "user_email",
+        "user_name",
+        "user_role",
+        "user_id",
+        "assigned_class",
+        "assigned_classes",
+        "assigned_section",
+        "assigned_subjects",
+        "phone_verified",
+        "email_verified",
+    ]
+
+    for key in auth_keys:
+
+        st.session_state.pop(
+            key,
+            None
+        )
+
+
+def set_authenticated_session(
+    user,
+    profile=None
+):
+
+    profile = profile or {}
+
+    user_id = getattr(
+        user,
+        "id",
+        None
+    )
+
+    user_email = (
+        getattr(user, "email", None)
+        or profile.get("email")
+        or ""
+    )
+
+    user_name = (
+        profile.get("name")
+        or getattr(
+            user,
+            "user_metadata",
+            {}
+        ).get("name")
+        or "User"
+    )
+
+    role = (
+        profile.get("role")
+        or "staff"
+    ).lower()
+
+    assigned_classes = (
+        profile.get("assigned_classes")
+        or []
+    )
+
+    assigned_class = (
+        profile.get("assigned_class")
+        or (
+            assigned_classes[0]
+            if assigned_classes
+            else None
+        )
+    )
+
+    assigned_subjects = (
+        profile.get("assigned_subjects")
+        or []
+    )
+
+    assigned_section = (
+        profile.get("assigned_section")
+        or "ALL"
+    )
+
+    # --------------------------------------------------------
+    # Verification status
+    # --------------------------------------------------------
+
+    email_verified = (
+        profile.get("email_verified")
+        if profile.get("email_verified") is not None
+        else bool(
+            getattr(
+                user,
+                "email_confirmed_at",
+                None
+            )
+        )
+    )
+
+    phone_verified = bool(
+        profile.get("phone_verified", False)
+        or getattr(
+            user,
+            "phone_confirmed_at",
+            None
+        )
+    )
+
+    # --------------------------------------------------------
+    # Session
+    # --------------------------------------------------------
+
+    st.session_state["logged_in"] = True
+    st.session_state["authenticated"] = True
+
+    st.session_state["user_id"] = user_id
+    st.session_state["user_email"] = user_email
+    st.session_state["user_name"] = user_name
+    st.session_state["user_role"] = role
+
+    st.session_state["assigned_class"] = (
+        assigned_class
+    )
+
+    st.session_state["assigned_classes"] = (
+        assigned_classes
+    )
+
+    st.session_state["assigned_section"] = (
+        assigned_section
+    )
+
+    st.session_state["assigned_subjects"] = (
+        assigned_subjects
+    )
+
+    st.session_state["email_verified"] = (
+        email_verified
+    )
+
+    st.session_state["phone_verified"] = (
+        phone_verified
+    )
+
+
+# ============================================================
+# GET USER PROFILE
+# ============================================================
+
+def get_user_profile(user_id=None, email=None):
+
+    if not supabase:
+        return None
 
     try:
-        response = requests.post(url, data=payload, headers=headers, timeout=8)
-        res_json = response.json()
-        if res_json.get("return") is True:
-            return True, "SMS आपके मोबाइल नंबर पर भेज दिया गया है।"
+
+        query = (
+            supabase
+            .table("users")
+            .select(
+                """
+                id,
+                name,
+                email,
+                mobile,
+                username,
+                role,
+                assigned_class,
+                assigned_classes,
+                assigned_section,
+                assigned_subjects,
+                email_verified,
+                phone_verified,
+                is_active
+                """
+            )
+        )
+
+        if user_id:
+
+            response = (
+                query
+                .eq("auth_user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+
+        elif email:
+
+            response = (
+                query
+                .eq(
+                    "email",
+                    email.strip().lower()
+                )
+                .limit(1)
+                .execute()
+            )
+
         else:
-            err_msg = res_json.get("message", "SMS सर्वर प्रतिक्रिया देने में असमर्थ रहा।")
-            if isinstance(err_msg, list) and len(err_msg) > 0:
-                err_msg = err_msg[0]
-            return False, f"SMS न भेजा जा सका: {err_msg}"
+            return None
+
+        if response.data:
+
+            return response.data[0]
+
     except Exception as e:
-        return False, f"SMS नेटवर्क त्रुटि: {str(e)}"
 
-def render_login_page():
-    # Production Custom Styling
-    st.markdown("""
-        <style>
-        .app-header-bar { 
-            background: linear-gradient(135deg, #1E1B4B, #312E81); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            color: white; 
-            padding: 18px 22px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); 
-            margin-bottom: 22px; 
-        } 
-        .header-top { display: flex; align-items: center; justify-content: space-between; } 
-        .app-brand { display: flex; align-items: center; gap: 14px; } 
-        .app-icon { font-size: 30px; background: linear-gradient(135deg, #6366F1, #4F46E5); padding: 8px 14px; border-radius: 16px; } 
-        .app-title-text h3 { margin: 0; font-size: 20px; color: #F8FAFC; font-weight: 800; letter-spacing: 0.5px; } 
-        .app-title-text span { font-size: 11px; color: #C7D2FE; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-        .status-badge { background: rgba(34, 197, 94, 0.15); color: #4ADE80; border: 1px solid rgba(74, 222, 128, 0.25); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-        .admin-info-box { background: rgba(255, 255, 255, 0.06); border-radius: 14px; padding: 12px 16px; margin-top: 14px; font-size: 12px; color: #E0E7FF; border: 1px solid rgba(255, 255, 255, 0.1); } 
-        .admin-info-box p { margin: 3px 0; } 
-        .stButton>button { width: 100%; border-radius: 14px !important; height: 46px !important; font-size: 15px !important; font-weight: 700 !important; background: linear-gradient(135deg, #4F46E5, #4338CA) !important; color: white !important; border: none !important; }
-        </style>
+        # ----------------------------------------------------
+        # Backward compatibility
+        # If auth_user_id column is not yet present,
+        # fallback to email.
+        # ----------------------------------------------------
 
-        <div class="app-header-bar">
-            <div class="header-top">
-                <div class="app-brand">
-                    <div class="app-icon">🎓</div>
-                    <div class="app-title-text">
-                        <h3>Dream Shiksha ERP</h3>
-                        <span>POWERED BY SAKSHI SOLUTION</span>
-                    </div>
-                </div>
-                <div class="status-badge">🟢 Enterprise Live</div>
-            </div>
-            <div class="admin-info-box">
-                <p>🏢 <b>Provider:</b> Sakshi Solution</p>
-                <p>👨‍💼 <b>Developer:</b> Anand Nehra</p>
-                <p>📞 <b>Support:</b> 9828595276 | ✉️ <b>Email:</b> anandnehra8@gmail.com</p>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+        if email:
 
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        if 'auth_mode' not in st.session_state:
-            st.session_state['auth_mode'] = 'login' # 'login', 'signup', 'forgot_password'
-        if 'otp_sent' not in st.session_state:
-            st.session_state['otp_sent'] = False
+            try:
 
-        # -------------------------------------------------------------
-        # 1. SIGN IN / LOGIN PAGE
-        # -------------------------------------------------------------
-        if st.session_state['auth_mode'] == 'login':
-            st.subheader("🔑 Sign In Portal")
-            
-            # Role Selection
-            selected_role = st.selectbox("Select Account Role", ["Admin", "Teacher", "Staff"], key="login_role")
-            
-            user_input = st.text_input("Username / Email / Mobile", key="login_usr_input", placeholder="Enter Username, Email, or Mobile")
-            password = st.text_input("Password", type="password", key="login_pwd_input", placeholder="••••••••")
-            
-            submit = st.button("🚀 Sign In", use_container_width=True, key="btn_signin_submit")
+                response = (
+                    supabase
+                    .table("users")
+                    .select("*")
+                    .eq(
+                        "email",
+                        email.strip().lower()
+                    )
+                    .limit(1)
+                    .execute()
+                )
 
-            if submit:
-                clean_input = user_input.strip().lower()
-                clean_pass = password.strip()
+                if response.data:
 
-                if not clean_input or not clean_pass:
-                    st.warning("⚠️ कृपया विवरण दर्ज करें।")
-                    return
+                    return response.data[0]
 
-                # Fast Authenticate Master Admin
-                if clean_input in ["anandnehra08", "admin@school.com", "admin", "9828595276"] and clean_pass in ["admin123", "admin", "123456"]:
-                    st.session_state['logged_in'] = True
-                    st.session_state['authenticated'] = True
-                    st.session_state['user_email'] = "anandnehra08"
-                    st.session_state['user_name'] = "Anand Nehra"
-                    st.session_state['user_role'] = selected_role.lower()
-                    st.rerun()
+            except Exception:
+                pass
 
-                elif supabase:
-                    try:
-                        res = supabase.table("users").select("*").or_(f"email.eq.{clean_input},username.eq.{clean_input},mobile.eq.{clean_input}").execute()
-                        matched_users = res.data or []
+    return None
 
-                        if matched_users:
-                            user = matched_users[0]
-                            db_password = str(user.get("password", "")).strip()
 
-                            is_valid = verify_password(clean_pass, db_password) if (db_password.startswith("$2b$") or db_password.startswith("$2a$")) else (clean_pass == db_password)
+# ============================================================
+# CHECK ACTIVE / VERIFIED USER
+# ============================================================
 
-                            if is_valid:
-                                st.session_state['logged_in'] = True
-                                st.session_state['authenticated'] = True
-                                st.session_state['user_email'] = user.get('username') or user.get('email') or clean_input
-                                st.session_state['user_name'] = user.get('name', 'User')
-                                st.session_state['user_role'] = selected_role.lower()
-                                st.rerun()
-                            else:
-                                st.error("❌ पासवर्ड गलत है!")
-                        else:
-                            st.error("❌ खाता नहीं मिला।")
-                    except Exception as err:
-                        st.error(f"❌ डेटाबेस त्रुटि: {err}")
+def check_profile_access(profile):
 
-            st.write("")
-            col_a, col_b = st.columns(2)
-            with col_a:
-                if st.button("📝 Create Account (Sign Up)", key="btn_goto_signup"):
-                    st.session_state['auth_mode'] = 'signup'
-                    st.rerun()
-            with col_b:
-                if st.button("🔑 Forgot Password?", key="btn_goto_forgot"):
-                    st.session_state['auth_mode'] = 'forgot_password'
-                    st.rerun()
+    if not profile:
 
-        # -------------------------------------------------------------
-        # 2. SIGN UP / REGISTRATION PAGE
-        # -------------------------------------------------------------
-        elif st.session_state['auth_mode'] == 'signup':
-            st.subheader("📝 New Account Sign Up")
-            
-            signup_role = st.selectbox("Register As", ["Teacher", "Staff", "Admin"], key="signup_role")
-            signup_name = st.text_input("Full Name", placeholder="e.g. Anand Nehra")
-            signup_mobile = st.text_input("Mobile Number", placeholder="10 Digit Mobile Number", max_chars=10)
-            signup_email = st.text_input("Email Address", placeholder="name@example.com")
-            signup_username = st.text_input("Choose Username", placeholder="e.g. anand08")
-            signup_pass = st.text_input("Create Password", type="password", placeholder="••••••••")
+        return False, (
+            "❌ ERP profile नहीं मिला। "
+            "Principal/Admin से संपर्क करें।"
+        )
 
-            if st.button("✅ Create Account", key="btn_do_signup"):
-                if not signup_name or not signup_mobile or not signup_username or not signup_pass:
-                    st.warning("⚠️ कृपया सभी आवश्यक फ़ील्ड भरें।")
-                elif len(signup_mobile) != 10 or not signup_mobile.isdigit():
-                    st.warning("⚠️ वैध 10-अंकीय मोबाइल नंबर दर्ज करें।")
-                else:
-                    if supabase:
-                        try:
-                            hashed = hash_password(signup_pass.strip())
-                            new_user_data = {
-                                "name": signup_name.strip(),
-                                "mobile": signup_mobile.strip(),
-                                "email": signup_email.strip(),
-                                "username": signup_username.strip().lower(),
-                                "password": hashed,
-                                "role": signup_role.lower()
+    # --------------------------------------------------------
+    # Active status
+    # --------------------------------------------------------
+
+    if profile.get("is_active") is False:
+
+        return False, (
+            "⛔ आपका ERP access inactive है। "
+            "Principal/Admin से संपर्क करें।"
+        )
+
+    # --------------------------------------------------------
+    # Email verification
+    # --------------------------------------------------------
+
+    role = (
+        profile.get("role")
+        or "staff"
+    ).lower()
+
+    email_verified = profile.get(
+        "email_verified",
+        False
+    )
+
+    # Admin भी verification के बिना
+    # application में प्रवेश नहीं करेगा।
+    if not email_verified:
+
+        return False, (
+            "📧 आपका email अभी verified नहीं है। "
+            "पहले email verification पूरा करें।"
+        )
+
+    # --------------------------------------------------------
+    # Teacher / Staff phone verification
+    # --------------------------------------------------------
+
+    if role in [
+        "teacher",
+        "class_teacher",
+        "subject_teacher",
+        "staff",
+    ]:
+
+        if not profile.get(
+            "phone_verified",
+            False
+        ):
+
+            return False, (
+                "📱 आपका mobile number अभी verified नहीं है। "
+                "OTP verification पूरा करें।"
+            )
+
+    return True, ""
+
+
+# ============================================================
+# SEND EMAIL VERIFICATION
+# ============================================================
+
+def resend_email_verification(email):
+
+    if not supabase:
+
+        return False, (
+            "Supabase connection उपलब्ध नहीं है।"
+        )
+
+    try:
+
+        supabase.auth.resend(
+            {
+                "type": "signup",
+                "email": email.strip().lower(),
+            }
+        )
+
+        return True, (
+            "📧 Verification email दोबारा भेज दिया गया है।"
+        )
+
+    except Exception as e:
+
+        return False, (
+            f"❌ Verification email नहीं भेजा जा सका: {e}"
+        )
+
+
+# ============================================================
+# PHONE OTP
+# ============================================================
+
+def send_phone_otp(phone):
+
+    if not supabase:
+
+        return False, (
+            "Supabase connection उपलब्ध नहीं है।"
+        )
+
+    clean_phone = re.sub(
+        r"\D",
+        "",
+        str(phone)
+    )
+
+    if len(clean_phone) == 10:
+
+        clean_phone = (
+            "+91" + clean_phone
+        )
+
+    if not clean_phone.startswith("+"):
+
+        return False, (
+            "❌ Mobile number format गलत है।"
+        )
+
+    try:
+
+        supabase.auth.sign_in_with_otp(
+            {
+                "phone": clean_phone
+            }
+        )
+
+        return True, (
+            "📱 Real OTP आपके registered mobile number "
+            "पर भेजा गया है।"
+        )
+
+    except Exception as e:
+
+        return False, (
+            f"❌ OTP भेजने में समस्या: {e}"
+        )
+
+
+# ============================================================
+# VERIFY PHONE OTP
+# ============================================================
+
+def verify_phone_otp(
+    phone,
+    otp
+):
+
+    if not supabase:
+
+        return False, None, (
+            "Supabase connection उपलब्ध नहीं है।"
+        )
+
+    clean_phone = re.sub(
+        r"\D",
+        "",
+        str(phone)
+    )
+
+    if len(clean_phone) == 10:
+
+        clean_phone = (
+            "+91" + clean_phone
+        )
+
+    try:
+
+        response = (
+            supabase
+            .auth
+            .verify_otp(
+                {
+                    "phone": clean_phone,
+                    "token": otp.strip(),
+                    "type": "sms",
+                }
+            )
+        )
+
+        user = response.user
+
+        if not user:
+
+            return False, None, (
+                "❌ OTP verification failed."
+            )
+
+        return True, user, (
+            "✅ Mobile number verified successfully."
+        )
+
+    except Exception as e:
+
+        return False, None, (
+            f"❌ गलत या expired OTP: {e}"
+        )
+
+
+# ============================================================
+# UPDATE PHONE VERIFICATION IN PROFILE
+# ============================================================
+
+def mark_phone_verified(
+    user_id
+):
+
+    if not supabase or not user_id:
+
+        return
+
+    try:
+
+        (
+            supabase
+            .table("users")
+            .update(
+                {
+                    "phone_verified": True
+                }
+            )
+            .eq(
+                "auth_user_id",
+                user_id
+            )
+            .execute()
+        )
+
+    except Exception:
+        pass
+
+
+# ============================================================
+# LOGIN WITH EMAIL + PASSWORD
+# ============================================================
+
+def login_with_email(
+    email,
+    password
+):
+
+    if not supabase:
+
+        return False, (
+            "❌ Supabase connection उपलब्ध नहीं है।"
+        )
+
+    try:
+
+        response = (
+            supabase
+            .auth
+            .sign_in_with_password(
+                {
+                    "email": email.strip().lower(),
+                    "password": password,
+                }
+            )
+        )
+
+        user = response.user
+
+        if not user:
+
+            return False, (
+                "❌ Login failed."
+            )
+
+        # ----------------------------------------------------
+        # Get ERP profile
+        # ----------------------------------------------------
+
+        profile = get_user_profile(
+            user_id=user.id,
+            email=user.email
+        )
+
+        if not profile:
+
+            return False, (
+                "❌ आपका Supabase account मौजूद है, "
+                "लेकिन ERP profile नहीं मिला।"
+            )
+
+        # ----------------------------------------------------
+        # Update email verification status
+        # ----------------------------------------------------
+
+        if getattr(
+            user,
+            "email_confirmed_at",
+            None
+        ):
+
+            if profile.get(
+                "email_verified"
+            ) is not True:
+
+                try:
+
+                    (
+                        supabase
+                        .table("users")
+                        .update(
+                            {
+                                "email_verified": True
                             }
-                            supabase.table("users").insert(new_user_data).execute()
-                            st.success("🎉 खाता सफलतापूर्वक बन गया! कृपया Sign In करें।")
-                            st.session_state['auth_mode'] = 'login'
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ रजिस्ट्रेशन विफल: {e}")
-                    else:
-                        st.success("🎉 खाता बन गया! (Demo/Local Mode)")
-                        st.session_state['auth_mode'] = 'login'
-                        st.rerun()
+                        )
+                        .eq(
+                            "id",
+                            profile["id"]
+                        )
+                        .execute()
+                    )
 
-            st.write("")
-            if st.button("⬅️ Back to Sign In", key="btn_back_from_signup"):
-                st.session_state['auth_mode'] = 'login'
-                st.rerun()
+                    profile["email_verified"] = True
 
-        # -------------------------------------------------------------
-        # 3. FORGOT PASSWORD (SMS OTP)
-        # -------------------------------------------------------------
-        else:
-            st.subheader("📲 Account Recovery via SMS OTP")
-            
-            if not st.session_state['otp_sent']:
-                search_val = st.text_input("Registered Username / Email / Mobile", placeholder="e.g. 9828595276")
-                
-                if st.button("📩 Send OTP SMS", key="btn_send_otp_fp"):
-                    clean_val = search_val.strip().lower()
-                    if clean_val:
-                        found_user = None
-                        if supabase:
-                            try:
-                                res = supabase.table("users").select("*").or_(f"email.eq.{clean_val},username.eq.{clean_val},mobile.eq.{clean_val}").execute()
-                                if res.data:
-                                    found_user = res.data[0]
-                            except Exception:
-                                pass
+                except Exception:
+                    pass
 
-                        if not found_user and clean_val in ["anandnehra08", "admin@school.com", "9828595276", "admin"]:
-                            found_user = {"id": 1, "username": "anandnehra08", "mobile": "9828595276"}
+        # ----------------------------------------------------
+        # Access check
+        # ----------------------------------------------------
 
-                        if found_user:
-                            user_mobile = found_user.get("mobile")
-                            if user_mobile:
-                                secure_otp = str(random.randint(100000, 999999))
-                                with st.spinner("SMS भेजा जा रहा है..."):
-                                    sms_success, sms_response_msg = send_real_sms_otp(user_mobile, secure_otp)
+        allowed, message = (
+            check_profile_access(
+                profile
+            )
+        )
 
-                                if sms_success:
-                                    st.session_state['generated_otp'] = secure_otp
-                                    st.session_state['target_user_id'] = found_user.get("id")
-                                    st.session_state['otp_sent'] = True
-                                    st.success(f"✅ {sms_response_msg}")
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ {sms_response_msg}")
-                            else:
-                                st.error("❌ कोई मोबाइल नंबर लिंक नहीं है।")
-                        else:
-                            st.error("❌ खाता नहीं मिला।")
-            else:
-                entered_otp = st.text_input("Enter 6-Digit SMS OTP", max_chars=6)
-                new_password = st.text_input("Set New Password", type="password")
-                
-                if st.button("🔄 Reset Password & Sign In", key="btn_verify_otp_reset"):
-                    if entered_otp.strip() == st.session_state.get('generated_otp'):
-                        hashed_pass = hash_password(new_password.strip())
-                        if supabase and st.session_state.get('target_user_id'):
-                            try:
-                                supabase.table("users").update({"password": hashed_pass}).eq("id", st.session_state['target_user_id']).execute()
-                            except Exception:
-                                pass
+        if not allowed:
 
-                        st.success("🎉 पासवर्ड अपडेट हो गया!")
-                        st.session_state['logged_in'] = True
-                        st.session_state['authenticated'] = True
-                        st.session_state['user_email'] = "anandnehra08"
-                        st.session_state['user_name'] = "Anand Nehra"
-                        st.session_state['user_role'] = "admin"
-                        st.session_state['auth_mode'] = 'login'
-                        st.session_state['otp_sent'] = False
-                        st.rerun()
-                    else:
-                        st.error("❌ गलत OTP!")
+            # Security:
+            # authenticated session immediately close
+            try:
+                supabase.auth.sign_out()
+            except Exception:
+                pass
 
-            st.write("")
-            if st.button("⬅️ Back to Sign In", key="btn_back_to_login"):
-                st.session_state['auth_mode'] = 'login'
-                st.session_state['otp_sent'] = False
-                st.rerun()
+            return False, message
+
+        # ----------------------------------------------------
+        # Create application session
+        # ----------------------------------------------------
+
+        set_authenticated_session(
+            user,
+            profile
+        )
+
+        return True, (
+            "✅ Login successful."
+        )
+
+    except Exception as e:
+
+        return False, (
+            f"❌ Login failed: {e}"
+        )
+
+
+# ============================================================
+# PHONE LOGIN
+# ============================================================
+
+def find_user_by_mobile(
+    mobile
+):
+
+    if not supabase:
+
+        return None
+
+    clean_mobile = re.sub(
+        r"\D",
+        "",
+        str(mobile)
+    )
+
+    try:
+
+        response = (
+            supabase
+            .table("users")
+            .select("*")
+            .eq(
+                "mobile",
+                clean_mobile
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if response.data:
+
+            return response.data[0]
+
+    except Exception:
+        pass
+
+    return None
+
+
+# ============================================================
+# FORGOT PASSWORD
+# ============================================================
+
+def send_password_reset_email(
+    email
+):
+
+    if not supabase:
+
+        return False, (
+            "❌ Supabase connection उपलब्ध नहीं है।"
+        )
+
+    try:
+
+        supabase.auth.reset_password_for_email(
+            email.strip().lower()
+        )
+
+        return True, (
+            "📧 Password reset link आपके registered "
+            "email पर भेज दिया गया है।"
+        )
+
+    except Exception as e:
+
+        return False, (
+            f"❌ Reset email नहीं भेजा जा सका: {e}"
+        )
+
+
+# ============================================================
+# SIGN OUT
+# ============================================================
 
 def logout_user():
-    """Logs out user and clears active session."""
-    st.session_state.clear()
+
+    try:
+
+        if supabase:
+
+            supabase.auth.sign_out()
+
+    except Exception:
+        pass
+
+    clear_auth_session()
+
+    # Auth UI state भी reset
+    st.session_state["auth_mode"] = "login"
+
+    st.session_state["phone_otp_sent"] = False
+
     st.rerun()
+
+
+# ============================================================
+# HEADER
+# ============================================================
+
+def render_auth_header():
+
+    st.markdown(
+        """
+        <style>
+
+        .erp-auth-header {
+            background:
+                linear-gradient(
+                    135deg,
+                    #1e1b4b,
+                    #312e81
+                );
+
+            color: white;
+            padding: 22px;
+            border-radius: 18px;
+            margin-bottom: 25px;
+            box-shadow:
+                0 8px 25px rgba(0,0,0,.20);
+        }
+
+        .erp-auth-header h2 {
+            margin: 0;
+            color: white;
+        }
+
+        .erp-auth-header p {
+            margin: 4px 0;
+            color: #e0e7ff;
+        }
+
+        </style>
+
+        <div class="erp-auth-header">
+
+            <h2>🏫 Campus ERP Pro</h2>
+
+            <p>
+                Secure School Management System
+            </p>
+
+            <p>
+                🔐 Real Supabase Authentication
+            </p>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# ============================================================
+# LOGIN PAGE
+# ============================================================
+
+def render_login_page():
+
+    render_auth_header()
+
+    if "auth_mode" not in st.session_state:
+
+        st.session_state["auth_mode"] = (
+            "login"
+        )
+
+    if "phone_otp_sent" not in st.session_state:
+
+        st.session_state[
+            "phone_otp_sent"
+        ] = False
+
+    if "phone_login_mobile" not in st.session_state:
+
+        st.session_state[
+            "phone_login_mobile"
+        ] = ""
+
+    # ========================================================
+    # LOGIN
+    # ========================================================
+
+    if st.session_state[
+        "auth_mode"
+    ] == "login":
+
+        col1, col2, col3 = st.columns(
+            [1, 2, 1]
+        )
+
+        with col2:
+
+            st.subheader(
+                "🔐 Secure Sign In"
+            )
+
+            login_method = st.radio(
+                "Login Method",
+                [
+                    "📧 Email + Password",
+                    "📱 Mobile OTP",
+                ],
+                horizontal=True,
+                key="login_method"
+            )
+
+            # ------------------------------------------------
+            # EMAIL LOGIN
+            # ------------------------------------------------
+
+            if login_method == (
+                "📧 Email + Password"
+            ):
+
+                email = st.text_input(
+                    "Registered Email",
+                    placeholder="teacher@school.com",
+                    key="auth_login_email"
+                )
+
+                password = st.text_input(
+                    "Password",
+                    type="password",
+                    key="auth_login_password"
+                )
+
+                if st.button(
+                    "🚀 Sign In",
+                    type="primary",
+                    use_container_width=True,
+                    key="real_email_login"
+                ):
+
+                    if not valid_email(email):
+
+                        st.warning(
+                            "⚠️ Valid registered email डालें।"
+                        )
+
+                    elif not password:
+
+                        st.warning(
+                            "⚠️ Password डालें।"
+                        )
+
+                    else:
+
+                        with st.spinner(
+                            "🔐 Authenticating..."
+                        ):
+
+                            success, message = (
+                                login_with_email(
+                                    email,
+                                    password
+                                )
+                            )
+
+                        if success:
+
+                            st.success(
+                                message
+                            )
+
+                            st.rerun()
+
+                        else:
+
+                            st.error(
+                                message
+                            )
+
+                st.markdown("---")
+
+                if st.button(
+                    "📧 Resend Email Verification",
+                    use_container_width=True,
+                    key="resend_email_verify"
+                ):
+
+                    if not valid_email(email):
+
+                        st.warning(
+                            "पहले registered email डालें।"
+                        )
+
+                    else:
+
+                        success, message = (
+                            resend_email_verification(
+                                email
+                            )
+                        )
+
+                        if success:
+
+                            st.success(
+                                message
+                            )
+
+                        else:
+
+                            st.error(
+                                message
+                            )
+
+            # ------------------------------------------------
+            # PHONE OTP LOGIN
+            # ------------------------------------------------
+
+            else:
+
+                if not st.session_state[
+                    "phone_otp_sent"
+                ]:
+
+                    mobile = st.text_input(
+                        "Registered Mobile Number",
+                        placeholder="10 digit mobile number",
+                        max_chars=10,
+                        key="phone_login_input"
+                    )
+
+                    if st.button(
+                        "📩 Send Real OTP",
+                        type="primary",
+                        use_container_width=True,
+                        key="send_real_phone_otp"
+                    ):
+
+                        if not valid_mobile(
+                            mobile
+                        ):
+
+                            st.warning(
+                                "⚠️ Valid Indian mobile number डालें।"
+                            )
+
+                        else:
+
+                            profile = (
+                                find_user_by_mobile(
+                                    mobile
+                                )
+                            )
+
+                            if not profile:
+
+                                st.error(
+                                    "❌ यह mobile number "
+                                    "ERP में registered नहीं है।"
+                                )
+
+                            elif profile.get(
+                                "is_active"
+                            ) is False:
+
+                                st.error(
+                                    "⛔ यह account inactive है।"
+                                )
+
+                            else:
+
+                                with st.spinner(
+                                    "📱 Real OTP भेजा जा रहा है..."
+                                ):
+
+                                    success, message = (
+                                        send_phone_otp(
+                                            mobile
+                                        )
+                                    )
+
+                                if success:
+
+                                    st.session_state[
+                                        "phone_otp_sent"
+                                    ] = True
+
+                                    st.session_state[
+                                        "phone_login_mobile"
+                                    ] = mobile
+
+                                    st.success(
+                                        message
+                                    )
+
+                                    st.rerun()
+
+                                else:
+
+                                    st.error(
+                                        message
+                                    )
+
+                else:
+
+                    mobile = st.session_state[
+                        "phone_login_mobile"
+                    ]
+
+                    st.info(
+                        f"📱 OTP भेजा गया: "
+                        f"{mobile[:2]}******{mobile[-2:]}"
+                    )
+
+                    otp = st.text_input(
+                        "Enter 6-Digit OTP",
+                        max_chars=6,
+                        key="phone_login_otp"
+                    )
+
+                    if st.button(
+                        "✅ Verify OTP & Login",
+                        type="primary",
+                        use_container_width=True,
+                        key="verify_phone_login"
+                    ):
+
+                        if (
+                            not otp
+                            or not otp.isdigit()
+                            or len(otp) != 6
+                        ):
+
+                            st.warning(
+                                "⚠️ 6 digit OTP डालें।"
+                            )
+
+                        else:
+
+                            with st.spinner(
+                                "🔐 OTP verify हो रहा है..."
+                            ):
+
+                                success, user, message = (
+                                    verify_phone_otp(
+                                        mobile,
+                                        otp
+                                    )
+                                )
+
+                            if success:
+
+                                profile = (
+                                    find_user_by_mobile(
+                                        mobile
+                                    )
+                                )
+
+                                if not profile:
+
+                                    st.error(
+                                        "❌ ERP profile नहीं मिला।"
+                                    )
+
+                                else:
+
+                                    # Phone verified
+                                    profile[
+                                        "phone_verified"
+                                    ] = True
+
+                                    mark_phone_verified(
+                                        profile.get(
+                                            "auth_user_id"
+                                        )
+                                    )
+
+                                    # Email must still be verified
+                                    allowed, access_message = (
+                                        check_profile_access(
+                                            profile
+                                        )
+                                    )
+
+                                    if allowed:
+
+                                        set_authenticated_session(
+                                            user,
+                                            profile
+                                        )
+
+                                        st.success(
+                                            "✅ Mobile verified. "
+                                            "Login successful."
+                                        )
+
+                                        st.rerun()
+
+                                    else:
+
+                                        st.error(
+                                            access_message
+                                        )
+
+                            else:
+
+                                st.error(
+                                    message
+                                )
+
+                    if st.button(
+                        "🔄 Send OTP Again",
+                        use_container_width=True,
+                        key="resend_phone_otp"
+                    ):
+
+                        st.session_state[
+                            "phone_otp_sent"
+                        ] = False
+
+                        st.rerun()
+
+            st.markdown("---")
+
+            # ------------------------------------------------
+            # PASSWORD RESET
+            # ------------------------------------------------
+
+            if st.button(
+                "🔑 Forgot Password?",
+                use_container_width=True,
+                key="goto_password_reset"
+            ):
+
+                st.session_state[
+                    "auth_mode"
+                ] = "forgot_password"
+
+                st.rerun()
+
+    # ========================================================
+    # FORGOT PASSWORD
+    # ========================================================
+
+    elif st.session_state[
+        "auth_mode"
+    ] == "forgot_password":
+
+        col1, col2, col3 = st.columns(
+            [1, 2, 1]
+        )
+
+        with col2:
+
+            st.subheader(
+                "🔑 Password Recovery"
+            )
+
+            st.info(
+                "Password reset के लिए registered "
+                "email पर secure Supabase link भेजा जाएगा।"
+            )
+
+            email = st.text_input(
+                "Registered Email",
+                placeholder="teacher@school.com",
+                key="reset_email"
+            )
+
+            if st.button(
+                "📧 Send Reset Link",
+                type="primary",
+                use_container_width=True,
+                key="send_reset_link"
+            ):
+
+                if not valid_email(email):
+
+                    st.warning(
+                        "⚠️ Valid email डालें।"
+                    )
+
+                else:
+
+                    success, message = (
+                        send_password_reset_email(
+                            email
+                        )
+                    )
+
+                    if success:
+
+                        st.success(
+                            message
+                        )
+
+                    else:
+
+                        st.error(
+                            message
+                        )
+
+            st.markdown("---")
+
+            if st.button(
+                "⬅️ Back to Sign In",
+                use_container_width=True,
+                key="back_login"
+            ):
+
+                st.session_state[
+                    "auth_mode"
+                ] = "login"
+
+                st.rerun()
