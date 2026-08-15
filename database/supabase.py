@@ -79,7 +79,17 @@ def init_supabase() -> Client:
     )
 
     # =========================================================
-    # 3. Validate
+    # 3. TEMPORARY DIAGNOSTIC
+    # =========================================================
+
+    st.info(
+        f"Supabase URL: {clean_url}\n\n"
+        f"Key loaded: {'YES' if clean_key else 'NO'}\n"
+        f"Key prefix: {clean_key[:15] if clean_key else 'NONE'}..."
+    )
+
+    # =========================================================
+    # 4. Validate
     # =========================================================
 
     if not clean_url:
@@ -99,7 +109,7 @@ def init_supabase() -> Client:
         return None
 
     # =========================================================
-    # 4. URL validation
+    # 5. URL validation
     # =========================================================
 
     if not clean_url.startswith("https://"):
@@ -112,7 +122,7 @@ def init_supabase() -> Client:
         return None
 
     # =========================================================
-    # 5. Create Supabase Client
+    # 6. Create Supabase Client
     # =========================================================
 
     try:
