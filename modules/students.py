@@ -1376,36 +1376,6 @@ def render_print_student_profile(student):
         unsafe_allow_html=True
     )
 
-
-    # =====================================================
-    # PRINT BUTTON
-    # =====================================================
-
-    st.markdown(
-        """
-        <div class="no-print">
-
-            <button
-                onclick="window.print()"
-                style="
-                    width:100%;
-                    padding:12px;
-                    border:none;
-                    border-radius:8px;
-                    background:#1e3a8a;
-                    color:white;
-                    font-size:16px;
-                    font-weight:bold;
-                    cursor:pointer;
-                "
-            >
-                🖨️ Print A4 Student Profile
-            </button>
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 # =========================================================
 # TAB 3 — SEARCH & EDIT
 # =========================================================
