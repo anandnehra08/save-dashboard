@@ -2,7 +2,7 @@ import io
 import pandas as pd
 import streamlit as st
 from database.supabase import supabase
-
+import streamlit.components.v1 as components
 
 # =========================================================
 # CONSTANTS
