@@ -811,140 +811,21 @@ Aadhaar/ID   : {student.get('aadhaar') or 'N/A'}
         use_container_width=True,
         key=f"download_profile_{student.get('sr_no')}"
     )
-# =========================================================
-# PROFESSIONAL A4 PRINT PROFILE
-# =========================================================
-
 def render_print_student_profile(student):
 
-    st.markdown(
-        """
-        <style>
+    import streamlit.components.v1 as components
 
-        @media print {
-
-            @page {
-                size: A4;
-                margin: 12mm;
-            }
-
-            header,
-            [data-testid="stSidebar"],
-            [data-testid="stHeader"],
-            [data-testid="stToolbar"],
-            .no-print {
-                display: none !important;
-            }
-
-            .print-profile {
-                display: block !important;
-                width: 100%;
-            }
-
-        }
-
-        .print-profile {
-            background: white;
-            border: 2px solid #1e3a8a;
-            border-radius: 12px;
-            padding: 25px;
-            margin-top: 20px;
-            color: #111827;
-        }
-
-        .print-title {
-            text-align: center;
-            border-bottom: 2px solid #1e3a8a;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-        }
-
-        .print-title h1 {
-            margin: 0;
-            color: #1e3a8a;
-        }
-
-        .print-title p {
-            margin: 5px 0;
-            color: #374151;
-        }
-
-        .profile-section {
-            margin-top: 18px;
-        }
-
-        .profile-section h3 {
-            background: #eef2ff;
-            padding: 8px 12px;
-            border-left: 5px solid #1e3a8a;
-            color: #1e3a8a;
-        }
-
-        .profile-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-        }
-
-        .profile-table td {
-            border: 1px solid #d1d5db;
-            padding: 9px;
-        }
-
-        .profile-label {
-            font-weight: bold;
-            width: 30%;
-            background: #f9fafb;
-        }
-
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    student_name = str(
-        student.get("student_name") or "N/A"
-    )
-
-    sr_no = str(
-        student.get("sr_no") or "N/A"
-    )
-
-    father_name = str(
-        student.get("father_name") or "N/A"
-    )
-
-    mother_name = str(
-        student.get("mother_name") or "N/A"
-    )
-
-    gender = str(
-        student.get("gender") or "N/A"
-    )
-
-    roll_no = str(
-        student.get("roll_no") or "N/A"
-    )
-
-    class_name = str(
-        student.get("class") or "N/A"
-    )
-
-    section = str(
-        student.get("section") or "N/A"
-    )
-
-    mobile = str(
-        student.get("mobile") or "N/A"
-    )
-
-    bus_route = str(
-        student.get("bus_route") or "N/A"
-    )
-
-    drop_point = str(
-        student.get("drop_point") or "N/A"
-    )
+    student_name = str(student.get("student_name") or "N/A")
+    sr_no = str(student.get("sr_no") or "N/A")
+    father_name = str(student.get("father_name") or "N/A")
+    mother_name = str(student.get("mother_name") or "N/A")
+    gender = str(student.get("gender") or "N/A")
+    roll_no = str(student.get("roll_no") or "N/A")
+    class_name = str(student.get("class") or "N/A")
+    section = str(student.get("section") or "N/A")
+    mobile = str(student.get("mobile") or "N/A")
+    bus_route = str(student.get("bus_route") or "N/A")
+    drop_point = str(student.get("drop_point") or "N/A")
 
     aadhaar_status = (
         "Available"
@@ -952,6 +833,312 @@ def render_print_student_profile(student):
         else "Not Available"
     )
 
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+
+    <meta charset="UTF-8">
+
+    <style>
+
+    * {{
+        box-sizing: border-box;
+    }}
+
+    body {{
+        margin: 0;
+        padding: 10px;
+        font-family: Arial, sans-serif;
+        background: #f3f4f6;
+    }}
+
+    .print-profile {{
+        width: 100%;
+        max-width: 850px;
+        margin: auto;
+        background: white;
+        border: 2px solid #1e3a8a;
+        border-radius: 12px;
+        padding: 28px;
+        color: #111827;
+    }}
+
+    .print-title {{
+        text-align: center;
+        border-bottom: 2px solid #1e3a8a;
+        padding-bottom: 15px;
+        margin-bottom: 22px;
+    }}
+
+    .print-title h1 {{
+        margin: 0;
+        color: #1e3a8a;
+        font-size: 28px;
+    }}
+
+    .print-title p {{
+        margin: 6px 0;
+        color: #374151;
+    }}
+
+    .profile-section {{
+        margin-top: 20px;
+    }}
+
+    .profile-section h3 {{
+        margin: 0;
+        background: #eef2ff;
+        padding: 9px 12px;
+        border-left: 5px solid #1e3a8a;
+        color: #1e3a8a;
+        font-size: 17px;
+    }}
+
+    .profile-table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+    }}
+
+    .profile-table td {{
+        border: 1px solid #d1d5db;
+        padding: 10px;
+        font-size: 14px;
+    }}
+
+    .profile-label {{
+        width: 32%;
+        font-weight: bold;
+        background: #f9fafb;
+    }}
+
+    .signature-area {{
+        margin-top: 65px;
+    }}
+
+    .signature-table {{
+        width: 100%;
+    }}
+
+    .signature-table td {{
+        text-align: center;
+        border: none;
+        padding: 10px;
+    }}
+
+    .signature-line {{
+        height: 55px;
+    }}
+
+    .footer {{
+        text-align: center;
+        margin-top: 20px;
+        font-size: 11px;
+        color: #6b7280;
+    }}
+
+    .print-btn {{
+        width: 100%;
+        margin-top: 15px;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        background: #1e3a8a;
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+    }}
+
+    .print-btn:hover {{
+        opacity: 0.9;
+    }}
+
+    @media print {{
+
+        body {{
+            background: white;
+            padding: 0;
+        }}
+
+        .print-profile {{
+            max-width: none;
+            border: 2px solid #1e3a8a;
+            border-radius: 0;
+            padding: 20px;
+        }}
+
+        .print-btn {{
+            display: none !important;
+        }}
+
+        @page {{
+            size: A4;
+            margin: 12mm;
+        }}
+
+    }}
+
+    </style>
+
+    </head>
+
+    <body>
+
+    <div class="print-profile">
+
+        <div class="print-title">
+
+            <h1>🏫 CAMPUS ERP PRO</h1>
+
+            <p><b>STUDENT PROFILE</b></p>
+
+            <p>Student Academic Record</p>
+
+        </div>
+
+
+        <div class="profile-section">
+
+            <h3>👤 Personal Details</h3>
+
+            <table class="profile-table">
+
+                <tr>
+                    <td class="profile-label">Student Name</td>
+                    <td>{student_name}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Father's Name</td>
+                    <td>{father_name}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Mother's Name</td>
+                    <td>{mother_name}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Gender</td>
+                    <td>{gender}</td>
+                </tr>
+
+            </table>
+
+        </div>
+
+
+        <div class="profile-section">
+
+            <h3>📚 Academic Details</h3>
+
+            <table class="profile-table">
+
+                <tr>
+                    <td class="profile-label">SR Number</td>
+                    <td>{sr_no}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Roll Number</td>
+                    <td>{roll_no}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Class</td>
+                    <td>{class_name}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Section</td>
+                    <td>{section}</td>
+                </tr>
+
+            </table>
+
+        </div>
+
+
+        <div class="profile-section">
+
+            <h3>🚌 Contact & Transport</h3>
+
+            <table class="profile-table">
+
+                <tr>
+                    <td class="profile-label">Mobile</td>
+                    <td>{mobile}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Bus Route</td>
+                    <td>{bus_route}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Drop Point</td>
+                    <td>{drop_point}</td>
+                </tr>
+
+                <tr>
+                    <td class="profile-label">Aadhaar / ID</td>
+                    <td>{aadhaar_status}</td>
+                </tr>
+
+            </table>
+
+        </div>
+
+
+        <div class="signature-area">
+
+            <table class="signature-table">
+
+                <tr>
+                    <td>
+                        Parent / Guardian Signature
+                    </td>
+
+                    <td>
+                        Authorized Signature
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="signature-line"></td>
+                    <td class="signature-line"></td>
+                </tr>
+
+            </table>
+
+        </div>
+
+
+        <div class="footer">
+            Generated by Campus ERP Pro
+        </div>
+
+
+        <button
+            class="print-btn"
+            onclick="window.print()"
+        >
+            🖨️ Print A4 Student Profile
+        </button>
+
+    </div>
+
+    </body>
+    </html>
+    """
+
+    components.html(
+        html,
+        height=900,
+        scrolling=True
+    )
     # =====================================================
     # PRINT PROFILE
     # =====================================================
