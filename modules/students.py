@@ -874,17 +874,22 @@ def render_search_manage():
     if not student:
         return
 
-    # =========================================================
-    # STUDENT PROFILE
-    # =========================================================
-    render_student_profile(student)
+  # =========================================================
+# STUDENT PROFILE
+# =========================================================
+render_student_profile(student)
 
-    st.markdown("---")
+# =========================================================
+# PROFESSIONAL A4 PRINT PROFILE
+# =========================================================
+render_print_student_profile(student)
 
-    st.markdown(
-        f"### ✏️ Edit Student: "
-        f"**{student.get('student_name', 'N/A')}**"
-    )
+st.markdown("---")
+
+st.markdown(
+    f"### ✏️ Edit Student: "
+    f"**{student.get('student_name', 'N/A')}**"
+)
 
     with st.form(
         key="edit_student_form"
