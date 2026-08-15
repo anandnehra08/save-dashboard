@@ -4,10 +4,12 @@
 # =========================================================
 
 import io
+import html
 from datetime import datetime
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from database.supabase import supabase
 
@@ -62,6 +64,19 @@ def safe_float(value):
     except Exception:
 
         return 0.0
+
+
+# =========================================================
+# SAFE HTML
+# =========================================================
+
+def safe_html(value):
+
+    return html.escape(
+        str(value)
+        if value is not None
+        else ""
+    )
 
 
 # =========================================================
@@ -308,10 +323,8 @@ def fetch_existing_marks(
             if row.get("sr_no") is not None
         }
 
-    except Exception as e:
+    except Exception:
 
-        # entered_by / updated_by missing होने पर
-        # पुराने compatible columns से दोबारा fetch करें
         try:
 
             response = (
@@ -991,9 +1004,6 @@ def render_marks_entry():
 
                         except Exception:
 
-                            # पुराने database में
-                            # updated_by / updated_at
-                            # न हों तो compatible update
                             fallback_data = {
                                 "student_name":
                                     record["student_name"],
@@ -1060,8 +1070,6 @@ def render_marks_entry():
 
                         except Exception:
 
-                            # entered_by missing होने पर
-                            # fallback insert
                             fallback_data = {
                                 "sr_no":
                                     record["sr_no"],
@@ -1277,6 +1285,928 @@ def render_marks_entry():
 
 
 # =========================================================
+# BUILD REPORT DATA
+# =========================================================
+
+def build_report_data(student_marks):
+
+    report_rows = []
+
+    for row in student_marks:
+
+        obtained = safe_float(
+            row.get("marks_obtained")
+        )
+
+        maximum = safe_float(
+            row.get("max_marks")
+        )
+
+        subject_percentage = (
+            obtained /
+            maximum *
+            100
+            if maximum > 0
+            else 0
+        )
+
+        report_rows.append(
+            {
+                "Subject":
+                    str(
+                        row.get(
+                            "subject",
+                            ""
+                        )
+                    ),
+                "Marks Obtained":
+                    obtained,
+                "Maximum Marks":
+                    maximum,
+                "Percentage":
+                    round(
+                        subject_percentage,
+                        2
+                    ),
+                "Grade":
+                    calculate_grade(
+                        subject_percentage
+                    )
+            }
+        )
+
+    return report_rows
+
+
+# =========================================================
+# GENERATE PDF
+# =========================================================
+
+def generate_report_card_pdf(
+    student_name,
+    sr_no,
+    class_name,
+    section,
+    exam_type,
+    report_rows,
+    total_obtained,
+    total_max,
+    percentage,
+    grade,
+    result
+):
+
+    try:
+
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import (
+            getSampleStyleSheet,
+            ParagraphStyle
+        )
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            SimpleDocTemplate,
+            Paragraph,
+            Spacer,
+            Table,
+            TableStyle
+        )
+
+    except ImportError:
+
+        return None
+
+    output = io.BytesIO()
+
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=A4,
+        rightMargin=15 * mm,
+        leftMargin=15 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm
+    )
+
+    styles = getSampleStyleSheet()
+
+    school_style = ParagraphStyle(
+        "SchoolTitle",
+        parent=styles["Title"],
+        alignment=TA_CENTER,
+        fontSize=20,
+        leading=24,
+        spaceAfter=5
+    )
+
+    title_style = ParagraphStyle(
+        "ReportTitle",
+        parent=styles["Heading2"],
+        alignment=TA_CENTER,
+        fontSize=13,
+        leading=17,
+        spaceAfter=4
+    )
+
+    exam_style = ParagraphStyle(
+        "ExamTitle",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=10,
+        leading=14
+    )
+
+    normal_style = ParagraphStyle(
+        "NormalReport",
+        parent=styles["Normal"],
+        fontSize=9,
+        leading=12
+    )
+
+    story = []
+
+    story.append(
+        Paragraph(
+            "CAMPUS ERP PRO",
+            school_style
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "STUDENT REPORT CARD",
+            title_style
+        )
+    )
+
+    story.append(
+        Paragraph(
+            safe_html(exam_type),
+            exam_style
+        )
+    )
+
+    story.append(
+        Spacer(1, 8)
+    )
+
+    student_info = [
+        [
+            Paragraph(
+                "<b>Student Name</b>",
+                normal_style
+            ),
+            Paragraph(
+                safe_html(student_name),
+                normal_style
+            ),
+            Paragraph(
+                "<b>SR No</b>",
+                normal_style
+            ),
+            Paragraph(
+                safe_html(sr_no),
+                normal_style
+            )
+        ],
+        [
+            Paragraph(
+                "<b>Class</b>",
+                normal_style
+            ),
+            Paragraph(
+                safe_html(class_name),
+                normal_style
+            ),
+            Paragraph(
+                "<b>Section</b>",
+                normal_style
+            ),
+            Paragraph(
+                safe_html(section),
+                normal_style
+            )
+        ]
+    ]
+
+    info_table = Table(
+        student_info,
+        colWidths=[
+            32 * mm,
+            70 * mm,
+            25 * mm,
+            45 * mm
+        ]
+    )
+
+    info_table.setStyle(
+        TableStyle(
+            [
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.5,
+                    colors.grey
+                ),
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (0, -1),
+                    colors.HexColor("#eef2ff")
+                ),
+                (
+                    "BACKGROUND",
+                    (2, 0),
+                    (2, -1),
+                    colors.HexColor("#eef2ff")
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE"
+                ),
+                (
+                    "LEFTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7
+                ),
+                (
+                    "RIGHTPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7
+                ),
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7
+                )
+            ]
+        )
+    )
+
+    story.append(info_table)
+
+    story.append(
+        Spacer(1, 12)
+    )
+
+    subject_data = [
+        [
+            Paragraph("<b>Subject</b>", normal_style),
+            Paragraph("<b>Obtained</b>", normal_style),
+            Paragraph("<b>Maximum</b>", normal_style),
+            Paragraph("<b>Percentage</b>", normal_style),
+            Paragraph("<b>Grade</b>", normal_style)
+        ]
+    ]
+
+    for row in report_rows:
+
+        subject_data.append(
+            [
+                Paragraph(
+                    safe_html(row["Subject"]),
+                    normal_style
+                ),
+                f"{row['Marks Obtained']:g}",
+                f"{row['Maximum Marks']:g}",
+                f"{row['Percentage']:.2f}%",
+                row["Grade"]
+            ]
+        )
+
+    subject_table = Table(
+        subject_data,
+        colWidths=[
+            65 * mm,
+            27 * mm,
+            27 * mm,
+            32 * mm,
+            20 * mm
+        ],
+        repeatRows=1
+    )
+
+    subject_table.setStyle(
+        TableStyle(
+            [
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.5,
+                    colors.grey
+                ),
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, 0),
+                    colors.HexColor("#1e3a8a")
+                ),
+                (
+                    "TEXTCOLOR",
+                    (0, 0),
+                    (-1, 0),
+                    colors.white
+                ),
+                (
+                    "ALIGN",
+                    (1, 1),
+                    (-1, -1),
+                    "CENTER"
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE"
+                ),
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    7
+                )
+            ]
+        )
+    )
+
+    story.append(subject_table)
+
+    story.append(
+        Spacer(1, 12)
+    )
+
+    summary_data = [
+        [
+            Paragraph(
+                "<b>Total Marks</b>",
+                normal_style
+            ),
+            Paragraph(
+                "<b>Percentage</b>",
+                normal_style
+            ),
+            Paragraph(
+                "<b>Grade</b>",
+                normal_style
+            ),
+            Paragraph(
+                "<b>Result</b>",
+                normal_style
+            )
+        ],
+        [
+            f"{total_obtained:g} / {total_max:g}",
+            f"{percentage:.2f}%",
+            grade,
+            result
+        ]
+    ]
+
+    summary_table = Table(
+        summary_data,
+        colWidths=[
+            42 * mm,
+            42 * mm,
+            42 * mm,
+            42 * mm
+        ]
+    )
+
+    summary_table.setStyle(
+        TableStyle(
+            [
+                (
+                    "GRID",
+                    (0, 0),
+                    (-1, -1),
+                    0.5,
+                    colors.grey
+                ),
+                (
+                    "BACKGROUND",
+                    (0, 0),
+                    (-1, 0),
+                    colors.HexColor("#eef2ff")
+                ),
+                (
+                    "ALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "CENTER"
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE"
+                ),
+                (
+                    "TOPPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    8
+                ),
+                (
+                    "BOTTOMPADDING",
+                    (0, 0),
+                    (-1, -1),
+                    8
+                )
+            ]
+        )
+    )
+
+    story.append(summary_table)
+
+    story.append(
+        Spacer(1, 40)
+    )
+
+    signature_data = [
+        [
+            "Parent / Guardian",
+            "Class Teacher",
+            "Principal"
+        ],
+        [
+            "\n\n________________",
+            "\n\n________________",
+            "\n\n________________"
+        ]
+    ]
+
+    signature_table = Table(
+        signature_data,
+        colWidths=[
+            55 * mm,
+            55 * mm,
+            55 * mm
+        ]
+    )
+
+    signature_table.setStyle(
+        TableStyle(
+            [
+                (
+                    "ALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "CENTER"
+                ),
+                (
+                    "VALIGN",
+                    (0, 0),
+                    (-1, -1),
+                    "MIDDLE"
+                )
+            ]
+        )
+    )
+
+    story.append(signature_table)
+
+    doc.build(story)
+
+    output.seek(0)
+
+    return output.getvalue()
+
+
+# =========================================================
+# PRINT HTML
+# =========================================================
+
+def build_print_html(
+    student_name,
+    sr_no,
+    class_name,
+    section,
+    exam_type,
+    report_rows,
+    total_obtained,
+    total_max,
+    percentage,
+    grade,
+    result
+):
+
+    report_rows_html = ""
+
+    for row in report_rows:
+
+        report_rows_html += f"""
+        <tr>
+            <td>{safe_html(row["Subject"])}</td>
+            <td>{row["Marks Obtained"]:g}</td>
+            <td>{row["Maximum Marks"]:g}</td>
+            <td>{row["Percentage"]:.2f}%</td>
+            <td>{safe_html(row["Grade"])}</td>
+        </tr>
+        """
+
+    return f"""
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>
+Student Report Card
+</title>
+
+<style>
+
+* {{
+    box-sizing:border-box;
+}}
+
+body {{
+    margin:0;
+    padding:25px;
+    background:#f1f5f9;
+    font-family:Arial, Helvetica, sans-serif;
+    color:#111827;
+}}
+
+.report-card {{
+    width:100%;
+    max-width:850px;
+    margin:auto;
+    background:white;
+    border:2px solid #1e3a8a;
+    border-radius:14px;
+    padding:28px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.10);
+}}
+
+.header {{
+    text-align:center;
+    border-bottom:2px solid #1e3a8a;
+    padding-bottom:15px;
+}}
+
+.school-name {{
+    margin:0;
+    font-size:28px;
+    color:#1e3a8a;
+    letter-spacing:0.5px;
+}}
+
+.report-title {{
+    margin:7px 0;
+    font-size:19px;
+}}
+
+.exam-name {{
+    margin:0;
+    font-size:14px;
+    font-weight:bold;
+}}
+
+.student-info {{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:22px;
+}}
+
+.student-info td {{
+    border:1px solid #cbd5e1;
+    padding:11px;
+}}
+
+.label {{
+    width:17%;
+    background:#eef2ff;
+    font-weight:bold;
+}}
+
+.value {{
+    width:33%;
+}}
+
+.section-title {{
+    margin-top:24px;
+    margin-bottom:10px;
+    font-size:17px;
+    color:#1e3a8a;
+}}
+
+.marks-table {{
+    width:100%;
+    border-collapse:collapse;
+}}
+
+.marks-table th {{
+    background:#1e3a8a;
+    color:white;
+    padding:11px 8px;
+    border:1px solid #1e3a8a;
+}}
+
+.marks-table td {{
+    padding:10px 8px;
+    text-align:center;
+    border:1px solid #cbd5e1;
+}}
+
+.marks-table td:first-child {{
+    text-align:left;
+    font-weight:600;
+}}
+
+.summary {{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+    margin-top:18px;
+}}
+
+.summary-box {{
+    border:1px solid #cbd5e1;
+    border-radius:8px;
+    padding:12px;
+    text-align:center;
+    background:#f8fafc;
+}}
+
+.summary-label {{
+    font-size:12px;
+    color:#64748b;
+    font-weight:bold;
+}}
+
+.summary-value {{
+    margin-top:5px;
+    font-size:17px;
+    font-weight:bold;
+}}
+
+.signatures {{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:30px;
+    margin-top:65px;
+    text-align:center;
+}}
+
+.signature-line {{
+    border-top:1px solid #111827;
+    padding-top:8px;
+    font-size:13px;
+}}
+
+.print-button {{
+    display:block;
+    width:100%;
+    margin-top:25px;
+    padding:13px;
+    border:0;
+    border-radius:8px;
+    background:#1e3a8a;
+    color:white;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+}}
+
+@media(max-width:650px) {{
+
+    body {{
+        padding:8px;
+    }}
+
+    .report-card {{
+        padding:15px;
+    }}
+
+    .school-name {{
+        font-size:21px;
+    }}
+
+    .summary {{
+        grid-template-columns:repeat(2,1fr);
+    }}
+
+    .signatures {{
+        grid-template-columns:1fr;
+        gap:35px;
+    }}
+
+}}
+
+@media print {{
+
+    body {{
+        padding:0;
+        background:white;
+    }}
+
+    .report-card {{
+        max-width:none;
+        border:2px solid #1e3a8a;
+        box-shadow:none;
+        border-radius:0;
+    }}
+
+    .print-button {{
+        display:none;
+    }}
+
+    @page {{
+        size:A4;
+        margin:10mm;
+    }}
+
+}}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="report-card">
+
+    <div class="header">
+
+        <h1 class="school-name">
+            🏫 CAMPUS ERP PRO
+        </h1>
+
+        <div class="report-title">
+            STUDENT REPORT CARD
+        </div>
+
+        <p class="exam-name">
+            {safe_html(exam_type)}
+        </p>
+
+    </div>
+
+    <table class="student-info">
+
+        <tr>
+
+            <td class="label">
+                Student Name
+            </td>
+
+            <td class="value">
+                {safe_html(student_name)}
+            </td>
+
+            <td class="label">
+                SR No
+            </td>
+
+            <td class="value">
+                {safe_html(sr_no)}
+            </td>
+
+        </tr>
+
+        <tr>
+
+            <td class="label">
+                Class
+            </td>
+
+            <td class="value">
+                {safe_html(class_name)}
+            </td>
+
+            <td class="label">
+                Section
+            </td>
+
+            <td class="value">
+                {safe_html(section)}
+            </td>
+
+        </tr>
+
+    </table>
+
+    <div class="section-title">
+        📚 Subject-wise Marks
+    </div>
+
+    <table class="marks-table">
+
+        <thead>
+
+            <tr>
+                <th>Subject</th>
+                <th>Obtained</th>
+                <th>Maximum</th>
+                <th>Percentage</th>
+                <th>Grade</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {report_rows_html}
+
+        </tbody>
+
+    </table>
+
+    <div class="summary">
+
+        <div class="summary-box">
+            <div class="summary-label">
+                TOTAL MARKS
+            </div>
+            <div class="summary-value">
+                {total_obtained:g} / {total_max:g}
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-label">
+                PERCENTAGE
+            </div>
+            <div class="summary-value">
+                {percentage:.2f}%
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-label">
+                GRADE
+            </div>
+            <div class="summary-value">
+                {safe_html(grade)}
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-label">
+                RESULT
+            </div>
+            <div class="summary-value">
+                {safe_html(result)}
+            </div>
+        </div>
+
+    </div>
+
+    <div class="signatures">
+
+        <div class="signature-line">
+            Parent / Guardian Signature
+        </div>
+
+        <div class="signature-line">
+            Class Teacher Signature
+        </div>
+
+        <div class="signature-line">
+            Principal Signature
+        </div>
+
+    </div>
+
+    <button
+        class="print-button"
+        onclick="window.print()"
+    >
+        🖨️ Print A4 Report Card
+    </button>
+
+</div>
+
+</body>
+
+</html>
+"""
+
+
+# =========================================================
 # REPORT CARD
 # =========================================================
 
@@ -1323,92 +2253,174 @@ def render_report_card(
         percentage
     )
 
+    report_rows = build_report_data(
+        student_marks
+    )
+
     st.markdown("---")
 
     # =====================================================
-    # REPORT CARD HEADER
+    # PROFESSIONAL STREAMLIT REPORT CARD
     # =====================================================
 
     st.markdown(
+        """
+        <style>
+
+        .erp-report-wrapper {
+            border: 2px solid #1e3a8a;
+            border-radius: 16px;
+            padding: 24px;
+            background: #ffffff;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+
+        .erp-report-header {
+            text-align: center;
+            border-bottom: 2px solid #1e3a8a;
+            padding-bottom: 15px;
+        }
+
+        .erp-school-title {
+            color: #1e3a8a;
+            font-size: 27px;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .erp-report-title {
+            font-size: 19px;
+            font-weight: 700;
+            margin-top: 7px;
+        }
+
+        .erp-exam-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .erp-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .erp-info-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 11px;
+            background: #f8fafc;
+        }
+
+        .erp-info-label {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .erp-info-value {
+            margin-top: 4px;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        @media(max-width:650px) {
+            .erp-report-wrapper {
+                padding: 14px;
+            }
+
+            .erp-school-title {
+                font-size: 21px;
+            }
+
+            .erp-info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Header and student info are HTML-rendered deliberately,
+    # while printable HTML is never directly displayed as text.
+
+    st.markdown(
         f"""
-        <div style="
-            border:2px solid #1e3a8a;
-            border-radius:12px;
-            padding:24px;
-            background:white;
-        ">
+        <div class="erp-report-wrapper">
 
-            <div style="
-                text-align:center;
-                border-bottom:2px solid #1e3a8a;
-                padding-bottom:15px;
-            ">
+            <div class="erp-report-header">
 
-                <h1 style="
-                    margin:0;
-                    color:#1e3a8a;
-                ">
+                <div class="erp-school-title">
                     🏫 CAMPUS ERP PRO
-                </h1>
+                </div>
 
-                <h3 style="
-                    margin:8px 0;
-                ">
+                <div class="erp-report-title">
                     STUDENT REPORT CARD
-                </h3>
+                </div>
 
-                <p style="
-                    margin:0;
-                    font-weight:bold;
-                ">
-                    {exam_type}
-                </p>
+                <div class="erp-exam-title">
+                    {safe_html(exam_type)}
+                </div>
 
             </div>
 
-            <table style="
-                width:100%;
-                margin-top:20px;
-                border-collapse:collapse;
-            ">
+            <div class="erp-info-grid">
 
-                <tr>
+                <div class="erp-info-box">
 
-                    <td style="
-                        padding:9px;
-                    ">
-                        <b>Student Name:</b>
-                        {student_name}
-                    </td>
+                    <div class="erp-info-label">
+                        Student Name
+                    </div>
 
-                    <td style="
-                        padding:9px;
-                    ">
-                        <b>SR No:</b>
-                        {sr_no}
-                    </td>
+                    <div class="erp-info-value">
+                        {safe_html(student_name)}
+                    </div>
 
-                </tr>
+                </div>
 
-                <tr>
+                <div class="erp-info-box">
 
-                    <td style="
-                        padding:9px;
-                    ">
-                        <b>Class:</b>
-                        {class_name}
-                    </td>
+                    <div class="erp-info-label">
+                        SR No
+                    </div>
 
-                    <td style="
-                        padding:9px;
-                    ">
-                        <b>Section:</b>
-                        {section}
-                    </td>
+                    <div class="erp-info-value">
+                        {safe_html(sr_no)}
+                    </div>
 
-                </tr>
+                </div>
 
-            </table>
+                <div class="erp-info-box">
+
+                    <div class="erp-info-label">
+                        Class
+                    </div>
+
+                    <div class="erp-info-value">
+                        {safe_html(class_name)}
+                    </div>
+
+                </div>
+
+                <div class="erp-info-box">
+
+                    <div class="erp-info-label">
+                        Section
+                    </div>
+
+                    <div class="erp-info-value">
+                        {safe_html(section)}
+                    </div>
+
+                </div>
+
+            </div>
 
         </div>
         """,
@@ -1419,66 +2431,56 @@ def render_report_card(
     # SUBJECT TABLE
     # =====================================================
 
-    report_rows = []
-
-    for row in student_marks:
-
-        obtained = safe_float(
-            row.get("marks_obtained")
-        )
-
-        maximum = safe_float(
-            row.get("max_marks")
-        )
-
-        subject_percentage = (
-            obtained /
-            maximum *
-            100
-            if maximum > 0
-            else 0
-        )
-
-        report_rows.append(
-            {
-                "Subject":
-                    row.get(
-                        "subject",
-                        ""
-                    ),
-                "Marks Obtained":
-                    obtained,
-                "Maximum Marks":
-                    maximum,
-                "Percentage":
-                    round(
-                        subject_percentage,
-                        2
-                    ),
-                "Grade":
-                    calculate_grade(
-                        subject_percentage
-                    )
-            }
-        )
-
-    report_df = pd.DataFrame(
-        report_rows
-    )
-
     st.markdown(
         "### 📚 Subject-wise Marks"
     )
 
-    st.dataframe(
-        report_df,
-        use_container_width=True,
-        hide_index=True
+    report_df = pd.DataFrame(
+        report_rows,
+        columns=[
+            "Subject",
+            "Marks Obtained",
+            "Maximum Marks",
+            "Percentage",
+            "Grade"
+        ]
     )
+
+    if not report_df.empty:
+
+        st.dataframe(
+            report_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Subject": st.column_config.TextColumn(
+                    "Subject"
+                ),
+                "Marks Obtained": st.column_config.NumberColumn(
+                    "Marks Obtained",
+                    format="%.1f"
+                ),
+                "Maximum Marks": st.column_config.NumberColumn(
+                    "Maximum Marks",
+                    format="%.1f"
+                ),
+                "Percentage": st.column_config.NumberColumn(
+                    "Percentage",
+                    format="%.2f%%"
+                ),
+                "Grade": st.column_config.TextColumn(
+                    "Grade"
+                )
+            }
+        )
 
     # =====================================================
     # SUMMARY
     # =====================================================
+
+    st.markdown(
+        "### 📊 Result Summary"
+    )
 
     m1, m2, m3, m4 = st.columns(4)
 
@@ -1511,272 +2513,158 @@ def render_report_card(
         )
 
     # =====================================================
-    # PRINTABLE REPORT
+    # ACTION BUTTONS
     # =====================================================
 
-    report_rows_html = ""
-
-    for row in report_rows:
-
-        report_rows_html += f"""
-        <tr>
-            <td>{row['Subject']}</td>
-            <td>{row['Marks Obtained']:g}</td>
-            <td>{row['Maximum Marks']:g}</td>
-            <td>{row['Percentage']:.2f}%</td>
-            <td>{row['Grade']}</td>
-        </tr>
-        """
-
-    printable_html = f"""
-    <!DOCTYPE html>
-
-    <html>
-
-    <head>
-
-    <meta charset="UTF-8">
-
-    <style>
-
-    body {{
-        font-family: Arial, sans-serif;
-        background:#f3f4f6;
-        padding:20px;
-    }}
-
-    .card {{
-        max-width:850px;
-        margin:auto;
-        background:white;
-        border:2px solid #1e3a8a;
-        padding:30px;
-    }}
-
-    .header {{
-        text-align:center;
-        border-bottom:2px solid #1e3a8a;
-        padding-bottom:15px;
-    }}
-
-    .header h1 {{
-        color:#1e3a8a;
-        margin:0;
-    }}
-
-    table {{
-        width:100%;
-        border-collapse:collapse;
-        margin-top:20px;
-    }}
-
-    th, td {{
-        border:1px solid #999;
-        padding:10px;
-        text-align:center;
-    }}
-
-    th {{
-        background:#eef2ff;
-    }}
-
-    .summary {{
-        margin-top:20px;
-        display:grid;
-        grid-template-columns:repeat(4,1fr);
-        gap:10px;
-    }}
-
-    .box {{
-        border:1px solid #aaa;
-        padding:12px;
-        text-align:center;
-    }}
-
-    .print-btn {{
-        margin-top:20px;
-        width:100%;
-        padding:12px;
-        background:#1e3a8a;
-        color:white;
-        border:none;
-        border-radius:7px;
-        font-size:16px;
-        font-weight:bold;
-        cursor:pointer;
-    }}
-
-    @media print {{
-
-        body {{
-            background:white;
-            padding:0;
-        }}
-
-        .print-btn {{
-            display:none;
-        }}
-
-        @page {{
-            size:A4;
-            margin:12mm;
-        }}
-
-    }}
-
-    </style>
-
-    </head>
-
-    <body>
-
-    <div class="card">
-
-        <div class="header">
-
-            <h1>
-                🏫 CAMPUS ERP PRO
-            </h1>
-
-            <h3>
-                STUDENT REPORT CARD
-            </h3>
-
-            <p>
-                {exam_type}
-            </p>
-
-        </div>
-
-        <table>
-
-            <tr>
-                <td>
-                    <b>Student Name</b>
-                </td>
-
-                <td>
-                    {student_name}
-                </td>
-
-                <td>
-                    <b>SR No</b>
-                </td>
-
-                <td>
-                    {sr_no}
-                </td>
-            </tr>
-
-            <tr>
-
-                <td>
-                    <b>Class</b>
-                </td>
-
-                <td>
-                    {class_name}
-                </td>
-
-                <td>
-                    <b>Section</b>
-                </td>
-
-                <td>
-                    {section}
-                </td>
-
-            </tr>
-
-        </table>
-
-        <table>
-
-            <thead>
-
-                <tr>
-                    <th>Subject</th>
-                    <th>Obtained</th>
-                    <th>Maximum</th>
-                    <th>Percentage</th>
-                    <th>Grade</th>
-                </tr>
-
-            </thead>
-
-            <tbody>
-
-                {report_rows_html}
-
-            </tbody>
-
-        </table>
-
-        <div class="summary">
-
-            <div class="box">
-                <b>Total</b><br>
-                {total_obtained:g} / {total_max:g}
-            </div>
-
-            <div class="box">
-                <b>Percentage</b><br>
-                {percentage:.2f}%
-            </div>
-
-            <div class="box">
-                <b>Grade</b><br>
-                {grade}
-            </div>
-
-            <div class="box">
-                <b>Result</b><br>
-                {result}
-            </div>
-
-        </div>
-
-        <br><br><br>
-
-        <table style="border:none;">
-
-            <tr>
-
-                <td style="border:none;">
-                    Parent / Guardian Signature
-                </td>
-
-                <td style="border:none;">
-                    Class Teacher Signature
-                </td>
-
-                <td style="border:none;">
-                    Principal Signature
-                </td>
-
-            </tr>
-
-        </table>
-
-        <button
-            class="print-btn"
-            onclick="window.print()"
-        >
-            🖨️ Print A4 Report Card
-        </button>
-
-    </div>
-
-    </body>
-
-    </html>
-    """
-
-    st.components.v1.html(
-        printable_html,
-        height=850,
-        scrolling=True
+    st.markdown(
+        "### 🖨️ Report Card Actions"
     )
+
+    ac1, ac2 = st.columns(2)
+
+    # -----------------------------------------------------
+    # PRINT
+    # -----------------------------------------------------
+
+    print_html = build_print_html(
+        student_name,
+        sr_no,
+        class_name,
+        section,
+        exam_type,
+        report_rows,
+        total_obtained,
+        total_max,
+        percentage,
+        grade,
+        result
+    )
+
+    with ac1:
+
+        print_button = st.button(
+            "🖨️ Print A4 Report Card",
+            use_container_width=True,
+            type="primary",
+            key=(
+                f"print_report_"
+                f"{sr_no}_"
+                f"{class_name}_"
+                f"{section}_"
+                f"{exam_type}"
+            )
+        )
+
+        if print_button:
+
+            # HTML is sent only to the browser iframe.
+            # It is NOT displayed as Streamlit markdown text.
+            components.html(
+                f"""
+                <script>
+
+                const reportWindow =
+                    window.open(
+                        "",
+                        "_blank",
+                        "width=950,height=900"
+                    );
+
+                if (reportWindow) {{
+
+                    reportWindow.document.open();
+
+                    reportWindow.document.write(
+                        {print_html!r}
+                    );
+
+                    reportWindow.document.close();
+
+                    reportWindow.focus();
+
+                    setTimeout(
+                        function() {{
+                            reportWindow.print();
+                        }},
+                        700
+                    );
+
+                }} else {{
+
+                    document.body.innerHTML +=
+                        "<p style='color:red;'>"
+                        "Please allow pop-ups for printing."
+                        "</p>";
+
+                }}
+
+                </script>
+                """,
+                height=0
+            )
+
+    # -----------------------------------------------------
+    # PDF
+    # -----------------------------------------------------
+
+    pdf_data = generate_report_card_pdf(
+        student_name,
+        sr_no,
+        class_name,
+        section,
+        exam_type,
+        report_rows,
+        total_obtained,
+        total_max,
+        percentage,
+        grade,
+        result
+    )
+
+    with ac2:
+
+        if pdf_data:
+
+            st.download_button(
+                "📥 Download PDF Report Card",
+                data=pdf_data,
+                file_name=(
+                    f"Report_Card_"
+                    f"{str(student_name).replace(' ', '_')}_"
+                    f"{exam_type.replace(' ', '_')}.pdf"
+                ),
+                mime="application/pdf",
+                use_container_width=True,
+                type="secondary",
+                key=(
+                    f"download_report_pdf_"
+                    f"{sr_no}_"
+                    f"{class_name}_"
+                    f"{section}_"
+                    f"{exam_type}"
+                )
+            )
+
+        else:
+
+            st.warning(
+                "PDF सुविधा के लिए reportlab install करें."
+            )
+
+    # =====================================================
+    # PRINT PREVIEW
+    # =====================================================
+
+    with st.expander(
+        "👁️ A4 Print Preview",
+        expanded=False
+    ):
+
+        components.html(
+            print_html,
+            height=850,
+            scrolling=True
+        )
 
 
 # =========================================================
