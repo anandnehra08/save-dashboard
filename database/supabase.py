@@ -66,11 +66,34 @@ def init_supabase() -> Client:
     # =========================================================
     # 4. Create Supabase Client
     # =========================================================
-    try:
-        client = create_client(
-            clean_url,
-            clean_key
-        )
+   client = create_client(
+    clean_url,
+    clean_key
+)
+
+# =========================================================
+# SUPABASE CONNECTION TEST
+# =========================================================
+try:
+    test_response = (
+        client
+        .table("students")
+        .select("sr_no")
+        .limit(1)
+        .execute()
+    )
+
+    st.success(
+        f"✅ Supabase connected successfully | "
+        f"Students rows: {len(test_response.data or [])}"
+    )
+
+except Exception as e:
+    st.error(
+        f"❌ Supabase connection test failed: {e}"
+    )
+
+return client
 
         return client
 
