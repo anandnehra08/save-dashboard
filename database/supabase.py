@@ -13,26 +13,53 @@ def init_supabase() -> Client:
     # 1. Read Supabase credentials
     # =========================================================
     try:
+
         if "supabase" in st.secrets:
-            raw_url = st.secrets["supabase"].get("SUPABASE_URL", "")
-            raw_key = st.secrets["supabase"].get("SUPABASE_KEY", "")
+
+            raw_url = st.secrets["supabase"].get(
+                "SUPABASE_URL",
+                ""
+            )
+
+            raw_key = st.secrets["supabase"].get(
+                "SUPABASE_KEY",
+                ""
+            )
+
         else:
+
             raw_url = st.secrets.get(
                 "SUPABASE_URL",
-                os.environ.get("SUPABASE_URL", "")
+                os.environ.get(
+                    "SUPABASE_URL",
+                    ""
+                )
             )
+
             raw_key = st.secrets.get(
                 "SUPABASE_KEY",
-                os.environ.get("SUPABASE_KEY", "")
+                os.environ.get(
+                    "SUPABASE_KEY",
+                    ""
+                )
             )
 
     except Exception:
-        raw_url = os.environ.get("SUPABASE_URL", "")
-        raw_key = os.environ.get("SUPABASE_KEY", "")
+
+        raw_url = os.environ.get(
+            "SUPABASE_URL",
+            ""
+        )
+
+        raw_key = os.environ.get(
+            "SUPABASE_KEY",
+            ""
+        )
 
     # =========================================================
     # 2. Clean credentials
     # =========================================================
+
     clean_url = (
         str(raw_url)
         .strip()
@@ -49,60 +76,54 @@ def init_supabase() -> Client:
     )
 
     # =========================================================
-    # 3. Validation
+    # 3. Validate
     # =========================================================
+
     if not clean_url:
+
         st.error("❌ Supabase URL missing है।")
+
         return None
 
     if not clean_key:
+
         st.error("❌ Supabase API Key missing है।")
+
         return None
 
     if not clean_url.startswith("https://"):
-        st.error("❌ Supabase URL गलत है।")
+
+        st.error(
+            "❌ Supabase URL गलत है। "
+            "URL https:// से शुरू होना चाहिए।"
+        )
+
         return None
 
     # =========================================================
     # 4. Create Supabase Client
     # =========================================================
-   client = create_client(
-    clean_url,
-    clean_key
-)
 
-# =========================================================
-# SUPABASE CONNECTION TEST
-# =========================================================
-try:
-    test_response = (
-        client
-        .table("students")
-        .select("sr_no")
-        .limit(1)
-        .execute()
-    )
+    try:
 
-    st.success(
-        f"✅ Supabase connected successfully | "
-        f"Students rows: {len(test_response.data or [])}"
-    )
-
-except Exception as e:
-    st.error(
-        f"❌ Supabase connection test failed: {e}"
-    )
-
-return client
+        client = create_client(
+            clean_url,
+            clean_key
+        )
 
         return client
 
     except Exception as e:
-        st.error(f"❌ Supabase connection failed: {e}")
+
+        st.error(
+            f"❌ Supabase connection failed: {e}"
+        )
+
         return None
 
 
 # =============================================================
 # Global Supabase Client
 # =============================================================
+
 supabase = init_supabase()
