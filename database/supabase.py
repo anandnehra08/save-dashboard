@@ -1,159 +1,105 @@
-# =========================================================
-# CAMPUS ERP PRO
-# SUPABASE CONNECTION
-# NORMAL CLIENT + ADMIN CLIENT
-# =========================================================
-
 import os
 import streamlit as st
 from supabase import create_client, Client
 
 
 # =========================================================
-# READ SECRET
+# Helper: Read Secret / Environment Variable
 # =========================================================
 
-def get_secret(name: str, default: str = "") -> str:
+def _get_config(key: str) -> str:
+    value = ""
 
     try:
-        # [supabase] section
-        if "supabase" in st.secrets:
-            value = st.secrets["supabase"].get(name, "")
-
-            if value:
-                return str(value).strip().strip('"').strip("'")
-
-        # Root-level secret
-        value = st.secrets.get(name, "")
-
-        if value:
-            return str(value).strip().strip('"').strip("'")
-
+        # Streamlit secrets
+        if key in st.secrets:
+            value = st.secrets[key]
+        elif "supabase" in st.secrets:
+            value = st.secrets["supabase"].get(key, "")
     except Exception:
         pass
 
-    # Environment variable fallback
-    return str(
-        os.environ.get(name, default)
-    ).strip().strip('"').strip("'")
+    # Environment fallback
+    if not value:
+        value = os.getenv(key, "")
+
+    return str(value).strip().strip('"').strip("'").rstrip("/")
 
 
 # =========================================================
-# SUPABASE URL
-# =========================================================
-
-SUPABASE_URL = get_secret("SUPABASE_URL")
-
-
-# =========================================================
-# NORMAL / PUBLIC APPLICATION KEY
-# =========================================================
-
-SUPABASE_KEY = get_secret("SUPABASE_KEY")
-
-
-# =========================================================
-# SERVICE ROLE KEY
-# IMPORTANT:
-# Never expose this in browser/client-side code.
-# =========================================================
-
-SUPABASE_SERVICE_ROLE_KEY = get_secret(
-    "SUPABASE_SERVICE_ROLE_KEY"
-)
-
-
-# =========================================================
-# VALIDATE URL
-# =========================================================
-
-def validate_url():
-
-    if not SUPABASE_URL:
-
-        st.error(
-            "❌ SUPABASE_URL missing है।"
-        )
-
-        return False
-
-    if not SUPABASE_URL.startswith("https://"):
-
-        st.error(
-            "❌ Supabase URL गलत है। "
-            "URL https:// से शुरू होना चाहिए।"
-        )
-
-        return False
-
-    return True
-
-
-# =========================================================
-# NORMAL SUPABASE CLIENT
+# Public / Normal Supabase Client
 # =========================================================
 
 @st.cache_resource
 def init_supabase() -> Client | None:
 
-    if not validate_url():
+    url = _get_config("SUPABASE_URL")
 
+    # Prefer publishable/anon key for normal application work
+    key = (
+        _get_config("SUPABASE_PUBLISHABLE_KEY")
+        or _get_config("SUPABASE_ANON_KEY")
+        or _get_config("SUPABASE_KEY")
+    )
+
+    if not url:
+        st.error("❌ SUPABASE_URL missing है।")
         return None
 
-    if not SUPABASE_KEY:
+    if not key:
+        st.error("❌ Supabase Publishable/Anon Key missing है।")
+        return None
 
-        st.error(
-            "❌ SUPABASE_KEY missing है।"
-        )
-
+    if not url.startswith("https://"):
+        st.error("❌ SUPABASE_URL गलत है।")
         return None
 
     try:
-
-        return create_client(
-            SUPABASE_URL,
-            SUPABASE_KEY
-        )
+        return create_client(url, key)
 
     except Exception as e:
-
-        st.error(
-            f"❌ Supabase connection failed: {e}"
-        )
-
+        st.error(f"❌ Supabase connection failed: {e}")
         return None
 
 
 # =========================================================
-# ADMIN SUPABASE CLIENT
+# Admin Supabase Client
+# =========================================================
+# IMPORTANT:
+# Service Role Key केवल trusted server-side operations
+# के लिए इस्तेमाल होगी।
 #
-# Used ONLY for trusted server-side operations such as:
-# - Creating teacher Auth accounts
-# - Disabling Auth users
-# - Admin user management
-#
+# इसे browser/client-side code में कभी expose नहीं करना है.
 # =========================================================
 
 @st.cache_resource
 def init_supabase_admin() -> Client | None:
 
-    if not validate_url():
+    url = _get_config("SUPABASE_URL")
 
+    service_key = (
+        _get_config("SUPABASE_SERVICE_ROLE_KEY")
+        or _get_config("SUPABASE_SERVICE_KEY")
+    )
+
+    if not url:
         return None
 
-    if not SUPABASE_SERVICE_ROLE_KEY:
-
+    if not service_key:
+        # Admin client optional है।
+        # Normal login इसके बिना भी चल सकता है।
         return None
 
     try:
-
         return create_client(
-            SUPABASE_URL,
-            SUPABASE_SERVICE_ROLE_KEY
+            url,
+            service_key
         )
 
-    except Exception:
-
+    except Exception as e:
+        st.error(
+            f"❌ Supabase Admin connection failed: {e}"
+        )
         return None
 
 
@@ -163,197 +109,5 @@ def init_supabase_admin() -> Client | None:
 
 supabase = init_supabase()
 
+# केवल trusted Streamlit server-side admin operations
 supabase_admin = init_supabase_admin()
-
-
-# =========================================================
-# STATUS HELPERS
-# =========================================================
-
-def is_supabase_connected():
-
-    return supabase is not None
-
-
-def is_supabase_admin_available():
-
-    return supabase_admin is not None# =========================================================
-# CAMPUS ERP PRO
-# SUPABASE CONNECTION
-# NORMAL CLIENT + ADMIN CLIENT
-# =========================================================
-
-import os
-import streamlit as st
-from supabase import create_client, Client
-
-
-# =========================================================
-# READ SECRET
-# =========================================================
-
-def get_secret(name: str, default: str = "") -> str:
-
-    try:
-        # [supabase] section
-        if "supabase" in st.secrets:
-            value = st.secrets["supabase"].get(name, "")
-
-            if value:
-                return str(value).strip().strip('"').strip("'")
-
-        # Root-level secret
-        value = st.secrets.get(name, "")
-
-        if value:
-            return str(value).strip().strip('"').strip("'")
-
-    except Exception:
-        pass
-
-    # Environment variable fallback
-    return str(
-        os.environ.get(name, default)
-    ).strip().strip('"').strip("'")
-
-
-# =========================================================
-# SUPABASE URL
-# =========================================================
-
-SUPABASE_URL = get_secret("SUPABASE_URL")
-
-
-# =========================================================
-# NORMAL / PUBLIC APPLICATION KEY
-# =========================================================
-
-SUPABASE_KEY = get_secret("SUPABASE_KEY")
-
-
-# =========================================================
-# SERVICE ROLE KEY
-# IMPORTANT:
-# Never expose this in browser/client-side code.
-# =========================================================
-
-SUPABASE_SERVICE_ROLE_KEY = get_secret(
-    "SUPABASE_SERVICE_ROLE_KEY"
-)
-
-
-# =========================================================
-# VALIDATE URL
-# =========================================================
-
-def validate_url():
-
-    if not SUPABASE_URL:
-
-        st.error(
-            "❌ SUPABASE_URL missing है।"
-        )
-
-        return False
-
-    if not SUPABASE_URL.startswith("https://"):
-
-        st.error(
-            "❌ Supabase URL गलत है। "
-            "URL https:// से शुरू होना चाहिए।"
-        )
-
-        return False
-
-    return True
-
-
-# =========================================================
-# NORMAL SUPABASE CLIENT
-# =========================================================
-
-@st.cache_resource
-def init_supabase() -> Client | None:
-
-    if not validate_url():
-
-        return None
-
-    if not SUPABASE_KEY:
-
-        st.error(
-            "❌ SUPABASE_KEY missing है।"
-        )
-
-        return None
-
-    try:
-
-        return create_client(
-            SUPABASE_URL,
-            SUPABASE_KEY
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"❌ Supabase connection failed: {e}"
-        )
-
-        return None
-
-
-# =========================================================
-# ADMIN SUPABASE CLIENT
-#
-# Used ONLY for trusted server-side operations such as:
-# - Creating teacher Auth accounts
-# - Disabling Auth users
-# - Admin user management
-#
-# =========================================================
-
-@st.cache_resource
-def init_supabase_admin() -> Client | None:
-
-    if not validate_url():
-
-        return None
-
-    if not SUPABASE_SERVICE_ROLE_KEY:
-
-        return None
-
-    try:
-
-        return create_client(
-            SUPABASE_URL,
-            SUPABASE_SERVICE_ROLE_KEY
-        )
-
-    except Exception:
-
-        return None
-
-
-# =========================================================
-# GLOBAL CLIENTS
-# =========================================================
-
-supabase = init_supabase()
-
-supabase_admin = init_supabase_admin()
-
-
-# =========================================================
-# STATUS HELPERS
-# =========================================================
-
-def is_supabase_connected():
-
-    return supabase is not None
-
-
-def is_supabase_admin_available():
-
-    return supabase_admin is not None
