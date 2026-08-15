@@ -1,3 +1,4 @@
+import io
 import pandas as pd
 import streamlit as st
 from database.supabase import supabase
@@ -10,6 +11,36 @@ from database.supabase import supabase
 CLASSES = [f"Class {i}" for i in range(1, 13)]
 SECTIONS = ["All", "A", "B", "C", "D"]
 
+STUDENT_COLUMNS = [
+    "sr_no",
+    "student_name",
+    "father_name",
+    "mother_name",
+    "class",
+    "section",
+    "roll_no",
+    "gender",
+    "mobile",
+    "bus_route",
+    "drop_point",
+    "aadhaar"
+]
+
+EXCEL_COLUMN_NAMES = {
+    "sr_no": "SR No",
+    "student_name": "Student Name",
+    "father_name": "Father Name",
+    "mother_name": "Mother Name",
+    "class": "Class",
+    "section": "Section",
+    "roll_no": "Roll No",
+    "gender": "Gender",
+    "mobile": "Mobile",
+    "bus_route": "Bus Route",
+    "drop_point": "Drop Point",
+    "aadhaar": "Aadhaar / ID"
+}
+
 
 # =========================================================
 # LOAD STUDENTS
@@ -21,6 +52,7 @@ def load_students():
         return None
 
     try:
+
         response = (
             supabase
             .table("students")
@@ -32,387 +64,725 @@ def load_students():
         return response.data or []
 
     except Exception as e:
-        st.error(f"❌ Error fetching students: {e}")
+
+        st.error(
+            f"❌ Error fetching students: {e}"
+        )
+
         return None
 
 
 # =========================================================
-# STUDENT DIRECTORY
+# EXCEL TEMPLATE
 # =========================================================
 
-def render_students_module():
+def create_excel_template():
 
-    st.markdown("## 👨‍🎓 Student Admission & Master Directory")
+    template_df = pd.DataFrame(
+        columns=STUDENT_COLUMNS
+    )
 
-    tab1, tab2, tab3 = st.tabs([
-        "📝 New Admission",
-        "📋 Live Student Directory",
-        "🔍 Search & Manage"
-    ])
+    output = io.BytesIO()
 
-    # =====================================================
-    # TAB 1 — NEW ADMISSION
-    # =====================================================
+    with pd.ExcelWriter(
+        output,
+        engine="openpyxl"
+    ) as writer:
 
-    with tab1:
+        template_df.to_excel(
+            writer,
+            index=False,
+            sheet_name="Students"
+        )
 
-        with st.form(
-            key="student_admission_form_v1",
-            clear_on_submit=True
-        ):
+    return output.getvalue()
 
-            st.subheader(
-                "Student Personal & Academic Details"
+
+# =========================================================
+# EXPORT EXCEL
+# =========================================================
+
+def create_student_excel(data):
+
+    if not data:
+        return None
+
+    df = pd.DataFrame(data)
+
+    export_columns = [
+        column
+        for column in STUDENT_COLUMNS
+        if column in df.columns
+    ]
+
+    df = df[export_columns]
+
+    df = df.rename(
+        columns=EXCEL_COLUMN_NAMES
+    )
+
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(
+        output,
+        engine="openpyxl"
+    ) as writer:
+
+        df.to_excel(
+            writer,
+            index=False,
+            sheet_name="Students"
+        )
+
+    return output.getvalue()
+
+
+# =========================================================
+# VALIDATE EXCEL
+# =========================================================
+
+def validate_excel_dataframe(df):
+
+    required_columns = [
+        "sr_no",
+        "student_name",
+        "class",
+        "section"
+    ]
+
+    missing_columns = [
+        column
+        for column in required_columns
+        if column not in df.columns
+    ]
+
+    if missing_columns:
+
+        return False, (
+            "Missing required columns: "
+            + ", ".join(missing_columns)
+        )
+
+    if df.empty:
+
+        return False, "Excel file खाली है।"
+
+    return True, ""
+
+
+# =========================================================
+# TAB 1 — NEW ADMISSION
+# =========================================================
+
+def render_new_admission():
+
+    with st.form(
+        key="student_admission_form_v1",
+        clear_on_submit=True
+    ):
+
+        st.subheader(
+            "Student Personal & Academic Details"
+        )
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+
+            sr_no = st.number_input(
+                "SR Number*",
+                min_value=1,
+                step=1
             )
 
-            c1, c2 = st.columns(2)
-
-            with c1:
-
-                sr_no = st.number_input(
-                    "SR Number*",
-                    min_value=1,
-                    step=1
-                )
-
-                student_name = st.text_input(
-                    "Student Full Name*"
-                )
-
-                father_name = st.text_input(
-                    "Father's Name"
-                )
-
-                mother_name = st.text_input(
-                    "Mother's Name"
-                )
-
-                class_name = st.selectbox(
-                    "Class*",
-                    CLASSES
-                )
-
-                bus_route = st.text_input(
-                    "Bus Route (Optional)"
-                )
-
-            with c2:
-
-                roll_no = st.number_input(
-                    "Roll Number",
-                    min_value=1,
-                    step=1
-                )
-
-                gender = st.selectbox(
-                    "Gender",
-                    ["Male", "Female", "Other"]
-                )
-
-                section = st.selectbox(
-                    "Section*",
-                    ["A", "B", "C", "D"]
-                )
-
-                mobile = st.text_input(
-                    "Contact Mobile Number"
-                )
-
-                aadhaar = st.text_input(
-                    "Aadhaar / ID Reference (Optional)"
-                )
-
-                drop_point = st.text_input(
-                    "Drop Point (Optional)"
-                )
-
-            submitted = st.form_submit_button(
-                "💾 Save Student Record",
-                use_container_width=True
+            student_name = st.text_input(
+                "Student Full Name*"
             )
 
-            if submitted:
+            father_name = st.text_input(
+                "Father's Name"
+            )
 
-                if not student_name.strip():
+            mother_name = st.text_input(
+                "Mother's Name"
+            )
 
-                    st.error(
-                        "Please enter the student's name."
+            class_name = st.selectbox(
+                "Class*",
+                CLASSES
+            )
+
+            bus_route = st.text_input(
+                "Bus Route (Optional)"
+            )
+
+        with c2:
+
+            roll_no = st.number_input(
+                "Roll Number",
+                min_value=1,
+                step=1
+            )
+
+            gender = st.selectbox(
+                "Gender",
+                ["Male", "Female", "Other"]
+            )
+
+            section = st.selectbox(
+                "Section*",
+                ["A", "B", "C", "D"]
+            )
+
+            mobile = st.text_input(
+                "Contact Mobile Number"
+            )
+
+            aadhaar = st.text_input(
+                "Aadhaar / ID Reference (Optional)"
+            )
+
+            drop_point = st.text_input(
+                "Drop Point (Optional)"
+            )
+
+        submitted = st.form_submit_button(
+            "💾 Save Student Record",
+            use_container_width=True
+        )
+
+        if submitted:
+
+            if not student_name.strip():
+
+                st.error(
+                    "Please enter the student's name."
+                )
+
+                return
+
+            if supabase:
+
+                record = {
+                    "sr_no": int(sr_no),
+                    "student_name": student_name.strip(),
+                    "roll_no": int(roll_no),
+                    "gender": gender,
+                    "class": class_name,
+                    "section": section,
+                    "father_name": father_name.strip(),
+                    "mother_name": mother_name.strip(),
+                    "mobile": mobile.strip(),
+                    "bus_route": bus_route.strip(),
+                    "drop_point": drop_point.strip(),
+                    "aadhaar": aadhaar.strip()
+                }
+
+                try:
+
+                    supabase.table(
+                        "students"
+                    ).insert(record).execute()
+
+                    st.success(
+                        f"✅ Student **{student_name}** "
+                        f"(SR: {sr_no}) created successfully!"
                     )
 
-                else:
+                except Exception as e:
 
-                    record = {
-                        "sr_no": int(sr_no),
-                        "student_name": student_name.strip(),
-                        "roll_no": int(roll_no),
-                        "gender": gender,
-                        "class": class_name,
-                        "section": section,
-                        "father_name": father_name.strip(),
-                        "mother_name": mother_name.strip(),
-                        "mobile": mobile.strip(),
-                        "bus_route": bus_route.strip(),
-                        "drop_point": drop_point.strip(),
-                        "aadhaar": aadhaar.strip()
-                    }
+                    st.error(
+                        f"❌ Error saving to database: {e}"
+                    )
 
-                    if supabase:
+
+# =========================================================
+# TAB 2 — LIVE DIRECTORY
+# =========================================================
+
+def render_live_directory():
+
+    st.subheader(
+        "📋 Live Student Directory"
+    )
+
+    students = load_students()
+
+    if students is None:
+        return
+
+    # =====================================================
+    # EXCEL TOOLS
+    # =====================================================
+
+    st.markdown("### 📥📤 Excel Tools")
+
+    excel_col1, excel_col2, excel_col3 = st.columns(3)
+
+    with excel_col1:
+
+        st.download_button(
+            label="📄 Download Excel Template",
+            data=create_excel_template(),
+            file_name="student_import_template.xlsx",
+            mime=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            use_container_width=True,
+            key="download_student_template"
+        )
+
+    with excel_col2:
+
+        uploaded_file = st.file_uploader(
+            "📥 Import Students from Excel",
+            type=["xlsx"],
+            key="student_excel_upload"
+        )
+
+    with excel_col3:
+
+        if students:
+
+            excel_data = create_student_excel(
+                students
+            )
+
+            st.download_button(
+                label="📤 Export Students to Excel",
+                data=excel_data,
+                file_name="student_directory.xlsx",
+                mime=(
+                    "application/vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+                use_container_width=True,
+                key="export_students_excel"
+            )
+
+        else:
+
+            st.info(
+                "No students available for export."
+            )
+
+    # =====================================================
+    # EXCEL IMPORT
+    # =====================================================
+
+    if uploaded_file is not None:
+
+        try:
+
+            import_df = pd.read_excel(
+                uploaded_file
+            )
+
+            # Convert Excel column names to database names
+            reverse_columns = {
+                value: key
+                for key, value
+                in EXCEL_COLUMN_NAMES.items()
+            }
+
+            import_df = import_df.rename(
+                columns=reverse_columns
+            )
+
+            valid, error_message = (
+                validate_excel_dataframe(
+                    import_df
+                )
+            )
+
+            if not valid:
+
+                st.error(
+                    f"❌ Excel validation failed: "
+                    f"{error_message}"
+                )
+
+            else:
+
+                st.success(
+                    f"✅ Excel loaded successfully — "
+                    f"{len(import_df)} rows found."
+                )
+
+                st.dataframe(
+                    import_df,
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                if st.button(
+                    "🚀 Import Students into Supabase",
+                    type="primary",
+                    use_container_width=True,
+                    key="import_students_to_supabase"
+                ):
+
+                    success_count = 0
+                    skipped_count = 0
+                    error_list = []
+
+                    for index, row in import_df.iterrows():
 
                         try:
+
+                            sr_no_value = int(
+                                row["sr_no"]
+                            )
+
+                            student_name_value = str(
+                                row["student_name"]
+                            ).strip()
+
+                            if not student_name_value:
+
+                                skipped_count += 1
+
+                                error_list.append(
+                                    f"Row {index + 2}: "
+                                    "Student name missing"
+                                )
+
+                                continue
+
+                            # ---------------------------------
+                            # Check duplicate SR No
+                            # ---------------------------------
+
+                            existing = (
+                                supabase
+                                .table("students")
+                                .select("sr_no")
+                                .eq(
+                                    "sr_no",
+                                    sr_no_value
+                                )
+                                .execute()
+                            )
+
+                            if existing.data:
+
+                                skipped_count += 1
+
+                                error_list.append(
+                                    f"Row {index + 2}: "
+                                    f"SR No {sr_no_value} "
+                                    "already exists"
+                                )
+
+                                continue
+
+                            # ---------------------------------
+                            # Prepare record
+                            # ---------------------------------
+
+                            def clean_value(column):
+
+                                if column not in row:
+                                    return ""
+
+                                value = row[column]
+
+                                if pd.isna(value):
+                                    return ""
+
+                                return str(value).strip()
+
+                            record = {
+                                "sr_no": sr_no_value,
+                                "student_name":
+                                    student_name_value,
+                                "father_name":
+                                    clean_value("father_name"),
+                                "mother_name":
+                                    clean_value("mother_name"),
+                                "class":
+                                    clean_value("class"),
+                                "section":
+                                    clean_value("section"),
+                                "roll_no":
+                                    int(
+                                        row["roll_no"]
+                                    )
+                                    if (
+                                        "roll_no" in row
+                                        and not pd.isna(
+                                            row["roll_no"]
+                                        )
+                                    )
+                                    else 0,
+                                "gender":
+                                    clean_value("gender"),
+                                "mobile":
+                                    clean_value("mobile"),
+                                "bus_route":
+                                    clean_value("bus_route"),
+                                "drop_point":
+                                    clean_value("drop_point"),
+                                "aadhaar":
+                                    clean_value("aadhaar")
+                            }
 
                             supabase.table(
                                 "students"
                             ).insert(record).execute()
 
-                            st.success(
-                                f"✅ Student **{student_name}** "
-                                f"(SR: {sr_no}) created successfully!"
-                            )
+                            success_count += 1
 
                         except Exception as e:
 
-                            st.error(
-                                f"❌ Error saving to database: {e}"
+                            error_list.append(
+                                f"Row {index + 2}: {e}"
                             )
 
-    # =====================================================
-    # TAB 2 — LIVE DIRECTORY
-    # =====================================================
+                    # -----------------------------------------
+                    # Import Result
+                    # -----------------------------------------
 
-    with tab2:
+                    st.markdown("---")
 
-        st.subheader(
-            "📋 Live Student Directory"
-        )
+                    if success_count:
 
-        # -------------------------------------------------
-        # Refresh button
-        # -------------------------------------------------
+                        st.success(
+                            f"✅ {success_count} students "
+                            "imported successfully."
+                        )
 
-        refresh_col, count_col = st.columns([1, 4])
+                    if skipped_count:
 
-        with refresh_col:
+                        st.warning(
+                            f"⚠️ {skipped_count} rows skipped."
+                        )
 
-            refresh_clicked = st.button(
-                "🔄 Refresh Data",
-                use_container_width=True,
-                key="refresh_student_directory"
-            )
+                    if error_list:
 
-        # Load fresh data
-        students = load_students()
+                        with st.expander(
+                            "⚠️ Import Details"
+                        ):
 
-        if students is not None:
+                            for error in error_list:
 
-            # -------------------------------------------------
-            # Convert to DataFrame
-            # -------------------------------------------------
-
-            if students:
-
-                df = pd.DataFrame(students)
-
-                # -------------------------------------------------
-                # TOP FILTERS
-                # -------------------------------------------------
-
-                st.markdown("### 🔎 Search & Filter")
-
-                f1, f2, f3 = st.columns([2, 1, 1])
-
-                with f1:
-
-                    search_text = st.text_input(
-                        "🔍 Search Student",
-                        placeholder=(
-                            "Name / SR No / Roll No / Mobile"
-                        ),
-                        key="student_fast_search"
-                    )
-
-                with f2:
-
-                    class_filter = st.selectbox(
-                        "📚 Class",
-                        ["All"] + CLASSES,
-                        key="student_class_filter"
-                    )
-
-                with f3:
-
-                    section_filter = st.selectbox(
-                        "📌 Section",
-                        SECTIONS,
-                        key="student_section_filter"
-                    )
-
-                # -------------------------------------------------
-                # SEARCH FILTER
-                # -------------------------------------------------
-
-                filtered_df = df.copy()
-
-                if search_text.strip():
-
-                    search_value = search_text.strip().lower()
-
-                    searchable_columns = [
-                        "student_name",
-                        "sr_no",
-                        "roll_no",
-                        "mobile"
-                    ]
-
-                    mask = pd.Series(
-                        False,
-                        index=filtered_df.index
-                    )
-
-                    for column in searchable_columns:
-
-                        if column in filtered_df.columns:
-
-                            mask = (
-                                mask
-                                |
-                                filtered_df[column]
-                                .astype(str)
-                                .str.lower()
-                                .str.contains(
-                                    search_value,
-                                    na=False
+                                st.write(
+                                    f"- {error}"
                                 )
-                            )
 
-                    filtered_df = filtered_df[mask]
+                    if success_count:
 
-                # -------------------------------------------------
-                # CLASS FILTER
-                # -------------------------------------------------
+                        st.rerun()
 
-                if class_filter != "All":
+        except Exception as e:
 
-                    if "class" in filtered_df.columns:
-
-                        filtered_df = filtered_df[
-                            filtered_df["class"]
-                            == class_filter
-                        ]
-
-                # -------------------------------------------------
-                # SECTION FILTER
-                # -------------------------------------------------
-
-                if section_filter != "All":
-
-                    if "section" in filtered_df.columns:
-
-                        filtered_df = filtered_df[
-                            filtered_df["section"]
-                            == section_filter
-                        ]
-
-                # -------------------------------------------------
-                # COUNT
-                # -------------------------------------------------
-
-                with count_col:
-
-                    st.metric(
-                        "👨‍🎓 Students Found",
-                        len(filtered_df)
-                    )
-
-                # -------------------------------------------------
-                # DISPLAY COLUMNS
-                # -------------------------------------------------
-
-                rename_cols = {
-                    "sr_no": "SR No",
-                    "student_name": "Student Name",
-                    "father_name": "Father Name",
-                    "mother_name": "Mother Name",
-                    "class": "Class",
-                    "section": "Section",
-                    "roll_no": "Roll No",
-                    "gender": "Gender",
-                    "mobile": "Mobile",
-                    "bus_route": "Bus Route",
-                    "drop_point": "Drop Point"
-                }
-
-                display_df = filtered_df.rename(
-                    columns=rename_cols
-                )
-
-                display_cols = [
-                    col
-                    for col in rename_cols.values()
-                    if col in display_df.columns
-                ]
-
-                if len(display_df) > 0:
-
-                    st.dataframe(
-                        display_df[display_cols],
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                else:
-
-                    st.warning(
-                        "🔍 No student found with these filters."
-                    )
-
-            else:
-
-                st.info(
-                    "📭 No students found in the database."
-                )
-
-    # =====================================================
-    # TAB 3 — SEARCH & MANAGE
-    # =====================================================
-
-    with tab3:
-
-        st.subheader(
-            "🔍 Search & Edit Student"
-        )
-
-        students = load_students()
-
-        if students:
-
-            df = pd.DataFrame(students)
-
-            # -------------------------------------------------
-            # Search
-            # -------------------------------------------------
-
-            search_sr = st.number_input(
-                "Enter SR No",
-                min_value=1,
-                step=1,
-                key="search_sr_input"
+            st.error(
+                f"❌ Excel file पढ़ने में error: {e}"
             )
 
-            if st.button(
+    # =====================================================
+    # FILTERS
+    # =====================================================
+
+    if students:
+
+        df = pd.DataFrame(students)
+
+        st.markdown("---")
+        st.markdown("### 🔎 Search & Filter")
+
+        f1, f2, f3 = st.columns(
+            [2, 1, 1]
+        )
+
+        with f1:
+
+            search_text = st.text_input(
                 "🔍 Search Student",
-                key="btn_search_student"
-            ):
+                placeholder=(
+                    "Name / SR No / Roll No / Mobile"
+                ),
+                key="student_fast_search"
+            )
 
-                result = df[
-                    df["sr_no"].astype(int)
-                    == int(search_sr)
-                ]
+        with f2:
 
-                if not result.empty:
+            class_filter = st.selectbox(
+                "📚 Class",
+                ["All"] + CLASSES,
+                key="student_class_filter"
+            )
+
+        with f3:
+
+            section_filter = st.selectbox(
+                "📌 Section",
+                SECTIONS,
+                key="student_section_filter"
+            )
+
+        filtered_df = df.copy()
+
+        # -------------------------------------------------
+        # Search
+        # -------------------------------------------------
+
+        if search_text.strip():
+
+            search_value = (
+                search_text
+                .strip()
+                .lower()
+            )
+
+            mask = pd.Series(
+                False,
+                index=filtered_df.index
+            )
+
+            for column in [
+                "student_name",
+                "sr_no",
+                "roll_no",
+                "mobile"
+            ]:
+
+                if column in filtered_df.columns:
+
+                    mask = (
+                        mask
+                        |
+                        filtered_df[column]
+                        .astype(str)
+                        .str.lower()
+                        .str.contains(
+                            search_value,
+                            na=False
+                        )
+                    )
+
+            filtered_df = filtered_df[mask]
+
+        # -------------------------------------------------
+        # Class
+        # -------------------------------------------------
+
+        if class_filter != "All":
+
+            filtered_df = filtered_df[
+                filtered_df["class"]
+                == class_filter
+            ]
+
+        # -------------------------------------------------
+        # Section
+        # -------------------------------------------------
+
+        if section_filter != "All":
+
+            filtered_df = filtered_df[
+                filtered_df["section"]
+                == section_filter
+            ]
+
+        # -------------------------------------------------
+        # Count
+        # -------------------------------------------------
+
+        st.metric(
+            "👨‍🎓 Students Found",
+            len(filtered_df)
+        )
+
+        # -------------------------------------------------
+        # Display
+        # -------------------------------------------------
+
+        display_df = filtered_df.rename(
+            columns=EXCEL_COLUMN_NAMES
+        )
+
+        display_cols = [
+            "SR No",
+            "Student Name",
+            "Father Name",
+            "Mother Name",
+            "Class",
+            "Section",
+            "Roll No",
+            "Gender",
+            "Mobile",
+            "Bus Route",
+            "Drop Point"
+        ]
+
+        display_cols = [
+            column
+            for column in display_cols
+            if column in display_df.columns
+        ]
+
+        if not filtered_df.empty:
+
+            st.dataframe(
+                display_df[display_cols],
+                use_container_width=True,
+                hide_index=True
+            )
+
+        else:
+
+            st.warning(
+                "🔍 No student found with these filters."
+            )
+
+    else:
+
+        st.info(
+            "📭 No students found in database."
+        )
+
+
+# =========================================================
+# TAB 3 — SEARCH & EDIT
+# =========================================================
+
+def render_search_manage():
+
+    st.subheader(
+        "🔍 Search & Edit Student"
+    )
+
+    search_sr = st.number_input(
+        "Enter SR No",
+        min_value=1,
+        step=1,
+        key="search_sr_input"
+    )
+
+    if st.button(
+        "🔍 Search Student",
+        key="btn_search_student"
+    ):
+
+        if supabase:
+
+            try:
+
+                response = (
+                    supabase
+                    .table("students")
+                    .select("*")
+                    .eq("sr_no", search_sr)
+                    .execute()
+                )
+
+                if response.data:
 
                     st.session_state[
                         "searched_student"
-                    ] = result.iloc[0].to_dict()
+                    ] = response.data[0]
 
                 else:
 
@@ -425,249 +795,288 @@ def render_students_module():
                         None
                     )
 
-            # -------------------------------------------------
-            # Student Edit
-            # -------------------------------------------------
+            except Exception as e:
 
-            student = st.session_state.get(
-                "searched_student"
-            )
-
-            if student:
-
-                st.markdown("---")
-
-                st.markdown(
-                    f"### ✏️ Edit Student: "
-                    f"**{student.get('student_name', 'N/A')}**"
+                st.error(
+                    f"❌ Search error: {e}"
                 )
 
-                with st.form(
-                    key="edit_student_form"
-                ):
+    student = st.session_state.get(
+        "searched_student"
+    )
 
-                    e1, e2 = st.columns(2)
+    if not student:
+        return
 
-                    with e1:
+    st.markdown("---")
 
-                        edit_sr = st.number_input(
-                            "SR Number",
-                            value=int(
-                                student.get("sr_no", 1)
-                            ),
-                            min_value=1
-                        )
+    st.markdown(
+        f"### ✏️ Edit Student: "
+        f"**{student.get('student_name', 'N/A')}**"
+    )
 
-                        edit_name = st.text_input(
-                            "Student Name",
-                            value=str(
-                                student.get(
-                                    "student_name",
-                                    ""
-                                )
-                            )
-                        )
+    with st.form(
+        key="edit_student_form"
+    ):
 
-                        edit_father = st.text_input(
-                            "Father's Name",
-                            value=str(
-                                student.get(
-                                    "father_name",
-                                    ""
-                                ) or ""
-                            )
-                        )
+        c1, c2 = st.columns(2)
 
-                        edit_mother = st.text_input(
-                            "Mother's Name",
-                            value=str(
-                                student.get(
-                                    "mother_name",
-                                    ""
-                                ) or ""
-                            )
-                        )
+        with c1:
 
-                        current_class = student.get(
-                            "class",
-                            CLASSES[0]
-                        )
+            edit_sr = st.number_input(
+                "SR Number",
+                value=int(
+                    student.get("sr_no", 1)
+                ),
+                min_value=1
+            )
 
-                        edit_class = st.selectbox(
-                            "Class",
-                            CLASSES,
-                            index=(
-                                CLASSES.index(current_class)
-                                if current_class in CLASSES
-                                else 0
-                            )
-                        )
+            edit_name = st.text_input(
+                "Student Name",
+                value=str(
+                    student.get(
+                        "student_name",
+                        ""
+                    )
+                )
+            )
 
-                        edit_bus = st.text_input(
-                            "Bus Route",
-                            value=str(
-                                student.get(
-                                    "bus_route",
-                                    ""
-                                ) or ""
-                            )
-                        )
+            edit_father = st.text_input(
+                "Father's Name",
+                value=str(
+                    student.get(
+                        "father_name",
+                        ""
+                    ) or ""
+                )
+            )
 
-                    with e2:
+            edit_mother = st.text_input(
+                "Mother's Name",
+                value=str(
+                    student.get(
+                        "mother_name",
+                        ""
+                    ) or ""
+                )
+            )
 
-                        edit_roll = st.number_input(
-                            "Roll Number",
-                            value=int(
-                                student.get(
-                                    "roll_no",
-                                    1
-                                ) or 1
-                            ),
-                            min_value=1
-                        )
+            current_class = student.get(
+                "class",
+                CLASSES[0]
+            )
 
-                        current_gender = student.get(
-                            "gender",
-                            "Male"
-                        )
+            edit_class = st.selectbox(
+                "Class",
+                CLASSES,
+                index=(
+                    CLASSES.index(
+                        current_class
+                    )
+                    if current_class in CLASSES
+                    else 0
+                )
+            )
 
-                        gender_options = [
-                            "Male",
-                            "Female",
-                            "Other"
-                        ]
+            edit_bus = st.text_input(
+                "Bus Route",
+                value=str(
+                    student.get(
+                        "bus_route",
+                        ""
+                    ) or ""
+                )
+            )
 
-                        edit_gender = st.selectbox(
-                            "Gender",
-                            gender_options,
-                            index=(
-                                gender_options.index(
-                                    current_gender
-                                )
-                                if current_gender
-                                in gender_options
-                                else 0
-                            )
-                        )
+        with c2:
 
-                        current_section = student.get(
-                            "section",
-                            "A"
-                        )
+            edit_roll = st.number_input(
+                "Roll Number",
+                value=int(
+                    student.get(
+                        "roll_no",
+                        1
+                    ) or 1
+                ),
+                min_value=1
+            )
 
-                        section_options = [
-                            "A",
-                            "B",
-                            "C",
-                            "D"
-                        ]
+            gender_options = [
+                "Male",
+                "Female",
+                "Other"
+            ]
 
-                        edit_section = st.selectbox(
-                            "Section",
-                            section_options,
-                            index=(
-                                section_options.index(
-                                    current_section
-                                )
-                                if current_section
-                                in section_options
-                                else 0
-                            )
-                        )
+            current_gender = student.get(
+                "gender",
+                "Male"
+            )
 
-                        edit_mobile = st.text_input(
-                            "Mobile",
-                            value=str(
-                                student.get(
-                                    "mobile",
-                                    ""
-                                ) or ""
-                            )
-                        )
+            edit_gender = st.selectbox(
+                "Gender",
+                gender_options,
+                index=(
+                    gender_options.index(
+                        current_gender
+                    )
+                    if current_gender
+                    in gender_options
+                    else 0
+                )
+            )
 
-                        edit_aadhaar = st.text_input(
-                            "Aadhaar / ID Reference",
-                            value=str(
-                                student.get(
-                                    "aadhaar",
-                                    ""
-                                ) or ""
-                            )
-                        )
+            section_options = [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
 
-                        edit_drop = st.text_input(
-                            "Drop Point",
-                            value=str(
-                                student.get(
-                                    "drop_point",
-                                    ""
-                                ) or ""
-                            )
-                        )
+            current_section = student.get(
+                "section",
+                "A"
+            )
 
-                    update_student = st.form_submit_button(
-                        "💾 Update Student Record",
-                        use_container_width=True
+            edit_section = st.selectbox(
+                "Section",
+                section_options,
+                index=(
+                    section_options.index(
+                        current_section
+                    )
+                    if current_section
+                    in section_options
+                    else 0
+                )
+            )
+
+            edit_mobile = st.text_input(
+                "Mobile",
+                value=str(
+                    student.get(
+                        "mobile",
+                        ""
+                    ) or ""
+                )
+            )
+
+            edit_aadhaar = st.text_input(
+                "Aadhaar / ID Reference",
+                value=str(
+                    student.get(
+                        "aadhaar",
+                        ""
+                    ) or ""
+                )
+            )
+
+            edit_drop = st.text_input(
+                "Drop Point",
+                value=str(
+                    student.get(
+                        "drop_point",
+                        ""
+                    ) or ""
+                )
+            )
+
+        update_student = st.form_submit_button(
+            "💾 Update Student Record",
+            use_container_width=True
+        )
+
+        if update_student:
+
+            if not edit_name.strip():
+
+                st.error(
+                    "Student name is required."
+                )
+
+            elif supabase:
+
+                try:
+
+                    original_sr = int(
+                        student["sr_no"]
                     )
 
-                    if update_student:
+                    update_data = {
+                        "sr_no": int(edit_sr),
+                        "student_name":
+                            edit_name.strip(),
+                        "father_name":
+                            edit_father.strip(),
+                        "mother_name":
+                            edit_mother.strip(),
+                        "class":
+                            edit_class,
+                        "section":
+                            edit_section,
+                        "roll_no":
+                            int(edit_roll),
+                        "gender":
+                            edit_gender,
+                        "mobile":
+                            edit_mobile.strip(),
+                        "bus_route":
+                            edit_bus.strip(),
+                        "drop_point":
+                            edit_drop.strip(),
+                        "aadhaar":
+                            edit_aadhaar.strip()
+                    }
 
-                        if not edit_name.strip():
+                    (
+                        supabase
+                        .table("students")
+                        .update(update_data)
+                        .eq(
+                            "sr_no",
+                            original_sr
+                        )
+                        .execute()
+                    )
 
-                            st.error(
-                                "Student name is required."
-                            )
+                    st.success(
+                        "✅ Student updated successfully!"
+                    )
 
-                        elif supabase:
+                    st.session_state[
+                        "searched_student"
+                    ] = update_data
 
-                            try:
+                except Exception as e:
 
-                                update_data = {
-                                    "sr_no": int(edit_sr),
-                                    "student_name": edit_name.strip(),
-                                    "father_name": edit_father.strip(),
-                                    "mother_name": edit_mother.strip(),
-                                    "class": edit_class,
-                                    "section": edit_section,
-                                    "roll_no": int(edit_roll),
-                                    "gender": edit_gender,
-                                    "mobile": edit_mobile.strip(),
-                                    "bus_route": edit_bus.strip(),
-                                    "drop_point": edit_drop.strip(),
-                                    "aadhaar": edit_aadhaar.strip()
-                                }
+                    st.error(
+                        f"❌ Update failed: {e}"
+                    )
 
-                                original_sr = int(
-                                    student["sr_no"]
-                                )
 
-                                (
-                                    supabase
-                                    .table("students")
-                                    .update(update_data)
-                                    .eq(
-                                        "sr_no",
-                                        original_sr
-                                    )
-                                    .execute()
-                                )
+# =========================================================
+# MAIN STUDENT MODULE
+# =========================================================
 
-                                st.success(
-                                    "✅ Student record updated successfully!"
-                                )
+def render_students_module():
 
-                                st.session_state[
-                                    "searched_student"
-                                ] = update_data
+    st.markdown(
+        "## 👨‍🎓 Student Admission & Master Directory"
+    )
 
-                            except Exception as e:
+    tab1, tab2, tab3 = st.tabs([
+        "📝 New Admission",
+        "📋 Live Student Directory",
+        "🔍 Search & Manage"
+    ])
 
-                                st.error(
-                                    f"❌ Update failed: {e}"
-                                )
+    with tab1:
 
-        else:
+        render_new_admission()
 
-            st.info(
-                "📭 No students available."
-            )
+    with tab2:
+
+        render_live_directory()
+
+    with tab3:
+
+        render_search_manage()
