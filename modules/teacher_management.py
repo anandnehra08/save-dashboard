@@ -3,20 +3,19 @@
 # STAFF & ACCESS CONTROL MANAGEMENT
 #
 # REAL SUPABASE AUTH
-# REAL EMAIL
-# REAL PHONE
+# REAL EMAIL VERIFICATION
+# REAL PHONE OTP
 # MULTIPLE CLASSES
 # MULTIPLE SUBJECTS
+# ACTIVE / REVOKE ACCESS
 # PHASE 1-4 COMPATIBLE
 # =========================================================
 
 import re
 import streamlit as st
 
-from database.supabase import (
-    supabase,
-    supabase_admin,
-)
+from database.supabase import supabase
+from database.supabase_admin import supabase_admin
 
 
 # =========================================================
@@ -34,7 +33,6 @@ SECTIONS = [
     "C",
     "D",
 ]
-
 
 DEFAULT_SUBJECTS = [
     "Maths",
@@ -54,7 +52,6 @@ DEFAULT_SUBJECTS = [
 def get_master_subjects():
 
     if not supabase:
-
         return DEFAULT_SUBJECTS
 
     try:
@@ -68,11 +65,14 @@ def get_master_subjects():
 
         if response.data:
 
-            return [
-                x["subject_name"]
-                for x in response.data
-                if x.get("subject_name")
+            subjects = [
+                item.get("subject_name")
+                for item in response.data
+                if item.get("subject_name")
             ]
+
+            if subjects:
+                return subjects
 
     except Exception:
         pass
@@ -85,6 +85,9 @@ def get_master_subjects():
 # =========================================================
 
 def is_valid_email(email):
+
+    if not email:
+        return False
 
     pattern = (
         r"^[A-Za-z0-9._%+-]+@"
@@ -101,34 +104,42 @@ def is_valid_email(email):
 
 
 # =========================================================
-# INDIAN MOBILE VALIDATION
+# MOBILE VALIDATION
 # =========================================================
 
-def normalize_phone(phone):
+def normalize_mobile(mobile):
 
     digits = re.sub(
         r"\D",
         "",
-        str(phone)
+        str(mobile)
     )
 
-    # 10 digit Indian number
+    # 10 digit Indian mobile
     if len(digits) == 10:
 
         if digits[0] in "6789":
+            return digits
 
-            return "+91" + digits
-
-    # +91XXXXXXXXXX
+    # 91XXXXXXXXXX
     if len(digits) == 12 and digits.startswith("91"):
 
         number = digits[2:]
 
-        if number[0] in "6789":
-
-            return "+" + digits
+        if number and number[0] in "6789":
+            return number
 
     return None
+
+
+def mobile_with_country_code(mobile):
+
+    clean = normalize_mobile(mobile)
+
+    if not clean:
+        return None
+
+    return "+91" + clean
 
 
 # =========================================================
@@ -137,28 +148,87 @@ def normalize_phone(phone):
 
 def validate_password(password):
 
-    if len(password) < 8:
+    if not password:
+        return False, "Password डालें।"
 
+    if len(password) < 8:
         return (
             False,
             "Password कम से कम 8 characters का होना चाहिए।"
         )
 
     if not re.search(r"[A-Za-z]", password):
-
         return (
             False,
-            "Password में letter होना चाहिए।"
+            "Password में कम से कम एक letter होना चाहिए।"
         )
 
     if not re.search(r"[0-9]", password):
-
         return (
             False,
-            "Password में number होना चाहिए।"
+            "Password में कम से कम एक number होना चाहिए।"
         )
 
     return True, ""
+
+
+# =========================================================
+# CHECK EXISTING TEACHER PROFILE
+# =========================================================
+
+def email_exists(email):
+
+    if not supabase:
+        return False
+
+    try:
+
+        response = (
+            supabase
+            .table("users")
+            .select("id")
+            .eq(
+                "email",
+                email.strip().lower()
+            )
+            .limit(1)
+            .execute()
+        )
+
+        return bool(response.data)
+
+    except Exception:
+        return False
+
+
+def mobile_exists(mobile):
+
+    if not supabase:
+        return False
+
+    clean_mobile = normalize_mobile(mobile)
+
+    if not clean_mobile:
+        return False
+
+    try:
+
+        response = (
+            supabase
+            .table("users")
+            .select("id")
+            .eq(
+                "mobile",
+                clean_mobile
+            )
+            .limit(1)
+            .execute()
+        )
+
+        return bool(response.data)
+
+    except Exception:
+        return False
 
 
 # =========================================================
@@ -168,7 +238,7 @@ def validate_password(password):
 def create_teacher_auth_user(
     email,
     password,
-    phone
+    mobile
 ):
 
     if not supabase_admin:
@@ -176,6 +246,17 @@ def create_teacher_auth_user(
         return (
             None,
             "❌ SUPABASE_SERVICE_ROLE_KEY configured नहीं है।"
+        )
+
+    phone = mobile_with_country_code(
+        mobile
+    )
+
+    if not phone:
+
+        return (
+            None,
+            "❌ Invalid mobile number."
         )
 
     try:
@@ -188,10 +269,10 @@ def create_teacher_auth_user(
                     "email": email,
                     "password": password,
 
-                    # Email verification required
+                    # Real email verification
                     "email_confirm": False,
 
-                    # Phone is real but remains unverified
+                    # Real phone verification
                     "phone": phone,
                     "phone_confirm": False,
 
@@ -223,14 +304,14 @@ def create_teacher_auth_user(
 
 
 # =========================================================
-# CREATE TEACHER DATABASE PROFILE
+# CREATE ERP PROFILE
 # =========================================================
 
 def create_teacher_profile(
     auth_user_id,
     name,
     email,
-    phone,
+    mobile,
     role,
     assigned_classes,
     assigned_section,
@@ -239,18 +320,23 @@ def create_teacher_profile(
 
     if not supabase:
 
-        return False, "Supabase database connected नहीं है।"
+        return (
+            False,
+            "❌ Supabase database connected नहीं है।"
+        )
 
     payload = {
 
-        # Auth link
+        # Auth ↔ ERP link
         "auth_user_id": str(auth_user_id),
 
         "name": name,
 
         "email": email,
 
-        "phone": phone,
+        # IMPORTANT:
+        # users table में mobile standard field
+        "mobile": mobile,
 
         "role": role,
 
@@ -267,11 +353,14 @@ def create_teacher_profile(
 
         "assigned_subjects": assigned_subjects,
 
-        # Verification starts false
+        # Verification initially pending
         "email_verified": False,
 
         "phone_verified": False,
 
+        # Account starts active in DB,
+        # but application access remains restricted
+        # until verification is complete.
         "is_active": True,
     }
 
@@ -292,12 +381,17 @@ def create_teacher_profile(
 
 
 # =========================================================
-# DELETE AUTH USER IF DATABASE PROFILE CREATION FAILS
+# ROLLBACK AUTH USER
 # =========================================================
 
-def rollback_auth_user(auth_user_id):
+def rollback_auth_user(
+    auth_user_id
+):
 
     if not supabase_admin:
+        return
+
+    if not auth_user_id:
         return
 
     try:
@@ -325,9 +419,16 @@ def revoke_teacher(
 
     if not supabase:
 
-        return False, "Database unavailable."
+        return (
+            False,
+            "Database unavailable."
+        )
 
     try:
+
+        # -----------------------------------------------------
+        # Disable ERP access
+        # -----------------------------------------------------
 
         (
             supabase
@@ -337,11 +438,17 @@ def revoke_teacher(
                     "is_active": False
                 }
             )
-            .eq("id", teacher_id)
+            .eq(
+                "id",
+                teacher_id
+            )
             .execute()
         )
 
-        # Disable Auth account if admin client exists
+        # -----------------------------------------------------
+        # Disable Supabase Auth account
+        # -----------------------------------------------------
+
         if supabase_admin and auth_user_id:
 
             try:
@@ -373,11 +480,13 @@ def revoke_teacher(
 
 def render_teacher_management_module():
 
-    # -----------------------------------------------------
+    # =====================================================
     # ADMIN ONLY
-    # -----------------------------------------------------
+    # =====================================================
 
-    if st.session_state.get("user_role") != "admin":
+    if st.session_state.get(
+        "user_role"
+    ) != "admin":
 
         st.error(
             "⛔ Access Denied: "
@@ -386,6 +495,10 @@ def render_teacher_management_module():
 
         return
 
+
+    # =====================================================
+    # HEADER
+    # =====================================================
 
     st.title(
         "👑 Staff & Access Control Management"
@@ -398,19 +511,18 @@ def render_teacher_management_module():
     )
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # ADMIN CLIENT CHECK
-    # -----------------------------------------------------
+    # =====================================================
 
     if not supabase_admin:
 
-        st.warning(
-            "⚠️ Real Teacher Auth अभी available नहीं है।"
+        st.error(
+            "❌ Real Teacher Auth उपलब्ध नहीं है।"
         )
 
         st.info(
-            "`.streamlit/secrets.toml` में "
-            "`SUPABASE_SERVICE_ROLE_KEY` configure करें।"
+            "SUPABASE_SERVICE_ROLE_KEY configure करें।"
         )
 
         return
@@ -418,6 +530,10 @@ def render_teacher_management_module():
 
     master_subjects = get_master_subjects()
 
+
+    # =====================================================
+    # TABS
+    # =====================================================
 
     tab_add, tab_view = st.tabs(
         [
@@ -440,9 +556,9 @@ def render_teacher_management_module():
         col1, col2 = st.columns(2)
 
 
-        # -------------------------------------------------
+        # =================================================
         # BASIC DETAILS
-        # -------------------------------------------------
+        # =================================================
 
         with col1:
 
@@ -458,10 +574,11 @@ def render_teacher_management_module():
                 key="teacher_email"
             )
 
-            t_phone = st.text_input(
+            t_mobile = st.text_input(
                 "Real Mobile Number *",
                 placeholder="e.g. 9876543211",
-                key="teacher_phone"
+                max_chars=13,
+                key="teacher_mobile"
             )
 
             t_pass = st.text_input(
@@ -472,9 +589,9 @@ def render_teacher_management_module():
             )
 
 
-        # -------------------------------------------------
+        # =================================================
         # ACCESS DETAILS
-        # -------------------------------------------------
+        # =================================================
 
         with col2:
 
@@ -486,16 +603,18 @@ def render_teacher_management_module():
                 ],
                 format_func=lambda x:
                     (
-                        "Class Teacher "
-                        "(Incharge of Class)"
+                        "Class Teacher (Incharge of Class)"
                         if x == "class_teacher"
                         else
-                        "Subject Teacher "
-                        "(Multiple Classes & Subjects)"
+                        "Subject Teacher (Multiple Classes & Subjects)"
                     ),
                 key="teacher_role"
             )
 
+
+            # -------------------------------------------------
+            # CLASS TEACHER
+            # -------------------------------------------------
 
             if t_role == "class_teacher":
 
@@ -507,33 +626,38 @@ def render_teacher_management_module():
                     )
                 ]
 
-                assigned_sec = st.selectbox(
+                assigned_section = st.selectbox(
                     "Assigned Section",
                     SECTIONS,
                     key="teacher_section"
                 )
 
-                assigned_subs = ["ALL"]
+                assigned_subjects = [
+                    "ALL"
+                ]
 
                 st.info(
-                    "💡 Class Teacher को "
-                    "अपनी assigned class की "
-                    "सभी subjects की access मिलेगी।"
+                    "💡 Class Teacher को assigned "
+                    "class की सभी activities की access मिलेगी।"
                 )
 
+
+            # -------------------------------------------------
+            # SUBJECT TEACHER
+            # -------------------------------------------------
 
             else:
 
                 assigned_classes = st.multiselect(
-                    "Select Classes",
+                    "Select Classes (Multiple Allowed)",
                     CLASSES,
                     key="teacher_classes"
                 )
 
-                assigned_sec = "ALL"
+                assigned_section = "ALL"
 
-                assigned_subs = st.multiselect(
-                    "Assigned Subjects",
+                assigned_subjects = st.multiselect(
+                    "Assigned Subjects (Multiple Allowed)",
                     master_subjects,
                     key="teacher_subjects"
                 )
@@ -542,21 +666,20 @@ def render_teacher_management_module():
         st.markdown("---")
 
 
-        # -------------------------------------------------
-        # REAL ACCOUNT WARNING
-        # -------------------------------------------------
+        # =================================================
+        # SECURITY NOTICE
+        # =================================================
 
-        st.info(
-            "🔐 यह Demo Account नहीं होगा। "
-            "Teacher का real Supabase Auth account बनेगा। "
-            "Email और mobile verification के बाद ही "
-            "teacher को active access मिलेगा।"
+        st.warning(
+            "🔐 यह REAL teacher account बनेगा। "
+            "कोई Demo/Fake email, mobile या OTP इस्तेमाल नहीं होगा। "
+            "Email और mobile verification के बाद ही teacher ERP access कर सकेगा।"
         )
 
 
-        # -------------------------------------------------
-        # CREATE BUTTON
-        # -------------------------------------------------
+        # =================================================
+        # CREATE
+        # =================================================
 
         if st.button(
             "➕ Create Real Teacher Account",
@@ -569,14 +692,14 @@ def render_teacher_management_module():
 
             email = t_email.strip().lower()
 
-            phone = normalize_phone(
-                t_phone
+            mobile = normalize_mobile(
+                t_mobile
             )
 
 
-            # ---------------------------------------------
+            # =================================================
             # VALIDATION
-            # ---------------------------------------------
+            # =================================================
 
             if not name:
 
@@ -587,7 +710,9 @@ def render_teacher_management_module():
                 return
 
 
-            if not is_valid_email(email):
+            if not is_valid_email(
+                email
+            ):
 
                 st.error(
                     "❌ Valid real email address डालें।"
@@ -596,7 +721,7 @@ def render_teacher_management_module():
                 return
 
 
-            if not phone:
+            if not mobile:
 
                 st.error(
                     "❌ Valid Indian mobile number डालें।"
@@ -615,7 +740,9 @@ def render_teacher_management_module():
 
 
             password_ok, password_error = (
-                validate_password(t_pass)
+                validate_password(
+                    t_pass
+                )
             )
 
             if not password_ok:
@@ -638,7 +765,7 @@ def render_teacher_management_module():
 
             if (
                 t_role == "subject_teacher"
-                and not assigned_subs
+                and not assigned_subjects
             ):
 
                 st.error(
@@ -649,48 +776,49 @@ def render_teacher_management_module():
                 return
 
 
-            # ---------------------------------------------
-            # CHECK EXISTING EMAIL
-            # ---------------------------------------------
+            # =================================================
+            # DUPLICATE EMAIL
+            # =================================================
 
-            try:
+            if email_exists(
+                email
+            ):
 
-                existing = (
-                    supabase
-                    .table("users")
-                    .select(
-                        "id,email"
-                    )
-                    .eq("email", email)
-                    .limit(1)
-                    .execute()
+                st.error(
+                    "❌ यह email पहले से ERP में registered है।"
                 )
 
-                if existing.data:
-
-                    st.error(
-                        "❌ यह email पहले से registered है।"
-                    )
-
-                    return
-
-            except Exception:
-                pass
+                return
 
 
-            # ---------------------------------------------
-            # CREATE AUTH ACCOUNT
-            # ---------------------------------------------
+            # =================================================
+            # DUPLICATE MOBILE
+            # =================================================
+
+            if mobile_exists(
+                mobile
+            ):
+
+                st.error(
+                    "❌ यह mobile number पहले से ERP में registered है।"
+                )
+
+                return
+
+
+            # =================================================
+            # CREATE AUTH USER
+            # =================================================
 
             with st.spinner(
-                "Real Supabase Auth account बनाया जा रहा है..."
+                "🔐 Real Supabase Auth account बनाया जा रहा है..."
             ):
 
                 auth_user, auth_error = (
                     create_teacher_auth_user(
                         email=email,
                         password=t_pass,
-                        phone=phone
+                        mobile=mobile
                     )
                 )
 
@@ -698,30 +826,41 @@ def render_teacher_management_module():
             if auth_error:
 
                 st.error(
-                    f"❌ Auth account create नहीं हुआ: "
-                    f"{auth_error}"
+                    "❌ Auth account create नहीं हुआ:"
+                )
+
+                st.code(
+                    str(auth_error)
                 )
 
                 return
 
 
-            # ---------------------------------------------
-            # CREATE DATABASE PROFILE
-            # ---------------------------------------------
+            # =================================================
+            # CREATE ERP PROFILE
+            # =================================================
 
-            profile_ok, profile_error = (
-                create_teacher_profile(
-                    auth_user_id=auth_user.id,
-                    name=name,
-                    email=email,
-                    phone=phone,
-                    role=t_role,
-                    assigned_classes=assigned_classes,
-                    assigned_section=assigned_sec,
-                    assigned_subjects=assigned_subs
+            with st.spinner(
+                "📋 ERP teacher profile बनाया जा रहा है..."
+            ):
+
+                profile_ok, profile_error = (
+                    create_teacher_profile(
+                        auth_user_id=auth_user.id,
+                        name=name,
+                        email=email,
+                        mobile=mobile,
+                        role=t_role,
+                        assigned_classes=assigned_classes,
+                        assigned_section=assigned_section,
+                        assigned_subjects=assigned_subjects
+                    )
                 )
-            )
 
+
+            # =================================================
+            # ROLLBACK IF PROFILE FAILED
+            # =================================================
 
             if not profile_ok:
 
@@ -730,40 +869,53 @@ def render_teacher_management_module():
                 )
 
                 st.error(
-                    "❌ Teacher profile create नहीं हुआ। "
-                    "Auth account rollback कर दिया गया।"
+                    "❌ ERP profile create नहीं हुआ।"
                 )
 
                 st.error(
-                    profile_error
+                    "🔄 Auth account automatically rollback कर दिया गया।"
+                )
+
+                st.code(
+                    str(profile_error)
                 )
 
                 return
 
 
-            # ---------------------------------------------
+            # =================================================
             # SUCCESS
-            # ---------------------------------------------
+            # =================================================
 
             st.success(
-                f"✅ {name} का REAL teacher account "
-                f"successfully create हो गया।"
+                f"✅ {name} का REAL teacher account successfully create हो गया।"
             )
 
             st.info(
-                "📧 Email verification और 📱 mobile "
-                "verification complete होने के बाद "
-                "teacher को active access मिलेगा।"
+                "📧 Email verification + 📱 Mobile verification "
+                "complete होने के बाद ही teacher ERP में प्रवेश कर सकेगा।"
             )
 
-            st.success(
-                "🔐 Assigned Classes: "
-                + ", ".join(assigned_classes)
+            st.write(
+                f"**📧 Email:** {email}"
             )
 
-            st.success(
-                "📚 Assigned Subjects: "
-                + ", ".join(assigned_subs)
+            st.write(
+                f"**📱 Mobile:** {mobile}"
+            )
+
+            st.write(
+                "**🏫 Classes:** "
+                + ", ".join(
+                    assigned_classes
+                )
+            )
+
+            st.write(
+                "**📚 Subjects:** "
+                + ", ".join(
+                    assigned_subjects
+                )
             )
 
             st.rerun()
@@ -783,11 +935,15 @@ def render_teacher_management_module():
         if not supabase:
 
             st.error(
-                "Supabase database connected नहीं है।"
+                "❌ Supabase database connected नहीं है।"
             )
 
             return
 
+
+        # =================================================
+        # FETCH TEACHERS
+        # =================================================
 
         try:
 
@@ -800,7 +956,7 @@ def render_teacher_management_module():
                     auth_user_id,
                     name,
                     email,
-                    phone,
+                    mobile,
                     role,
                     assigned_class,
                     assigned_classes,
@@ -817,8 +973,10 @@ def render_teacher_management_module():
                 .execute()
             )
 
-            teachers = response.data or []
-
+            teachers = (
+                response.data
+                or []
+            )
 
         except Exception as e:
 
@@ -838,9 +996,9 @@ def render_teacher_management_module():
             return
 
 
-        # -------------------------------------------------
-        # TEACHER CARDS
-        # -------------------------------------------------
+        # =================================================
+        # TEACHER LIST
+        # =================================================
 
         for teacher in teachers:
 
@@ -849,25 +1007,19 @@ def render_teacher_management_module():
                 or "staff"
             )
 
-            is_active = (
-                teacher.get(
-                    "is_active",
-                    True
-                )
+            is_active = teacher.get(
+                "is_active",
+                True
             )
 
-            email_verified = (
-                teacher.get(
-                    "email_verified",
-                    False
-                )
+            email_verified = teacher.get(
+                "email_verified",
+                False
             )
 
-            phone_verified = (
-                teacher.get(
-                    "phone_verified",
-                    False
-                )
+            phone_verified = teacher.get(
+                "phone_verified",
+                False
             )
 
 
@@ -880,18 +1032,22 @@ def render_teacher_management_module():
 
 
             with st.expander(
-                f"👤 {teacher.get('name','Unknown')} "
+                f"👤 {teacher.get('name', 'Unknown')} "
                 f"| {role.upper()} | {status}"
             ):
 
                 c1, c2, c3 = st.columns(3)
 
 
+                # =============================================
+                # EMAIL
+                # =============================================
+
                 with c1:
 
                     st.write(
-                        f"**Email:** "
-                        f"{teacher.get('email','')}"
+                        f"**📧 Email:** "
+                        f"{teacher.get('email', '')}"
                     )
 
                     if email_verified:
@@ -907,11 +1063,15 @@ def render_teacher_management_module():
                         )
 
 
+                # =============================================
+                # MOBILE
+                # =============================================
+
                 with c2:
 
                     st.write(
-                        f"**Mobile:** "
-                        f"{teacher.get('phone','')}"
+                        f"**📱 Mobile:** "
+                        f"{teacher.get('mobile', '')}"
                     )
 
                     if phone_verified:
@@ -927,6 +1087,10 @@ def render_teacher_management_module():
                         )
 
 
+                # =============================================
+                # ROLE / SECTION
+                # =============================================
+
                 with c3:
 
                     st.write(
@@ -935,12 +1099,16 @@ def render_teacher_management_module():
 
                     st.write(
                         f"**Section:** "
-                        f"{teacher.get('assigned_section','ALL')}"
+                        f"{teacher.get('assigned_section', 'ALL')}"
                     )
 
 
                 st.markdown("---")
 
+
+                # =================================================
+                # CLASSES
+                # =================================================
 
                 classes_list = (
                     teacher.get(
@@ -949,7 +1117,7 @@ def render_teacher_management_module():
                     or []
                 )
 
-
+                # Phase 1-4 backward compatibility
                 if not classes_list:
 
                     old_class = teacher.get(
@@ -962,6 +1130,10 @@ def render_teacher_management_module():
                             old_class
                         ]
 
+
+                # =================================================
+                # SUBJECTS
+                # =================================================
 
                 subjects_list = (
                     teacher.get(
@@ -980,16 +1152,22 @@ def render_teacher_management_module():
                         "**🏫 Classes Allowed**"
                     )
 
-                    st.write(
-                        ", ".join(
-                            map(
-                                str,
-                                classes_list
+                    if classes_list:
+
+                        st.write(
+                            ", ".join(
+                                map(
+                                    str,
+                                    classes_list
+                                )
                             )
                         )
-                        if classes_list
-                        else "None"
-                    )
+
+                    else:
+
+                        st.write(
+                            "None"
+                        )
 
 
                 with c2:
@@ -998,29 +1176,35 @@ def render_teacher_management_module():
                         "**📚 Subjects Allowed**"
                     )
 
-                    st.write(
-                        ", ".join(
-                            map(
-                                str,
-                                subjects_list
+                    if subjects_list:
+
+                        st.write(
+                            ", ".join(
+                                map(
+                                    str,
+                                    subjects_list
+                                )
                             )
                         )
-                        if subjects_list
-                        else "None"
-                    )
+
+                    else:
+
+                        st.write(
+                            "None"
+                        )
 
 
                 st.markdown("---")
 
 
-                # -------------------------------------------------
-                # VERIFICATION STATUS
-                # -------------------------------------------------
+                # =================================================
+                # ACCESS STATUS
+                # =================================================
 
                 if (
-                    email_verified
+                    is_active
+                    and email_verified
                     and phone_verified
-                    and is_active
                 ):
 
                     st.success(
@@ -1041,9 +1225,9 @@ def render_teacher_management_module():
                     )
 
 
-                # -------------------------------------------------
+                # =================================================
                 # REVOKE
-                # -------------------------------------------------
+                # =================================================
 
                 if (
                     is_active
@@ -1052,17 +1236,18 @@ def render_teacher_management_module():
 
                     if st.button(
                         "🗑️ Revoke Teacher Access",
-                        key=f"revoke_{teacher['id']}",
+                        key=f"revoke_teacher_{teacher['id']}",
                         use_container_width=True
                     ):
 
-                        ok, error = revoke_teacher(
-                            teacher["id"],
-                            teacher.get(
-                                "auth_user_id"
+                        ok, error = (
+                            revoke_teacher(
+                                teacher["id"],
+                                teacher.get(
+                                    "auth_user_id"
+                                )
                             )
                         )
-
 
                         if ok:
 
