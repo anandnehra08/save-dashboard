@@ -4,12 +4,9 @@
 # REAL SUPABASE AUTH + EMAIL / PHONE VERIFICATION
 # ============================================================
 
+import os
 import re
 import streamlit as st
-
-# ============================================================
-# SUPABASE CONNECTION
-# ============================================================
 
 try:
     from database.supabase import supabase
@@ -39,13 +36,11 @@ ROLES = {
     "teacher": "Teacher",
 }
 
-
 # ============================================================
 # VALIDATION HELPERS
 # ============================================================
 
 def valid_email(email: str) -> bool:
-
     if not email:
         return False
 
@@ -60,7 +55,6 @@ def valid_email(email: str) -> bool:
 
 
 def valid_mobile(mobile: str) -> bool:
-
     if not mobile:
         return False
 
@@ -118,7 +112,11 @@ def set_authenticated_session(
     )
 
     user_email = (
-        getattr(user, "email", None)
+        getattr(
+            user,
+            "email",
+            None
+        )
         or profile.get("email")
         or ""
     )
@@ -201,13 +199,29 @@ def set_authenticated_session(
     st.session_state["user_name"] = user_name
     st.session_state["user_role"] = role
 
-    st.session_state["assigned_class"] = assigned_class
-    st.session_state["assigned_classes"] = assigned_classes
-    st.session_state["assigned_section"] = assigned_section
-    st.session_state["assigned_subjects"] = assigned_subjects
+    st.session_state["assigned_class"] = (
+        assigned_class
+    )
 
-    st.session_state["email_verified"] = email_verified
-    st.session_state["phone_verified"] = phone_verified
+    st.session_state["assigned_classes"] = (
+        assigned_classes
+    )
+
+    st.session_state["assigned_section"] = (
+        assigned_section
+    )
+
+    st.session_state["assigned_subjects"] = (
+        assigned_subjects
+    )
+
+    st.session_state["email_verified"] = (
+        email_verified
+    )
+
+    st.session_state["phone_verified"] = (
+        phone_verified
+    )
 
 
 # ============================================================
@@ -280,6 +294,8 @@ def get_user_profile(
 
         # ----------------------------------------------------
         # Backward compatibility
+        # If auth_user_id column is not present,
+        # fallback to email.
         # ----------------------------------------------------
 
         if email:
@@ -315,8 +331,9 @@ def check_profile_access(profile):
 
     if not profile:
 
-        return False, (
-            "❌ ERP profile नहीं मिला। "
+        return (
+            False,
+            "❌ आपका ERP profile नहीं मिला। "
             "Principal/Admin से संपर्क करें।"
         )
 
@@ -326,7 +343,8 @@ def check_profile_access(profile):
 
     if profile.get("is_active") is False:
 
-        return False, (
+        return (
+            False,
             "⛔ आपका ERP access inactive है। "
             "Principal/Admin से संपर्क करें।"
         )
@@ -347,7 +365,8 @@ def check_profile_access(profile):
 
     if not email_verified:
 
-        return False, (
+        return (
+            False,
             "📧 आपका email अभी verified नहीं है। "
             "पहले email verification पूरा करें।"
         )
@@ -368,7 +387,8 @@ def check_profile_access(profile):
             False
         ):
 
-            return False, (
+            return (
+                False,
                 "📱 आपका mobile number अभी verified नहीं है। "
                 "OTP verification पूरा करें।"
             )
@@ -384,7 +404,8 @@ def resend_email_verification(email):
 
     if not supabase:
 
-        return False, (
+        return (
+            False,
             "Supabase connection उपलब्ध नहीं है।"
         )
 
@@ -397,13 +418,15 @@ def resend_email_verification(email):
             }
         )
 
-        return True, (
+        return (
+            True,
             "📧 Verification email दोबारा भेज दिया गया है।"
         )
 
     except Exception as e:
 
-        return False, (
+        return (
+            False,
             f"❌ Verification email नहीं भेजा जा सका: {e}"
         )
 
@@ -416,7 +439,8 @@ def send_phone_otp(phone):
 
     if not supabase:
 
-        return False, (
+        return (
+            False,
             "Supabase connection उपलब्ध नहीं है।"
         )
 
@@ -427,11 +451,15 @@ def send_phone_otp(phone):
     )
 
     if len(clean_phone) == 10:
-        clean_phone = "+91" + clean_phone
+
+        clean_phone = (
+            "+91" + clean_phone
+        )
 
     if not clean_phone.startswith("+"):
 
-        return False, (
+        return (
+            False,
             "❌ Mobile number format गलत है।"
         )
 
@@ -443,14 +471,16 @@ def send_phone_otp(phone):
             }
         )
 
-        return True, (
+        return (
+            True,
             "📱 Real OTP आपके registered mobile number "
             "पर भेजा गया है।"
         )
 
     except Exception as e:
 
-        return False, (
+        return (
+            False,
             f"❌ OTP भेजने में समस्या: {e}"
         )
 
@@ -466,7 +496,9 @@ def verify_phone_otp(
 
     if not supabase:
 
-        return False, None, (
+        return (
+            False,
+            None,
             "Supabase connection उपलब्ध नहीं है।"
         )
 
@@ -477,7 +509,10 @@ def verify_phone_otp(
     )
 
     if len(clean_phone) == 10:
-        clean_phone = "+91" + clean_phone
+
+        clean_phone = (
+            "+91" + clean_phone
+        )
 
     try:
 
@@ -497,23 +532,29 @@ def verify_phone_otp(
 
         if not user:
 
-            return False, None, (
+            return (
+                False,
+                None,
                 "❌ OTP verification failed."
             )
 
-        return True, user, (
+        return (
+            True,
+            user,
             "✅ Mobile number verified successfully."
         )
 
     except Exception as e:
 
-        return False, None, (
+        return (
+            False,
+            None,
             f"❌ गलत या expired OTP: {e}"
         )
 
 
 # ============================================================
-# UPDATE PHONE VERIFICATION
+# UPDATE PHONE VERIFICATION IN PROFILE
 # ============================================================
 
 def mark_phone_verified(user_id):
@@ -553,7 +594,8 @@ def login_with_email(
 
     if not supabase:
 
-        return False, (
+        return (
+            False,
             "❌ Supabase connection उपलब्ध नहीं है।"
         )
 
@@ -574,7 +616,8 @@ def login_with_email(
 
         if not user:
 
-            return False, (
+            return (
+                False,
                 "❌ Login failed."
             )
 
@@ -589,13 +632,14 @@ def login_with_email(
 
         if not profile:
 
-            return False, (
+            return (
+                False,
                 "❌ आपका Supabase account मौजूद है, "
                 "लेकिन ERP profile नहीं मिला।"
             )
 
         # ----------------------------------------------------
-        # Update email verification
+        # Update email verification status
         # ----------------------------------------------------
 
         if getattr(
@@ -625,9 +669,7 @@ def login_with_email(
                         .execute()
                     )
 
-                    profile[
-                        "email_verified"
-                    ] = True
+                    profile["email_verified"] = True
 
                 except Exception:
                     pass
@@ -649,10 +691,13 @@ def login_with_email(
             except Exception:
                 pass
 
-            return False, message
+            return (
+                False,
+                message
+            )
 
         # ----------------------------------------------------
-        # Create session
+        # Create application session
         # ----------------------------------------------------
 
         set_authenticated_session(
@@ -660,19 +705,21 @@ def login_with_email(
             profile
         )
 
-        return True, (
+        return (
+            True,
             "✅ Login successful."
         )
 
     except Exception as e:
 
-        return False, (
+        return (
+            False,
             f"❌ Login failed: {e}"
         )
 
 
 # ============================================================
-# FIND USER BY MOBILE
+# PHONE LOGIN
 # ============================================================
 
 def find_user_by_mobile(mobile):
@@ -717,7 +764,8 @@ def send_password_reset_email(email):
 
     if not supabase:
 
-        return False, (
+        return (
+            False,
             "❌ Supabase connection उपलब्ध नहीं है।"
         )
 
@@ -727,14 +775,16 @@ def send_password_reset_email(email):
             email.strip().lower()
         )
 
-        return True, (
+        return (
+            True,
             "📧 Password reset link आपके registered "
             "email पर भेज दिया गया है।"
         )
 
     except Exception as e:
 
-        return False, (
+        return (
+            False,
             f"❌ Reset email नहीं भेजा जा सका: {e}"
         )
 
@@ -755,22 +805,19 @@ def logout_user():
 
     clear_auth_session()
 
-    st.session_state[
-        "auth_mode"
-    ] = "login"
-
-    st.session_state[
-        "phone_otp_sent"
-    ] = False
+    st.session_state["auth_mode"] = "login"
+    st.session_state["phone_otp_sent"] = False
 
     st.rerun()
 
 
 # ============================================================
-# AUTH HEADER
+# HEADER WITH LOGO
 # ============================================================
 
 def render_auth_header():
+
+    logo_path = "assets/save_learning_logo.jpg"
 
     st.markdown(
         """
@@ -784,15 +831,21 @@ def render_auth_header():
             );
 
             color: white;
+
             padding: 22px;
+
             border-radius: 18px;
+
             margin-bottom: 25px;
+
             box-shadow:
                 0 8px 25px rgba(0,0,0,.20);
+
+            text-align: center;
         }
 
         .erp-auth-header h2 {
-            margin: 0;
+            margin: 8px 0 4px 0;
             color: white;
         }
 
@@ -801,24 +854,85 @@ def render_auth_header():
             color: #e0e7ff;
         }
 
+        .erp-auth-logo {
+            width: 110px;
+            height: 110px;
+            object-fit: contain;
+            border-radius: 18px;
+            background: white;
+            padding: 8px;
+            box-shadow:
+                0 5px 15px rgba(0,0,0,.20);
+        }
+
         </style>
-
-        <div class="erp-auth-header">
-
-            <h2>🏫 Campus ERP Pro</h2>
-
-            <p>
-                Secure School Management System
-            </p>
-
-            <p>
-                🔐 Real Supabase Authentication
-            </p>
-
-        </div>
         """,
         unsafe_allow_html=True
     )
+
+    # --------------------------------------------------------
+    # Logo
+    # --------------------------------------------------------
+
+    if os.path.exists(logo_path):
+
+        with open(
+            logo_path,
+            "rb"
+        ) as image_file:
+
+            image_bytes = image_file.read()
+
+        import base64
+
+        encoded_logo = base64.b64encode(
+            image_bytes
+        ).decode()
+
+        st.markdown(
+            f"""
+            <div class="erp-auth-header">
+
+                <img
+                    src="data:image/jpeg;base64,{encoded_logo}"
+                    class="erp-auth-logo"
+                >
+
+                <h2>🏫 Campus ERP Pro</h2>
+
+                <p>
+                    Secure School Management System
+                </p>
+
+                <p>
+                    🔐 Real Supabase Authentication
+                </p>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    else:
+
+        st.markdown(
+            """
+            <div class="erp-auth-header">
+
+                <h2>🏫 Campus ERP Pro</h2>
+
+                <p>
+                    Secure School Management System
+                </p>
+
+                <p>
+                    🔐 Real Supabase Authentication
+                </p>
+
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 
 # ============================================================
@@ -831,29 +945,21 @@ def render_login_page():
 
     if "auth_mode" not in st.session_state:
 
-        st.session_state[
-            "auth_mode"
-        ] = "login"
+        st.session_state["auth_mode"] = "login"
 
     if "phone_otp_sent" not in st.session_state:
 
-        st.session_state[
-            "phone_otp_sent"
-        ] = False
+        st.session_state["phone_otp_sent"] = False
 
     if "phone_login_mobile" not in st.session_state:
 
-        st.session_state[
-            "phone_login_mobile"
-        ] = ""
+        st.session_state["phone_login_mobile"] = ""
 
     # ========================================================
     # LOGIN
     # ========================================================
 
-    if st.session_state[
-        "auth_mode"
-    ] == "login":
+    if st.session_state["auth_mode"] == "login":
 
         col1, col2, col3 = st.columns(
             [1, 2, 1]
@@ -929,17 +1035,13 @@ def render_login_page():
 
                         if success:
 
-                            st.success(
-                                message
-                            )
+                            st.success(message)
 
                             st.rerun()
 
                         else:
 
-                            st.error(
-                                message
-                            )
+                            st.error(message)
 
                 st.markdown("---")
 
@@ -965,15 +1067,11 @@ def render_login_page():
 
                         if success:
 
-                            st.success(
-                                message
-                            )
+                            st.success(message)
 
                         else:
 
-                            st.error(
-                                message
-                            )
+                            st.error(message)
 
             # ------------------------------------------------
             # PHONE OTP LOGIN
@@ -999,9 +1097,7 @@ def render_login_page():
                         key="send_real_phone_otp"
                     ):
 
-                        if not valid_mobile(
-                            mobile
-                        ):
+                        if not valid_mobile(mobile):
 
                             st.warning(
                                 "⚠️ Valid Indian mobile number डालें।"
@@ -1052,17 +1148,13 @@ def render_login_page():
                                         "phone_login_mobile"
                                     ] = mobile
 
-                                    st.success(
-                                        message
-                                    )
+                                    st.success(message)
 
                                     st.rerun()
 
                                 else:
 
-                                    st.error(
-                                        message
-                                    )
+                                    st.error(message)
 
                 else:
 
@@ -1072,8 +1164,7 @@ def render_login_page():
 
                     st.info(
                         f"📱 OTP भेजा गया: "
-                        f"{mobile[:2]}******"
-                        f"{mobile[-2:]}"
+                        f"{mobile[:2]}******{mobile[-2:]}"
                     )
 
                     otp = st.text_input(
@@ -1128,6 +1219,7 @@ def render_login_page():
 
                                 else:
 
+                                    # Phone verified
                                     profile[
                                         "phone_verified"
                                     ] = True
@@ -1138,6 +1230,7 @@ def render_login_page():
                                         )
                                     )
 
+                                    # Email must still be verified
                                     allowed, access_message = (
                                         check_profile_access(
                                             profile
@@ -1166,9 +1259,7 @@ def render_login_page():
 
                             else:
 
-                                st.error(
-                                    message
-                                )
+                                st.error(message)
 
                     if st.button(
                         "🔄 Send OTP Again",
@@ -1204,9 +1295,10 @@ def render_login_page():
     # FORGOT PASSWORD
     # ========================================================
 
-    elif st.session_state[
-        "auth_mode"
-    ] == "forgot_password":
+    elif (
+        st.session_state["auth_mode"]
+        == "forgot_password"
+    ):
 
         col1, col2, col3 = st.columns(
             [1, 2, 1]
@@ -1252,15 +1344,11 @@ def render_login_page():
 
                     if success:
 
-                        st.success(
-                            message
-                        )
+                        st.success(message)
 
                     else:
 
-                        st.error(
-                            message
-                        )
+                        st.error(message)
 
             st.markdown("---")
 
@@ -1275,23 +1363,3 @@ def render_login_page():
                 ] = "login"
 
                 st.rerun()
-
-
-# ============================================================
-# IMPORTANT
-# ============================================================
-# यहाँ render_login_page() को CALL नहीं करना है.
-#
-# app.py में पहले से:
-#
-# from modules.auth import render_login_page, logout_user
-#
-# और:
-#
-# if not is_user_logged_in:
-#     render_login_page()
-#
-# मौजूद है।
-#
-# इसलिए auth.py केवल functions define करेगा।
-# ============================================================
