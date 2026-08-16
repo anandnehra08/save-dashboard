@@ -26,6 +26,7 @@ except Exception:
 # MODULE IMPORTS
 # ============================================================
 
+from modules.auth import render_login_page, logout_user
 from modules.students import render_students_module
 from modules.attendance import render_attendance_module
 from modules.fees import render_fees_module
