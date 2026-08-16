@@ -817,124 +817,103 @@ def logout_user():
 
 def render_auth_header():
 
+    import os
+    import base64
+
     logo_path = "assets/save_learning_logo.jpg"
 
+    logo_html = ""
+
+    if os.path.exists(logo_path):
+        try:
+            with open(logo_path, "rb") as image_file:
+                encoded_logo = base64.b64encode(
+                    image_file.read()
+                ).decode()
+
+            logo_html = f"""
+                <img
+                    src="data:image/jpeg;base64,{encoded_logo}"
+                    style="
+                        width:110px;
+                        height:110px;
+                        object-fit:contain;
+                        border-radius:16px;
+                        background:white;
+                        padding:8px;
+                        box-shadow:0 5px 15px rgba(0,0,0,.20);
+                    "
+                >
+            """
+
+        except Exception:
+            logo_html = "<div style='font-size:70px;'>🏫</div>"
+
+    else:
+        logo_html = "<div style='font-size:70px;'>🏫</div>"
+
     st.markdown(
-        """
+        f"""
         <style>
 
-        .erp-auth-header {
+        .erp-auth-header {{
             background: linear-gradient(
                 135deg,
                 #1e1b4b,
                 #312e81
             );
 
-            color: white;
-
-            padding: 22px;
-
-            border-radius: 18px;
-
-            margin-bottom: 25px;
+            color:white;
+            padding:25px;
+            border-radius:20px;
+            margin-bottom:25px;
 
             box-shadow:
                 0 8px 25px rgba(0,0,0,.20);
 
-            text-align: center;
-        }
+            text-align:center;
+        }}
 
-        .erp-auth-header h2 {
-            margin: 8px 0 4px 0;
-            color: white;
-        }
+        .erp-auth-logo {{
+            margin-bottom:12px;
+        }}
 
-        .erp-auth-header p {
-            margin: 4px 0;
-            color: #e0e7ff;
-        }
+        .erp-auth-header h2 {{
+            margin:8px 0;
+            color:white;
+            font-size:30px;
+        }}
 
-        .erp-auth-logo {
-            width: 110px;
-            height: 110px;
-            object-fit: contain;
-            border-radius: 18px;
-            background: white;
-            padding: 8px;
-            box-shadow:
-                0 5px 15px rgba(0,0,0,.20);
-        }
+        .erp-auth-header p {{
+            margin:5px 0;
+            color:#e0e7ff;
+            font-size:15px;
+        }}
 
         </style>
+
+        <div class="erp-auth-header">
+
+            <div class="erp-auth-logo">
+                {logo_html}
+            </div>
+
+            <h2>
+                Campus ERP Pro
+            </h2>
+
+            <p>
+                Secure School Management System
+            </p>
+
+            <p>
+                🔐 Real Supabase Authentication
+            </p>
+
+        </div>
         """,
         unsafe_allow_html=True
     )
-
-    # --------------------------------------------------------
-    # Logo
-    # --------------------------------------------------------
-
-    if os.path.exists(logo_path):
-
-        with open(
-            logo_path,
-            "rb"
-        ) as image_file:
-
-            image_bytes = image_file.read()
-
-        import base64
-
-        encoded_logo = base64.b64encode(
-            image_bytes
-        ).decode()
-
-        st.markdown(
-            f"""
-            <div class="erp-auth-header">
-
-                <img
-                    src="data:image/jpeg;base64,{encoded_logo}"
-                    class="erp-auth-logo"
-                >
-
-                <h2>🏫 Campus ERP Pro</h2>
-
-                <p>
-                    Secure School Management System
-                </p>
-
-                <p>
-                    🔐 Real Supabase Authentication
-                </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    else:
-
-        st.markdown(
-            """
-            <div class="erp-auth-header">
-
-                <h2>🏫 Campus ERP Pro</h2>
-
-                <p>
-                    Secure School Management System
-                </p>
-
-                <p>
-                    🔐 Real Supabase Authentication
-                </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
 # ============================================================
 # LOGIN PAGE
 # ============================================================
