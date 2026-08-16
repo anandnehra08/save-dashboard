@@ -401,4 +401,3 @@ else:
     else:
         st.session_state["nav_page"] = "📊 Dashboard"
         st.rerun()
-
