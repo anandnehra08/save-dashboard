@@ -17,14 +17,20 @@ from supabase import create_client, Client
 
 
 # ============================================================
-# GET SECRET
+# SECRET READER
 # ============================================================
 
-def get_secret(section, key, default=""):
+def read_secret(key: str, default: str = "") -> str:
     """
-    Safely read value from Streamlit secrets
-    or environment variables.
+    Supabase credentials को safely पढ़ता है।
+
+    Supported:
+    1. [supabase] section
+    2. Root-level secrets
+    3. Environment variables
     """
+
+    value = ""
 
     # --------------------------------------------------------
     # 1. [supabase] section
@@ -32,46 +38,111 @@ def get_secret(section, key, default=""):
 
     try:
 
-        if section in st.secrets:
+        supabase_section = st.secrets.get(
+            "supabase",
+            {}
+        )
 
-            value = st.secrets[section].get(
+        if supabase_section:
+
+            value = supabase_section.get(
                 key,
                 ""
             )
 
-            if value:
-                return str(value).strip()
-
     except Exception:
-        pass
+        value = ""
 
 
     # --------------------------------------------------------
     # 2. Root-level secret
     # --------------------------------------------------------
 
-    try:
+    if not value:
 
-        value = st.secrets.get(
-            key,
-            ""
-        )
+        try:
 
-        if value:
-            return str(value).strip()
+            value = st.secrets.get(
+                key,
+                ""
+            )
 
-    except Exception:
-        pass
+        except Exception:
+            value = ""
 
 
     # --------------------------------------------------------
     # 3. Environment variable
     # --------------------------------------------------------
 
-    return os.getenv(
-        key,
-        default
-    ).strip()
+    if not value:
+
+        value = os.getenv(
+            key,
+            default
+        )
+
+
+    # --------------------------------------------------------
+    # Clean value
+    # --------------------------------------------------------
+
+    if value is None:
+        return ""
+
+    return (
+        str(value)
+        .strip()
+        .strip('"')
+        .strip("'")
+    )
+
+
+# ============================================================
+# SUPABASE URL
+# ============================================================
+
+def get_supabase_url():
+
+    return read_secret(
+        "SUPABASE_URL"
+    )
+
+
+# ============================================================
+# SUPABASE NORMAL KEY
+# ============================================================
+
+def get_supabase_key():
+
+    # Primary name
+    key = read_secret(
+        "SUPABASE_KEY"
+    )
+
+    # --------------------------------------------------------
+    # Compatibility:
+    # अगर आपने key को SUPABASE_ANON_KEY नाम दिया है
+    # तो उसे भी पढ़ लेगा।
+    # --------------------------------------------------------
+
+    if not key:
+
+        key = read_secret(
+            "SUPABASE_ANON_KEY"
+        )
+
+    # --------------------------------------------------------
+    # New Supabase naming compatibility
+    # --------------------------------------------------------
+
+    if not key:
+
+        key = read_secret(
+            "SUPABASE_PUBLISHABLE_KEY"
+        )
+
+    return key
 
 
 # ============================================================
@@ -82,27 +153,16 @@ def get_secret(section, key, default=""):
 def init_supabase() -> Client | None:
 
     # --------------------------------------------------------
-    # Read URL
+    # Read credentials
     # --------------------------------------------------------
 
-    raw_url = get_secret(
-        "supabase",
-        "SUPABASE_URL"
-    )
+    raw_url = get_supabase_url()
 
-
-    # --------------------------------------------------------
-    # Read NORMAL/PUBLISHABLE/ANON key
-    # --------------------------------------------------------
-
-    raw_key = get_secret(
-        "supabase",
-        "SUPABASE_KEY"
-    )
+    raw_key = get_supabase_key()
 
 
     # --------------------------------------------------------
-    # Clean URL
+    # Final cleaning
     # --------------------------------------------------------
 
     clean_url = (
@@ -113,11 +173,6 @@ def init_supabase() -> Client | None:
         .rstrip("/")
     )
 
-
-    # --------------------------------------------------------
-    # Clean Key
-    # --------------------------------------------------------
-
     clean_key = (
         str(raw_key)
         .strip()
@@ -127,7 +182,7 @@ def init_supabase() -> Client | None:
 
 
     # ========================================================
-    # VALIDATION
+    # URL VALIDATION
     # ========================================================
 
     if not clean_url:
@@ -141,17 +196,6 @@ def init_supabase() -> Client | None:
         return None
 
 
-    if not clean_key:
-
-        st.error(
-            "❌ Supabase API Key missing है।\n\n"
-            "`.streamlit/secrets.toml` में "
-            "`SUPABASE_KEY` configure करें।"
-        )
-
-        return None
-
-
     if not clean_url.startswith(
         "https://"
     ):
@@ -159,6 +203,24 @@ def init_supabase() -> Client | None:
         st.error(
             "❌ Supabase URL गलत है।\n\n"
             "URL `https://` से शुरू होना चाहिए।"
+        )
+
+        return None
+
+
+    # ========================================================
+    # API KEY VALIDATION
+    # ========================================================
+
+    if not clean_key:
+
+        st.error(
+            "❌ Supabase API Key missing है।\n\n"
+            "`.streamlit/secrets.toml` में इनमें से "
+            "किसी एक को configure करें:\n\n"
+            "`SUPABASE_KEY`\n"
+            "`SUPABASE_ANON_KEY`\n"
+            "`SUPABASE_PUBLISHABLE_KEY`"
         )
 
         return None
@@ -187,7 +249,7 @@ def init_supabase() -> Client | None:
 
 
 # ============================================================
-# GLOBAL NORMAL CLIENT
+# GLOBAL SUPABASE CLIENT
 # ============================================================
 
 supabase = init_supabase()
