@@ -121,17 +121,25 @@ def render_main_dashboard():
     col_logo, col_title = st.columns([1, 4])
 
     with col_logo:
-        st.markdown("## 🏫")
+        logo_path = "assets/save_learning_logo.jpg"
+        if __import__("os").path.exists(logo_path):
+            st.image(logo_path, width=150)
+        else:
+            st.markdown("## 🏫")
 
     with col_title:
         st.title("Campus ERP Pro")
-        st.caption(
-            "📍 Powered by Sakshi Solution | Dream Shiksha ERP"
-        )
+        st.caption("Smart School Management System")
         st.markdown(
-            "**Contact:** +91 98285 95276 | "
+            "**Contact:** 9828595276 | "
             "**Email:** anandnehra8@gmail.com"
         )
+        st.markdown(
+            "⭐ **Powered by: Anant Ved Infotech**"
+        )
+
+    if str(st.session_state.get("user_role", "admin")).lower() == "admin":
+        st.info("👑 **Super Admin • संपूर्ण अधिकार**  |  **संपूर्ण अधिकार इसके अधीन होंगे**")
 
     st.markdown("---")
 
@@ -260,16 +268,14 @@ def render_main_dashboard():
 
         <div class="footer">
             <p>
-                💻 <b>Designed & Developed by:</b>
-                Anand Nehra (Sakshi Solution)
+                ⭐ <b>Powered by:</b> Anant Ved Infotech
             </p>
             <p>
-                📍 <b>Office:</b> IT Park, City Center |
-                📞 <b>Dev Support:</b> +91 98285 95276
+                📞 <b>Contact:</b> 9828595276 |
+                ✉️ <b>Email:</b> anandnehra8@gmail.com
             </p>
             <p>
-                © 2026 Campus ERP Pro / Dream Shiksha.
-                All rights reserved.
+                © 2026 Campus ERP Pro. All rights reserved.
             </p>
         </div>
         """,
