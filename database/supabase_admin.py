@@ -1,61 +1,161 @@
-# =========================================================
+# ============================================================
 # CAMPUS ERP PRO
 # SUPABASE ADMIN CLIENT
 #
+# Used ONLY for trusted server-side operations:
+#
+# - Create real Auth users
+# - Delete Auth users
+# - Disable / manage Auth users
+# - Principal/Admin operations
+#
 # IMPORTANT:
-# SERVICE ROLE KEY केवल SERVER-SIDE पर रखें।
-# इसे frontend/client/browser में expose न करें।
-# =========================================================
+# SERVICE ROLE KEY कभी frontend/browser में expose नहीं करनी।
+# ============================================================
 
 import os
 import streamlit as st
-
 from supabase import create_client, Client
 
 
-# =========================================================
-# LOAD SECRET
-# =========================================================
+# ============================================================
+# GET SERVICE ROLE KEY
+# ============================================================
 
-def get_secret_value(name: str) -> str:
+def get_service_role_key():
 
-    value = ""
-
+    # --------------------------------------------------------
     # 1. [supabase] section
+    # --------------------------------------------------------
+
     try:
+
         if "supabase" in st.secrets:
 
             value = st.secrets["supabase"].get(
-                name,
+                "SUPABASE_SERVICE_ROLE_KEY",
                 ""
+            )
+
+            if value:
+
+                return (
+                    str(value)
+                    .strip()
+                    .strip('"')
+                    .strip("'")
+                )
+
+    except Exception:
+        pass
+
+
+    # --------------------------------------------------------
+    # 2. Root-level secret
+    # --------------------------------------------------------
+
+    try:
+
+        value = st.secrets.get(
+            "SUPABASE_SERVICE_ROLE_KEY",
+            ""
+        )
+
+        if value:
+
+            return (
+                str(value)
+                .strip()
+                .strip('"')
+                .strip("'")
             )
 
     except Exception:
         pass
 
-    # 2. Root-level secret
-    if not value:
 
-        try:
+    # --------------------------------------------------------
+    # 3. Environment variable
+    # --------------------------------------------------------
 
-            value = st.secrets.get(
-                name,
+    return (
+        os.getenv(
+            "SUPABASE_SERVICE_ROLE_KEY",
+            ""
+        )
+        .strip()
+        .strip('"')
+        .strip("'")
+    )
+
+
+# ============================================================
+# GET SUPABASE URL
+# ============================================================
+
+def get_supabase_url():
+
+    # --------------------------------------------------------
+    # [supabase] section
+    # --------------------------------------------------------
+
+    try:
+
+        if "supabase" in st.secrets:
+
+            value = st.secrets["supabase"].get(
+                "SUPABASE_URL",
                 ""
             )
 
-        except Exception:
-            pass
+            if value:
 
-    # 3. Environment variable
-    if not value:
+                return (
+                    str(value)
+                    .strip()
+                    .strip('"')
+                    .strip("'")
+                    .rstrip("/")
+                )
 
-        value = os.environ.get(
-            name,
+    except Exception:
+        pass
+
+
+    # --------------------------------------------------------
+    # Root-level
+    # --------------------------------------------------------
+
+    try:
+
+        value = st.secrets.get(
+            "SUPABASE_URL",
             ""
         )
 
+        if value:
+
+            return (
+                str(value)
+                .strip()
+                .strip('"')
+                .strip("'")
+                .rstrip("/")
+            )
+
+    except Exception:
+        pass
+
+
+    # --------------------------------------------------------
+    # Environment
+    # --------------------------------------------------------
+
     return (
-        str(value)
+        os.getenv(
+            "SUPABASE_URL",
+            ""
+        )
         .strip()
         .strip('"')
         .strip("'")
@@ -63,63 +163,41 @@ def get_secret_value(name: str) -> str:
     )
 
 
-# =========================================================
+# ============================================================
 # INITIALIZE ADMIN CLIENT
-# =========================================================
+# ============================================================
 
 @st.cache_resource
-def init_supabase_admin() -> Client:
+def init_supabase_admin() -> Client | None:
 
-    # -----------------------------------------------------
-    # SUPABASE URL
-    # -----------------------------------------------------
+    supabase_url = get_supabase_url()
 
-    raw_url = get_secret_value(
-        "SUPABASE_URL"
-    )
+    service_role_key = get_service_role_key()
 
-    # -----------------------------------------------------
-    # SERVICE ROLE KEY
-    # -----------------------------------------------------
 
-    raw_key = get_secret_value(
-        "SUPABASE_SERVICE_ROLE_KEY"
-    )
-
-    # -----------------------------------------------------
+    # ========================================================
     # URL CHECK
-    # -----------------------------------------------------
+    # ========================================================
 
-    if not raw_url:
+    if not supabase_url:
 
         st.error(
-            "❌ SUPABASE_URL missing है।"
+            "❌ Supabase URL missing है।\n\n"
+            "`.streamlit/secrets.toml` में "
+            "`SUPABASE_URL` configure करें।"
         )
 
         return None
 
-    if not raw_url.startswith(
-        "https://"
-    ):
+
+    # ========================================================
+    # SERVICE ROLE CHECK
+    # ========================================================
+
+    if not service_role_key:
 
         st.error(
-            "❌ SUPABASE_URL गलत है। "
-            "यह https:// से शुरू होना चाहिए।"
-        )
-
-        return None
-
-    # -----------------------------------------------------
-    # SERVICE ROLE KEY CHECK
-    # -----------------------------------------------------
-
-    if not raw_key:
-
-        st.error(
-            "❌ SUPABASE_SERVICE_ROLE_KEY missing है।"
-        )
-
-        st.info(
+            "❌ SUPABASE_SERVICE_ROLE_KEY missing है।\n\n"
             "Supabase Dashboard → "
             "Project Settings → API में "
             "service_role key configure करें।"
@@ -127,15 +205,32 @@ def init_supabase_admin() -> Client:
 
         return None
 
-    # -----------------------------------------------------
+
+    # ========================================================
+    # URL VALIDATION
+    # ========================================================
+
+    if not supabase_url.startswith(
+        "https://"
+    ):
+
+        st.error(
+            "❌ Supabase URL गलत है।\n\n"
+            "URL `https://` से शुरू होना चाहिए।"
+        )
+
+        return None
+
+
+    # ========================================================
     # CREATE ADMIN CLIENT
-    # -----------------------------------------------------
+    # ========================================================
 
     try:
 
         client = create_client(
-            raw_url,
-            raw_key
+            supabase_url,
+            service_role_key
         )
 
         return client
@@ -143,14 +238,14 @@ def init_supabase_admin() -> Client:
     except Exception as e:
 
         st.error(
-            f"❌ Supabase Admin connection failed: {e}"
+            f"❌ Supabase Admin connection failed:\n{e}"
         )
 
         return None
 
 
-# =========================================================
+# ============================================================
 # GLOBAL ADMIN CLIENT
-# =========================================================
+# ============================================================
 
 supabase_admin = init_supabase_admin()
