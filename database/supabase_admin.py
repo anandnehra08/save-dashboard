@@ -1,6 +1,12 @@
 # ============================================================
 # CAMPUS ERP PRO
-# SUPABASE SERVER-SIDE ADMIN CLIENT
+# SUPABASE ADMIN CLIENT
+#
+# IMPORTANT:
+# यह client केवल trusted server-side Admin operations के लिए है.
+#
+# इसमें SUPABASE_SERVICE_ROLE_KEY इस्तेमाल होगी.
+# इसे frontend/browser/client-side code में expose नहीं करना है.
 # ============================================================
 
 import os
@@ -10,124 +16,132 @@ from supabase import create_client, Client
 
 
 # ============================================================
-# SECRET READER
+# INITIALIZE SUPABASE ADMIN CLIENT
 # ============================================================
 
-def _read_secret(name: str) -> str:
-    """
-    Streamlit secrets या environment variables से secret पढ़ता है।
-    """
+@st.cache_resource
+def init_supabase_admin() -> Client | None:
 
-    value = ""
+    raw_url = ""
+    raw_service_key = ""
+
+    # ========================================================
+    # 1. READ SUPABASE URL
+    # ========================================================
 
     try:
-        # [supabase] section
+
         if "supabase" in st.secrets:
 
-            value = st.secrets["supabase"].get(
-                name,
+            raw_url = st.secrets["supabase"].get(
+                "SUPABASE_URL",
                 ""
             )
 
-        # Root-level secret
-        if not value:
-
-            value = st.secrets.get(
-                name,
+            raw_service_key = st.secrets["supabase"].get(
+                "SUPABASE_SERVICE_ROLE_KEY",
                 ""
+            )
+
+        else:
+
+            raw_url = st.secrets.get(
+                "SUPABASE_URL",
+                os.environ.get(
+                    "SUPABASE_URL",
+                    ""
+                )
+            )
+
+            raw_service_key = st.secrets.get(
+                "SUPABASE_SERVICE_ROLE_KEY",
+                os.environ.get(
+                    "SUPABASE_SERVICE_ROLE_KEY",
+                    ""
+                )
             )
 
     except Exception:
-        value = ""
 
-    # Environment fallback
-    if not value:
-
-        value = os.environ.get(
-            name,
+        raw_url = os.environ.get(
+            "SUPABASE_URL",
             ""
         )
 
-    return (
-        str(value)
+        raw_service_key = os.environ.get(
+            "SUPABASE_SERVICE_ROLE_KEY",
+            ""
+        )
+
+
+    # ========================================================
+    # 2. CLEAN VALUES
+    # ========================================================
+
+    clean_url = (
+        str(raw_url)
+        .strip()
+        .strip('"')
+        .strip("'")
+        .rstrip("/")
+    )
+
+    clean_service_key = (
+        str(raw_service_key)
         .strip()
         .strip('"')
         .strip("'")
     )
 
 
-# ============================================================
-# ADMIN CLIENT INITIALIZATION
-# ============================================================
+    # ========================================================
+    # 3. VALIDATE URL
+    # ========================================================
 
-@st.cache_resource
-def init_supabase_admin() -> Client | None:
-
-    # --------------------------------------------------------
-    # IMPORTANT:
-    # यह SERVER-SIDE secret है।
-    #
-    # SUPABASE_SERVICE_ROLE_KEY को कभी भी:
-    # - frontend में
-    # - browser JavaScript में
-    # - public GitHub repository में
-    # - normal client code में
-    # expose नहीं करना है।
-    # --------------------------------------------------------
-
-    supabase_url = _read_secret(
-        "SUPABASE_URL"
-    )
-
-    service_role_key = _read_secret(
-        "SUPABASE_SERVICE_ROLE_KEY"
-    )
-
-    # --------------------------------------------------------
-    # Validate URL
-    # --------------------------------------------------------
-
-    if not supabase_url:
+    if not clean_url:
 
         st.error(
-            "❌ SUPABASE_URL configured नहीं है।"
+            "❌ Supabase URL missing है।"
         )
 
         return None
 
-    if not supabase_url.startswith(
+
+    if not clean_url.startswith(
         "https://"
     ):
 
         st.error(
-            "❌ SUPABASE_URL गलत है। "
-            "यह https:// से शुरू होना चाहिए।"
+            "❌ Supabase URL गलत है। "
+            "URL https:// से शुरू होना चाहिए।"
         )
 
         return None
 
-    # --------------------------------------------------------
-    # Validate Service Role Key
-    # --------------------------------------------------------
 
-    if not service_role_key:
+    # ========================================================
+    # 4. VALIDATE SERVICE ROLE KEY
+    # ========================================================
 
-        st.error(
-            "❌ SUPABASE_SERVICE_ROLE_KEY "
-            "configured नहीं है।"
+    if not clean_service_key:
+
+        st.warning(
+            "⚠️ SUPABASE_SERVICE_ROLE_KEY configured नहीं है। "
+            "Teacher Auth Admin operations उपलब्ध नहीं होंगे।"
         )
 
         return None
 
-    # --------------------------------------------------------
-    # Create Admin Client
-    # --------------------------------------------------------
+
+    # ========================================================
+    # 5. CREATE ADMIN CLIENT
+    # ========================================================
 
     try:
 
         admin_client = create_client(
-            supabase_url.rstrip("/"),
-            service_role_key
+            clean_url,
+            clean_service_key
         )
 
         return admin_client
