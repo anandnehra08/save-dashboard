@@ -249,3 +249,7 @@ def init_supabase_admin() -> Client | None:
 # ============================================================
 
 supabase_admin = init_supabase_admin()
+if supabase_admin:
+    st.success("✅ Supabase Admin Connected")
+else:
+    st.error("❌ Supabase Admin Not Connected")
